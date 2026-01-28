@@ -9,6 +9,9 @@
 # testing
 /coverage
 
+# media
+/public
+
 # next.js
 /.next/
 /out/

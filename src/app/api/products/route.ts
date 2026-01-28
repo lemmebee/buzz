@@ -1,5 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeFile, mkdir, readFile } from "fs/promises";
+import { existsSync } from "fs";
+import { join } from "path";
+import { randomUUID } from "crypto";
+import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { extractProfileAndStrategy } from "@/lib/brain/extract";
+
+const SCREENSHOTS_DIR = join(process.cwd(), "public/media/screenshots");
+
+async function saveScreenshots(files: File[]): Promise<string[]> {
+  if (!existsSync(SCREENSHOTS_DIR)) {
+    await mkdir(SCREENSHOTS_DIR, { recursive: true });
+  }
+  const paths: string[] = [];
+  for (const file of files) {
+    const ext = file.name.split(".").pop() || "png";
+    const filename = `${randomUUID()}.${ext}`;
+    const filepath = join(SCREENSHOTS_DIR, filename);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(filepath, buffer);
+    paths.push(`/media/screenshots/${filename}`);
+  }
+  return paths;
+}
 
 // GET all products
 export async function GET() {
@@ -9,6 +33,39 @@ export async function GET() {
 
 // POST new product
 export async function POST(req: NextRequest) {
+  const contentType = req.headers.get("content-type") || "";
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await req.formData();
+    const screenshotFiles = formData.getAll("screenshots") as File[];
+    const screenshotPaths = screenshotFiles.length > 0 ? await saveScreenshots(screenshotFiles) : [];
+
+    const body = JSON.parse(formData.get("data") as string || "{}");
+
+    const result = await db.insert(schema.products).values({
+      name: body.name,
+      description: body.description,
+      url: body.url || null,
+      features: body.features ? JSON.stringify(body.features) : null,
+      audience: body.audience || null,
+      tone: body.tone || null,
+      themes: body.themes ? JSON.stringify(body.themes) : null,
+      planFile: body.planFile || null,
+      planFileName: body.planFileName || null,
+      screenshots: screenshotPaths.length > 0 ? JSON.stringify(screenshotPaths) : null,
+    }).returning();
+
+    const created = result[0];
+
+    // Extract profile + strategy if brief exists
+    if (created.planFile) {
+      extractProfileAndStrategy(created.id, created.planFile, screenshotPaths).catch(console.error);
+    }
+
+    return NextResponse.json(created, { status: 201 });
+  }
+
+  // JSON fallback (no screenshots)
   const body = await req.json();
 
   const result = await db.insert(schema.products).values({
@@ -23,5 +80,11 @@ export async function POST(req: NextRequest) {
     planFileName: body.planFileName || null,
   }).returning();
 
-  return NextResponse.json(result[0], { status: 201 });
+  const created = result[0];
+
+  if (created.planFile) {
+    extractProfileAndStrategy(created.id, created.planFile, []).catch(console.error);
+  }
+
+  return NextResponse.json(created, { status: 201 });
 }

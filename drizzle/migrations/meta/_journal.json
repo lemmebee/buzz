@@ -15,6 +15,13 @@
       "when": 1769428577211,
       "tag": "0001_tired_living_tribunal",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769531332383,
+      "tag": "0002_odd_loki",
+      "breakpoints": true
     }
   ]
 }

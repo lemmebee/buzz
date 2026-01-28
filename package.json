@@ -11,10 +11,15 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "npx tsx scripts/seed.ts"
+    "db:seed": "npx tsx scripts/seed.ts",
+    "test:provider": "npx tsx scripts/test-text-provider.ts",
+    "test:bud": "npx tsx scripts/test-bud-generation.ts",
+    "test:buzz": "npx tsx scripts/test-buzz-flow.ts",
+    "test:insta": "npx tsx scripts/test-insta-post.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
+    "@google/generative-ai": "^0.24.1",
     "@tailwindcss/typography": "^0.5.19",
     "better-sqlite3": "^12.6.0",
     "drizzle-orm": "^0.45.1",
@@ -22,13 +27,15 @@
     "react": "^18",
     "react-dom": "^18",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",

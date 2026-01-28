@@ -11,6 +11,9 @@ export const products = sqliteTable("products", {
   themes: text("themes"), // JSON array
   planFile: text("plan_file"), // markdown content
   planFileName: text("plan_file_name"), // original filename
+  screenshots: text("screenshots"), // JSON array of file paths
+  appProfile: text("app_profile"), // JSON extracted profile
+  marketingStrategy: text("marketing_strategy"), // JSON extracted strategy
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
