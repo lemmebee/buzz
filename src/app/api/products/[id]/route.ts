@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeFile, mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import { join } from "path";
+import { randomUUID } from "crypto";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { extractProfileAndStrategy } from "@/lib/brain/extract";
 
 type Params = { params: Promise<{ id: string }> };
+
+const SCREENSHOTS_DIR = join(process.cwd(), "public/media/screenshots");
+
+async function saveScreenshots(files: File[]): Promise<string[]> {
+  if (!existsSync(SCREENSHOTS_DIR)) {
+    await mkdir(SCREENSHOTS_DIR, { recursive: true });
+  }
+  const paths: string[] = [];
+  for (const file of files) {
+    const ext = file.name.split(".").pop() || "png";
+    const filename = `${randomUUID()}.${ext}`;
+    const filepath = join(SCREENSHOTS_DIR, filename);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(filepath, buffer);
+    paths.push(`/media/screenshots/${filename}`);
+  }
+  return paths;
+}
 
 // GET single product
 export async function GET(req: NextRequest, { params }: Params) {
@@ -19,6 +42,46 @@ export async function GET(req: NextRequest, { params }: Params) {
 // PUT update product
 export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
+  const contentType = req.headers.get("content-type") || "";
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await req.formData();
+    const screenshotFiles = formData.getAll("screenshots") as File[];
+    const body = JSON.parse(formData.get("data") as string || "{}");
+
+    const keptPaths: string[] = body.existingScreenshots || [];
+    const newPaths = screenshotFiles.length > 0 ? await saveScreenshots(screenshotFiles) : [];
+    const allPaths = body.replaceScreenshots ? [...keptPaths, ...newPaths] : [...keptPaths, ...newPaths];
+
+    const result = await db.update(schema.products)
+      .set({
+        name: body.name,
+        description: body.description,
+        url: body.url || null,
+        features: body.features ? JSON.stringify(body.features) : null,
+        audience: body.audience || null,
+        tone: body.tone || null,
+        themes: body.themes ? JSON.stringify(body.themes) : null,
+        planFile: body.planFile || null,
+        planFileName: body.planFileName || null,
+        screenshots: allPaths.length > 0 ? JSON.stringify(allPaths) : null,
+      })
+      .where(eq(schema.products.id, parseInt(id)))
+      .returning();
+
+    if (!result.length) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const updated = result[0];
+    if (updated.planFile) {
+      extractProfileAndStrategy(updated.id, updated.planFile, allPaths).catch(console.error);
+    }
+
+    return NextResponse.json(updated);
+  }
+
+  // JSON fallback
   const body = await req.json();
 
   const result = await db.update(schema.products)
@@ -40,7 +103,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(result[0]);
+  const updated = result[0];
+  if (updated.planFile) {
+    const screenshotPaths: string[] = updated.screenshots ? JSON.parse(updated.screenshots) : [];
+    extractProfileAndStrategy(updated.id, updated.planFile, screenshotPaths).catch(console.error);
+  }
+
+  return NextResponse.json(updated);
 }
 
 // DELETE product

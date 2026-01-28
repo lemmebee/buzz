@@ -11,6 +11,7 @@ interface ProductFormProps {
 export function ProductForm({ product }: ProductFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState(product?.name || "");
@@ -26,6 +27,13 @@ export function ProductForm({ product }: ProductFormProps) {
   );
   const [planFile, setPlanFile] = useState(product?.planFile || "");
   const [planFileName, setPlanFileName] = useState(product?.planFileName || "");
+
+  // Screenshots: existing paths from DB + new files to upload
+  const [existingScreenshots, setExistingScreenshots] = useState<string[]>(
+    product?.screenshots ? JSON.parse(product.screenshots) : []
+  );
+  const [newScreenshots, setNewScreenshots] = useState<File[]>([]);
+  const [newScreenshotPreviews, setNewScreenshotPreviews] = useState<string[]>([]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -44,6 +52,25 @@ export function ProductForm({ product }: ProductFormProps) {
     }
   }
 
+  function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setNewScreenshots((prev) => [...prev, ...files]);
+    const previews = files.map((f) => URL.createObjectURL(f));
+    setNewScreenshotPreviews((prev) => [...prev, ...previews]);
+    if (screenshotInputRef.current) screenshotInputRef.current.value = "";
+  }
+
+  function removeExistingScreenshot(index: number) {
+    setExistingScreenshots((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function removeNewScreenshot(index: number) {
+    URL.revokeObjectURL(newScreenshotPreviews[index]);
+    setNewScreenshots((prev) => prev.filter((_, i) => i !== index));
+    setNewScreenshotPreviews((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -51,7 +78,7 @@ export function ProductForm({ product }: ProductFormProps) {
     const themes = themesText.split("\n").map((t: string) => t.trim()).filter(Boolean);
     const features = featuresText.split("\n").map((f: string) => f.trim()).filter(Boolean);
 
-    const body = {
+    const data = {
       name,
       description,
       url: url || null,
@@ -61,19 +88,37 @@ export function ProductForm({ product }: ProductFormProps) {
       features: features.length ? features : null,
       planFile: planFile || null,
       planFileName: planFileName || null,
+      // Tell API to replace screenshots with existing (kept) + new uploads
+      replaceScreenshots: true,
     };
 
-    const res = product
-      ? await fetch(`/api/products/${product.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-      : await fetch("/api/products", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+    const useFormData = newScreenshots.length > 0 || existingScreenshots.length !== (product?.screenshots ? JSON.parse(product.screenshots).length : 0);
+
+    let res: Response;
+
+    if (useFormData) {
+      const formData = new FormData();
+      // Pass existing kept paths so API knows what to preserve
+      formData.append("data", JSON.stringify({ ...data, existingScreenshots }));
+      for (const file of newScreenshots) {
+        formData.append("screenshots", file);
+      }
+      res = product
+        ? await fetch(`/api/products/${product.id}`, { method: "PUT", body: formData })
+        : await fetch("/api/products", { method: "POST", body: formData });
+    } else {
+      res = product
+        ? await fetch(`/api/products/${product.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          })
+        : await fetch("/api/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+    }
 
     if (res.ok) {
       router.push("/products");
@@ -136,6 +181,49 @@ export function ProductForm({ product }: ProductFormProps) {
           />
         )}
         <p className="text-xs text-gray-500 mt-1">Upload a markdown file describing the product</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Screenshots
+        </label>
+        {(existingScreenshots.length > 0 || newScreenshotPreviews.length > 0) && (
+          <div className="grid grid-cols-4 gap-3 mb-3">
+            {existingScreenshots.map((path, i) => (
+              <div key={`existing-${i}`} className="relative group">
+                <img src={path} alt="" className="w-full h-24 object-cover rounded-lg border border-gray-200" />
+                <button
+                  type="button"
+                  onClick={() => removeExistingScreenshot(i)}
+                  className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  x
+                </button>
+              </div>
+            ))}
+            {newScreenshotPreviews.map((src, i) => (
+              <div key={`new-${i}`} className="relative group">
+                <img src={src} alt="" className="w-full h-24 object-cover rounded-lg border border-blue-200" />
+                <button
+                  type="button"
+                  onClick={() => removeNewScreenshot(i)}
+                  className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  x
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <input
+          ref={screenshotInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleScreenshotUpload}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        />
+        <p className="text-xs text-gray-500 mt-1">Upload app screenshots for image generation</p>
       </div>
 
       <div>

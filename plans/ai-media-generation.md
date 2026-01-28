@@ -101,14 +101,14 @@ interface Provider<TInput, TOutput> {
 
 ## Implementation Chunks
 
-### Chunk 1: Brain Foundation
+### Chunk 1: Brain Foundation 🟢
 **Goal:** Core types and product plan parser
 
 Files:
 - `src/lib/brain/types.ts` - interfaces
 - `src/lib/brain/parser.ts` - markdown plan file parser
 
-### Chunk 2: Marketing Prompts
+### Chunk 2: Marketing Prompts 🟢
 **Goal:** Expert prompts that make Buzz a good marketer
 
 Files:
@@ -122,16 +122,17 @@ Contains prompt templates for:
 - Media description for image/video AI
 - Script writing for video/audio
 
-### Chunk 3: Provider Abstraction
+### Chunk 3: Provider Abstraction (partial)
 **Goal:** Pluggable provider interfaces
 
 Files:
-- `src/lib/providers/types.ts` - base interfaces
-- `src/lib/providers/registry.ts` - provider registration
-- `src/lib/providers/text.ts` - TextProvider
-- `src/lib/providers/image.ts` - ImageProvider
-- `src/lib/providers/video.ts` - VideoProvider
-- `src/lib/providers/audio.ts` - AudioProvider
+- 🟢 `src/lib/providers/types.ts` - base interfaces
+- 🟢 `src/lib/providers/registry.ts` - provider registration
+- 🟢 `src/lib/providers/text.ts` - TextProvider (HuggingFace GLM-4.7-Flash)
+- 🟢 `src/lib/providers/index.ts` - exports
+- 🟢 `src/lib/providers/image.ts` - ImageProvider (Pollinations.ai flux)
+- ⏳ `src/lib/providers/video.ts` - VideoProvider
+- ⏳ `src/lib/providers/audio.ts` - AudioProvider
 
 ### Chunk 4: Media Storage
 **Goal:** Store generated media locally
@@ -237,6 +238,14 @@ Chunk 8 (preview/queue)
   - ProductCard: "has plan" badge + modal viewer for plan content
   - API routes updated for create/update
 
+- **Text provider (Chunk 3 partial):** HuggingFace GLM-4.7-Flash integration
+  - Provider abstraction layer: `src/lib/providers/`
+  - Types for all provider types (text, image, video, audio)
+  - Registry for registering/getting providers
+  - HuggingFace text provider using GLM-4.7-Flash free API
+  - OpenAI-compatible chat completions endpoint
+  - Env var: `HUGGINGFACE_API_KEY` (optional for free tier)
+
 ## Decisions Made
 
 - **Plan file format:** Markdown
@@ -244,6 +253,7 @@ Chunk 8 (preview/queue)
 - **Audio:** Standalone option available
 - **Text generation:** Delegated to AI (not templates)
 - **Providers:** Abstract interfaces now, implementations later
+- **Image generation:** Pollinations.ai (free, no API key, flux model)
 
 ## Verification
 
