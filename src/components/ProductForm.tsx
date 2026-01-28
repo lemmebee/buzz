@@ -19,14 +19,9 @@ export function ProductForm({ product }: ProductFormProps) {
   const [url, setUrl] = useState(product?.url || "");
   const [audience, setAudience] = useState(product?.audience || "");
   const [tone, setTone] = useState(product?.tone || "");
-  const [themesText, setThemesText] = useState(
-    product?.themes ? JSON.parse(product.themes).join("\n") : ""
-  );
-  const [featuresText, setFeaturesText] = useState(
-    product?.features ? JSON.parse(product.features).join("\n") : ""
-  );
   const [planFile, setPlanFile] = useState(product?.planFile || "");
   const [planFileName, setPlanFileName] = useState(product?.planFileName || "");
+  const [textProvider, setTextProvider] = useState(product?.textProvider || "gemini");
 
   // Screenshots: existing paths from DB + new files to upload
   const [existingScreenshots, setExistingScreenshots] = useState<string[]>(
@@ -42,6 +37,81 @@ export function ProductForm({ product }: ProductFormProps) {
     const text = await file.text();
     setPlanFile(text);
     setPlanFileName(file.name);
+
+    // Auto-populate fields from plan file content
+    autoPopulateFromPlan(text);
+  }
+
+  function autoPopulateFromPlan(content: string) {
+    const lines = content.split("\n");
+
+    // Helper to extract list items from a section
+    function extractListItems(sectionContent: string): string[] {
+      return sectionContent
+        .split("\n")
+        .filter(line => line.match(/^[\s]*[-*•]\s+/) || line.match(/^\d+\.\s+/))
+        .map(line => line.replace(/^[\s]*[-*•]\s+/, "").replace(/^\d+\.\s+/, "").replace(/\*\*/g, "").trim())
+        .filter(Boolean);
+    }
+
+    // Helper to find section content by various header patterns
+    function findSection(...patterns: string[]): string | null {
+      for (const pattern of patterns) {
+        const regex = new RegExp(`(?:^|\\n)#+\\s*${pattern}\\s*\\n([\\s\\S]*?)(?=\\n#+\\s|$)`, "i");
+        const match = content.match(regex);
+        if (match) return match[1];
+      }
+      return null;
+    }
+
+    // Extract name from first heading (# Title or ## Title)
+    const titleMatch = content.match(/^#+\s+(.+)$/m);
+    if (titleMatch) {
+      setName(titleMatch[1].trim());
+    }
+
+    // Find description - first paragraph after title
+    let foundTitle = false;
+    const descLines: string[] = [];
+    for (const line of lines) {
+      if (line.match(/^#+\s/)) {
+        if (foundTitle && descLines.length > 0) break;
+        foundTitle = true;
+        continue;
+      }
+      if (foundTitle && line.trim() && !line.startsWith("-") && !line.startsWith("*") && !line.startsWith("|")) {
+        descLines.push(line.trim());
+      } else if (foundTitle && descLines.length > 0 && !line.trim()) {
+        break;
+      }
+    }
+    if (descLines.length > 0) {
+      setDescription(descLines.join(" "));
+    }
+
+    // Extract audience
+    const audienceSection = findSection("Target\\s+Audience", "Audience", "Who\\s+is\\s+this\\s+for");
+    if (audienceSection) {
+      const audienceItems = extractListItems(audienceSection);
+      if (audienceItems.length > 0) {
+        setAudience(audienceItems.join(", "));
+      } else {
+        // Try first non-empty line
+        const firstLine = audienceSection.split("\n").find(l => l.trim() && !l.match(/^#+/));
+        if (firstLine) setAudience(firstLine.trim());
+      }
+    }
+
+    // Extract tone
+    const toneSection = findSection("Tone", "Voice", "Brand\\s+Voice", "Tone\\s+&\\s+Voice");
+    if (toneSection) {
+      const toneText = toneSection.toLowerCase();
+      if (toneText.includes("casual")) setTone("casual");
+      else if (toneText.includes("professional")) setTone("professional");
+      else if (toneText.includes("playful")) setTone("playful");
+      else if (toneText.includes("warm")) setTone("warm");
+      else if (toneText.includes("edgy")) setTone("edgy");
+    }
   }
 
   function handleRemoveFile() {
@@ -75,19 +145,15 @@ export function ProductForm({ product }: ProductFormProps) {
     e.preventDefault();
     setSaving(true);
 
-    const themes = themesText.split("\n").map((t: string) => t.trim()).filter(Boolean);
-    const features = featuresText.split("\n").map((f: string) => f.trim()).filter(Boolean);
-
     const data = {
       name,
       description,
       url: url || null,
       audience: audience || null,
       tone: tone || null,
-      themes: themes.length ? themes : null,
-      features: features.length ? features : null,
       planFile: planFile || null,
       planFileName: planFileName || null,
+      textProvider: textProvider || null,
       // Tell API to replace screenshots with existing (kept) + new uploads
       replaceScreenshots: true,
     };
@@ -185,6 +251,21 @@ export function ProductForm({ product }: ProductFormProps) {
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
+          Text Provider
+        </label>
+        <select
+          value={textProvider}
+          onChange={(e) => setTextProvider(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="gemini">Gemini</option>
+          <option value="huggingface">Hugging Face</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">LLM provider for profile/strategy extraction</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
           Screenshots
         </label>
         {(existingScreenshots.length > 0 || newScreenshotPreviews.length > 0) && (
@@ -267,32 +348,6 @@ export function ProductForm({ product }: ProductFormProps) {
           <option value="warm">Warm</option>
           <option value="edgy">Edgy</option>
         </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Themes (one per line)
-        </label>
-        <textarea
-          value={themesText}
-          onChange={(e) => setThemesText(e.target.value)}
-          rows={4}
-          placeholder={"Curious about your cannabis habits?\nNot trying to quit, just understand"}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Features (one per line)
-        </label>
-        <textarea
-          value={featuresText}
-          onChange={(e) => setFeaturesText(e.target.value)}
-          rows={4}
-          placeholder="Daily check-ins\nUsage tracking\nMood logging"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
       </div>
 
       <div className="flex gap-3">

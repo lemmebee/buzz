@@ -2,8 +2,8 @@ import type { TextProvider } from "./types";
 import { createHuggingFaceTextProvider } from "./text";
 import { createGeminiTextProvider } from "./gemini";
 
-export function createTextProvider(): TextProvider {
-  const provider = process.env.TEXT_PROVIDER || "gemini";
+export function createTextProvider(providerName?: string): TextProvider {
+  const provider = providerName || process.env.TEXT_PROVIDER || "gemini";
 
   switch (provider) {
     case "gemini":

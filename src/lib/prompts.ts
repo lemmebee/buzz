@@ -8,19 +8,7 @@ interface PromptParams {
   count?: number;
 }
 
-function parseThemes(themes: string | null): string[] {
-  if (!themes) return [];
-  try {
-    return JSON.parse(themes);
-  } catch {
-    return [];
-  }
-}
-
 export function buildGeneratePrompt({ product, contentType, count = 5 }: PromptParams): string {
-  const themes = parseThemes(product.themes);
-  const themesStr = themes.length > 0 ? themes.map((t) => `- "${t}"`).join("\n") : "No specific themes";
-
   const typeInstructions: Record<ContentType, string> = {
     reel: "short, punchy captions for Instagram Reels (under 100 chars). Hook viewers in first line.",
     post: "engaging captions for Instagram posts (under 300 chars). Include call-to-action.",
@@ -34,9 +22,6 @@ PRODUCT INFO:
 - Description: ${product.description}
 - Target Audience: ${product.audience || "General"}
 - Brand Tone: ${product.tone || "Casual"}
-
-THEMES TO EXPLORE:
-${themesStr}
 
 TASK:
 Generate ${count} ${contentType} ${typeInstructions[contentType]}

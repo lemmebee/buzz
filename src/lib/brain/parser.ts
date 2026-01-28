@@ -32,10 +32,8 @@ export function parseProductPlan(markdown: string): ParseResult {
   const plan: ProductPlan = {
     name,
     description,
-    features: extractList(sections, ["features", "key features", "benefits"]),
     audience: extractSingle(sections, ["audience", "target audience", "target market"]) || "",
     tone: extractSingle(sections, ["tone", "voice", "brand tone", "brand voice"]) || "casual",
-    themes: extractList(sections, ["themes", "content themes", "topics"]),
     visualStyle: extractSingle(sections, ["visual style", "style", "visuals", "aesthetic"]),
   };
 
@@ -60,13 +58,3 @@ function extractMultiline(sections: Record<string, string[]>, keys: string[]): s
   return undefined;
 }
 
-function extractList(sections: Record<string, string[]>, keys: string[]): string[] {
-  for (const key of keys) {
-    if (sections[key]?.length) {
-      return sections[key]
-        .map((line) => line.replace(/^[-*]\s*/, "").trim())
-        .filter(Boolean);
-    }
-  }
-  return [];
-}

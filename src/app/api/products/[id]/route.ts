@@ -53,19 +53,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const newPaths = screenshotFiles.length > 0 ? await saveScreenshots(screenshotFiles) : [];
     const allPaths = body.replaceScreenshots ? [...keptPaths, ...newPaths] : [...keptPaths, ...newPaths];
 
+    const updateData: Record<string, unknown> = {
+      name: body.name,
+      description: body.description,
+      url: body.url || null,
+      audience: body.audience || null,
+      tone: body.tone || null,
+      planFile: body.planFile || null,
+      planFileName: body.planFileName || null,
+      screenshots: allPaths.length > 0 ? JSON.stringify(allPaths) : null,
+      textProvider: body.textProvider || null,
+    };
+    if (body.appProfile !== undefined) updateData.appProfile = body.appProfile;
+    if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
+
     const result = await db.update(schema.products)
-      .set({
-        name: body.name,
-        description: body.description,
-        url: body.url || null,
-        features: body.features ? JSON.stringify(body.features) : null,
-        audience: body.audience || null,
-        tone: body.tone || null,
-        themes: body.themes ? JSON.stringify(body.themes) : null,
-        planFile: body.planFile || null,
-        planFileName: body.planFileName || null,
-        screenshots: allPaths.length > 0 ? JSON.stringify(allPaths) : null,
-      })
+      .set(updateData)
       .where(eq(schema.products.id, parseInt(id)))
       .returning();
 
@@ -73,9 +76,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const updated = result[0];
-    if (updated.planFile) {
-      extractProfileAndStrategy(updated.id, updated.planFile, allPaths).catch(console.error);
+    let updated = result[0];
+    // Only re-extract if planFile changed and not manually editing profile/strategy
+    if (updated.planFile && body.appProfile === undefined && body.marketingStrategy === undefined) {
+      // Set pending status before starting extraction
+      const statusResult = await db.update(schema.products)
+        .set({ extractionStatus: "pending" })
+        .where(eq(schema.products.id, parseInt(id)))
+        .returning();
+      updated = statusResult[0];
+      extractProfileAndStrategy(updated.id, updated.planFile!, allPaths, updated.textProvider || undefined).catch(console.error);
     }
 
     return NextResponse.json(updated);
@@ -84,18 +94,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
   // JSON fallback
   const body = await req.json();
 
+  const updateData: Record<string, unknown> = {
+    name: body.name,
+    description: body.description,
+    url: body.url || null,
+    audience: body.audience || null,
+    tone: body.tone || null,
+    planFile: body.planFile || null,
+    planFileName: body.planFileName || null,
+    textProvider: body.textProvider || null,
+  };
+  if (body.appProfile !== undefined) updateData.appProfile = body.appProfile;
+  if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
+
   const result = await db.update(schema.products)
-    .set({
-      name: body.name,
-      description: body.description,
-      url: body.url || null,
-      features: body.features ? JSON.stringify(body.features) : null,
-      audience: body.audience || null,
-      tone: body.tone || null,
-      themes: body.themes ? JSON.stringify(body.themes) : null,
-      planFile: body.planFile || null,
-      planFileName: body.planFileName || null,
-    })
+    .set(updateData)
     .where(eq(schema.products.id, parseInt(id)))
     .returning();
 
@@ -103,10 +116,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const updated = result[0];
-  if (updated.planFile) {
+  let updated = result[0];
+  // Only re-extract if planFile changed and not manually editing profile/strategy
+  if (updated.planFile && body.appProfile === undefined && body.marketingStrategy === undefined) {
+    // Set pending status before starting extraction
+    const statusResult = await db.update(schema.products)
+      .set({ extractionStatus: "pending" })
+      .where(eq(schema.products.id, parseInt(id)))
+      .returning();
+    updated = statusResult[0];
     const screenshotPaths: string[] = updated.screenshots ? JSON.parse(updated.screenshots) : [];
-    extractProfileAndStrategy(updated.id, updated.planFile, screenshotPaths).catch(console.error);
+    extractProfileAndStrategy(updated.id, updated.planFile!, screenshotPaths, updated.textProvider || undefined).catch(console.error);
   }
 
   return NextResponse.json(updated);
