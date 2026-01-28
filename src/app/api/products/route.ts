@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, readFile } from "fs/promises";
+import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { extractProfileAndStrategy } from "@/lib/brain/extract";
 
@@ -46,20 +45,20 @@ export async function POST(req: NextRequest) {
       name: body.name,
       description: body.description,
       url: body.url || null,
-      features: body.features ? JSON.stringify(body.features) : null,
       audience: body.audience || null,
       tone: body.tone || null,
-      themes: body.themes ? JSON.stringify(body.themes) : null,
       planFile: body.planFile || null,
       planFileName: body.planFileName || null,
       screenshots: screenshotPaths.length > 0 ? JSON.stringify(screenshotPaths) : null,
+      textProvider: body.textProvider || null,
+      extractionStatus: body.planFile ? "pending" : null,
     }).returning();
 
     const created = result[0];
 
     // Extract profile + strategy if brief exists
     if (created.planFile) {
-      extractProfileAndStrategy(created.id, created.planFile, screenshotPaths).catch(console.error);
+      extractProfileAndStrategy(created.id, created.planFile, screenshotPaths, created.textProvider || undefined).catch(console.error);
     }
 
     return NextResponse.json(created, { status: 201 });
@@ -72,18 +71,18 @@ export async function POST(req: NextRequest) {
     name: body.name,
     description: body.description,
     url: body.url || null,
-    features: body.features ? JSON.stringify(body.features) : null,
     audience: body.audience || null,
     tone: body.tone || null,
-    themes: body.themes ? JSON.stringify(body.themes) : null,
     planFile: body.planFile || null,
     planFileName: body.planFileName || null,
+    textProvider: body.textProvider || null,
+    extractionStatus: body.planFile ? "pending" : null,
   }).returning();
 
   const created = result[0];
 
   if (created.planFile) {
-    extractProfileAndStrategy(created.id, created.planFile, []).catch(console.error);
+    extractProfileAndStrategy(created.id, created.planFile, [], created.textProvider || undefined).catch(console.error);
   }
 
   return NextResponse.json(created, { status: 201 });

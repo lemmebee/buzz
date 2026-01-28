@@ -166,10 +166,8 @@ export function buildAnalysisPrompt(product: ProductPlan): string {
 
 Product: ${product.name}
 Description: ${product.description}
-Features: ${product.features.join(", ")}
 Target Audience: ${product.audience}
 Brand Tone: ${product.tone}
-Content Themes: ${product.themes.join(", ")}
 ${product.visualStyle ? `Visual Style: ${product.visualStyle}` : ""}
 
 Analyze this product and extract:
@@ -201,7 +199,6 @@ Product Context:
 - Core Value: ${product.description}
 - Audience: ${product.audience}
 - Brand Tone: ${product.tone}
-- Themes to weave in: ${product.themes.join(", ")}
 
 Write a ${purpose} caption for ${platform}.
 
@@ -230,7 +227,6 @@ export function buildHashtagPrompt(
 Platform: ${platform}
 Content Type: ${purpose}
 Product: ${product.name}
-Niche: ${product.themes.join(", ")}
 Audience: ${product.audience}
 
 Generate a strategic hashtag set:
@@ -269,7 +265,6 @@ Create a detailed image generation prompt that:
 - Matches the ${product.visualStyle || "brand"} aesthetic
 - Works for ${platform} ${purpose} format
 - Appeals to: ${product.audience}
-- Evokes themes: ${product.themes.join(", ")}
 
 Be specific about:
 - Composition and framing

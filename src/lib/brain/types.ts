@@ -1,10 +1,8 @@
 export interface ProductPlan {
   name: string;
   description: string;
-  features: string[];
   audience: string;
   tone: string;
-  themes: string[];
   visualStyle?: string;
 }
 

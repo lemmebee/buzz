@@ -5,15 +5,15 @@ export const products = sqliteTable("products", {
   name: text("name").notNull(),
   description: text("description").notNull(),
   url: text("url"),
-  features: text("features"), // JSON array
   audience: text("audience"),
   tone: text("tone"), // casual | professional | playful
-  themes: text("themes"), // JSON array
   planFile: text("plan_file"), // markdown content
   planFileName: text("plan_file_name"), // original filename
   screenshots: text("screenshots"), // JSON array of file paths
   appProfile: text("app_profile"), // JSON extracted profile
   marketingStrategy: text("marketing_strategy"), // JSON extracted strategy
+  textProvider: text("text_provider"), // gemini | huggingface
+  extractionStatus: text("extraction_status"), // pending | extracting | done | failed
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

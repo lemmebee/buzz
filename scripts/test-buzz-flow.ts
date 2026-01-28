@@ -22,10 +22,8 @@ function productToProductPlan(product: typeof products.$inferSelect): ProductPla
   return {
     name: product.name,
     description: product.description,
-    features: product.features ? JSON.parse(product.features) : [],
     audience: product.audience || "",
     tone: product.tone || "casual",
-    themes: product.themes ? JSON.parse(product.themes) : [],
   };
 }
 
