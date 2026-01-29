@@ -25,11 +25,16 @@ cp .env.example .env
 
 Required env vars:
 - `ADMIN_PASSWORD` - password for admin login
-- `GEMINI_API_KEY` - Google Gemini API key
-- `HUGGINGFACE_API_KEY` - HuggingFace API key (optional, alternative provider)
+- `TEXT_PROVIDER` - LLM provider: "gemini" (default) or "huggingface"
+- `GOOGLE_AI_API_KEY` - Google AI API key (required if using gemini)
+- `HUGGINGFACE_API_KEY` - HuggingFace API key (required if using huggingface)
 - `FACEBOOK_APP_ID` - from developers.facebook.com
 - `FACEBOOK_APP_SECRET` - from developers.facebook.com
 - `INSTAGRAM_REDIRECT_URI` - OAuth callback URL (e.g. `http://localhost:3000/api/instagram/callback`)
+
+Optional env vars:
+- `POLLINATIONS_API_KEY` - image generation (works without auth but rate limited)
+- `ANTHROPIC_API_KEY` - Claude API key (reserved for future use)
 
 3. Initialize database:
 ```bash
@@ -53,8 +58,9 @@ npm run dev
 
 ### Content Generation
 - Generate 1-10 content variations per batch
-- Content types: posts, reels, carousels
+- Content types: posts, reels, stories, carousels, ads
 - AI-generated captions + hashtags
+- AI-generated images via Pollinations
 - Targeting metadata: pain points, desires, objections
 - Hooks and content pillars for variety
 
