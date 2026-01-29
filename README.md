@@ -13,6 +13,8 @@ AI-powered social media content generator for product marketing. Creates Instagr
 
 ## Setup
 
+**Requires Node.js 20+** (for better-sqlite3)
+
 1. Install dependencies:
 ```bash
 npm install
@@ -45,6 +47,8 @@ npm run db:seed  # optional: seeds sample product
 ```bash
 npm run dev
 ```
+
+5. Open http://localhost:3000
 
 ## Features
 
