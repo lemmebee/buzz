@@ -34,7 +34,6 @@ Required env vars:
 
 Optional env vars:
 - `POLLINATIONS_API_KEY` - image generation (works without auth but rate limited)
-- `ANTHROPIC_API_KEY` - Claude API key (reserved for future use)
 
 3. Initialize database:
 ```bash
