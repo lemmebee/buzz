@@ -19,11 +19,19 @@ interface GeneratedContent {
 }
 
 function productToProductPlan(product: typeof products.$inferSelect): ProductPlan {
+  // Extract audience/tone from profile if available
+  let audience = "";
+  let tone = "casual";
+  if (product.profile) {
+    const profile = JSON.parse(product.profile);
+    audience = profile.audience?.primary || "";
+    tone = profile.tone || "casual";
+  }
   return {
     name: product.name,
     description: product.description,
-    audience: product.audience || "",
-    tone: product.tone || "casual",
+    audience,
+    tone,
   };
 }
 

@@ -19,9 +19,6 @@ async function seed() {
   db.insert(products).values({
     name: "Bud",
     description: "Cannabis relationship companion. Helps people understand and navigate their relationship with weed - whether they want to quit, reduce, use mindfully, or understand patterns.",
-    url: "https://example.com/bud",
-    audience: "Cannabis users 18-35 curious about their habits",
-    tone: "warm",
   }).run();
 
   console.log("Seeded Bud product.");

@@ -22,17 +22,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Already posted" }, { status: 400 });
   }
 
-  // Get Instagram account
-  const accounts = await db.select().from(schema.instagramAccounts);
+  // Get product to find linked Instagram account
+  const product = post.productId
+    ? await db.query.products.findFirst({
+        where: eq(schema.products.id, post.productId),
+      })
+    : null;
 
-  if (accounts.length === 0) {
+  if (!product?.instagramAccountId) {
     return NextResponse.json(
-      { error: "No Instagram account connected" },
+      { error: "No Instagram account linked to this product" },
       { status: 400 }
     );
   }
 
-  const account = accounts[0];
+  // Get the linked account
+  const account = await db.query.instagramAccounts.findFirst({
+    where: eq(schema.instagramAccounts.id, product.instagramAccountId),
+  });
+
+  if (!account) {
+    return NextResponse.json(
+      { error: "Linked Instagram account not found" },
+      { status: 400 }
+    );
+  }
+
   const accessToken = account.accessToken;
   const igUserId = account.instagramUserId;
 

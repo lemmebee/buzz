@@ -1,4 +1,4 @@
-import type { ProductPlan, Platform, ContentPurpose, MediaType } from "./types";
+import type { ProductPlan, Platform, ContentPurpose, MediaType, ContentTargeting, GenerationMetadata, MarketingStrategy } from "./types";
 
 // Platform-specific rules and best practices
 const PLATFORM_RULES: Record<Platform, string> = {
@@ -62,17 +62,23 @@ const CONTENT_FORMULAS: Record<ContentPurpose, string> = {
 5. CTA: Clear, urgent, specific action`,
 };
 
-// System prompt for extracting app profile + marketing strategy from brief + screenshots
-export function buildProfileAndStrategyPrompt(planFileContent: string): string {
-  return `You are an expert marketing strategist. You will receive a marketing brief (and possibly app screenshots).
+// System prompt for extracting product profile + marketing strategy from brief + screenshots
+interface ExtractionInput {
+  name: string;
+  description: string;
+  planFileContent: string;
+}
+
+export function buildProfileAndStrategyPrompt({ name, description, planFileContent }: ExtractionInput): string {
+  return `You are an expert marketing strategist. You will receive a marketing brief (and possibly product screenshots).
 
 Analyze everything and extract two things:
 
-1. APP PROFILE — structured JSON describing the product:
+1. PRODUCT PROFILE — structured JSON describing the product:
 {
   "name": "string",
   "tagline": "string — one-liner value prop",
-  "category": "string — app category",
+  "category": "string — product category",
   "coreValue": "string — the #1 benefit",
   "features": ["string — key features"],
   "audience": {
@@ -101,6 +107,9 @@ Analyze everything and extract two things:
   "visualDirection": "string — how images should feel"
 }
 
+Product: ${name}
+Description: ${description}
+
 Marketing Brief:
 ${planFileContent}
 
@@ -108,42 +117,121 @@ If screenshots are provided, use them to inform visual identity, features, and U
 
 Return ONLY valid JSON:
 {
-  "appProfile": { ... },
+  "profile": { ... },
   "marketingStrategy": { ... }
 }`;
 }
 
+// Parse tone guidelines into constraint list
+function parseToneGuidelines(toneGuidelines: string): string[] {
+  if (!toneGuidelines) return [];
+  // Split by common delimiters and clean up
+  return toneGuidelines
+    .split(/[,;.\n]/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0 && s.length < 100);
+}
+
 // Unified content generation prompt — produces caption + image instructions in one call
 export function buildContentGenerationPrompt(
-  appProfile: Record<string, unknown>,
+  profile: Record<string, unknown>,
   marketingStrategy: Record<string, unknown>,
   screenshotCount: number,
   platform: Platform,
-  contentType: ContentPurpose
-): string {
+  contentType: ContentPurpose,
+  targeting?: ContentTargeting
+): { prompt: string; metadata: GenerationMetadata } {
+  const strategy = marketingStrategy as unknown as MarketingStrategy;
   const aspectRatio =
     contentType === "post" && platform === "instagram" ? "1:1 square" : "9:16 vertical";
 
-  return `You are a creative director producing a single ${platform} ${contentType}.
+  // Determine hook to use
+  const hooks = strategy.hooks || [];
+  const hookUsed = targeting?.hook || (hooks.length > 0 ? hooks[Math.floor(Math.random() * hooks.length)] : null);
 
-APP PROFILE:
-${JSON.stringify(appProfile, null, 2)}
+  // Pillar
+  const pillarUsed = targeting?.pillar || null;
 
-MARKETING STRATEGY:
-${JSON.stringify(marketingStrategy, null, 2)}
+  // Target type/value
+  const targetType = targeting?.targetType || null;
+  const targetValue = targeting?.targetValue || null;
 
-${PLATFORM_RULES[platform]}
+  // Parse tone constraints
+  const toneConstraints = parseToneGuidelines(strategy.toneGuidelines || "");
+  const visualDirection = strategy.visualDirection || "";
 
-${CONTENT_FORMULAS[contentType]}
+  // Build targeted sections
+  const sections: string[] = [];
 
-${screenshotCount > 0 ? `You have ${screenshotCount} app screenshots attached. Use them as creative assets — you decide how:
+  sections.push(`You are a creative director producing a single ${platform} ${contentType}.`);
+  sections.push("");
+
+  // Product context (condensed)
+  sections.push("PRODUCT CONTEXT:");
+  sections.push(`Name: ${(profile as { name?: string }).name || "Unknown"}`);
+  sections.push(`Tagline: ${(profile as { tagline?: string }).tagline || ""}`);
+  sections.push(`Core Value: ${(profile as { coreValue?: string }).coreValue || ""}`);
+  sections.push(`Audience: ${JSON.stringify((profile as { audience?: unknown }).audience || {})}`);
+  sections.push("");
+
+  // Targeting directives
+  if (hookUsed) {
+    sections.push(`HOOK TO USE: "${hookUsed}"`);
+  }
+
+  if (pillarUsed) {
+    sections.push(`CONTENT PILLAR: "${pillarUsed}"`);
+  }
+
+  if (targetType && targetValue) {
+    if (targetType === "pain") {
+      sections.push(`FOCUS: Address this pain point - "${targetValue}"`);
+    } else if (targetType === "desire") {
+      sections.push(`FOCUS: Tap into this desire - "${targetValue}"`);
+    } else if (targetType === "objection") {
+      // Find matching objection with counter
+      const objMatch = (strategy.objections || []).find(o => o.objection === targetValue);
+      if (objMatch) {
+        sections.push(`FOCUS: Address objection "${objMatch.objection}" with counter "${objMatch.counter}"`);
+      } else {
+        sections.push(`FOCUS: Address objection - "${targetValue}"`);
+      }
+    }
+  }
+
+  sections.push("");
+
+  // Tone rules
+  if (toneConstraints.length > 0) {
+    sections.push("TONE RULES:");
+    toneConstraints.forEach(t => sections.push(`- ${t}`));
+    sections.push("");
+  }
+
+  // Visual constraints
+  if (visualDirection) {
+    sections.push(`VISUAL CONSTRAINTS: ${visualDirection}`);
+    sections.push("");
+  }
+
+  sections.push(PLATFORM_RULES[platform]);
+  sections.push("");
+  sections.push(CONTENT_FORMULAS[contentType]);
+  sections.push("");
+
+  if (screenshotCount > 0) {
+    sections.push(`You have ${screenshotCount} product screenshots attached. Use them as creative assets — you decide how:
 - Feature a screenshot as the hero image
 - Use screenshots as reference for describing the UI in the caption
 - Combine multiple screenshots in a collage-style composition
 - Use them as background/context elements
-- Or ignore them if the content works better without` : "No screenshots available."}
+- Or ignore them if the content works better without`);
+  } else {
+    sections.push("No screenshots available.");
+  }
 
-Produce BOTH a caption and image generation instructions together, so they are creatively aligned.
+  sections.push("");
+  sections.push(`Produce BOTH a caption and image generation instructions together, so they are creatively aligned.
 
 Return ONLY valid JSON:
 {
@@ -157,7 +245,18 @@ Return ONLY valid JSON:
     "aspectRatio": "${aspectRatio}",
     "textOverlay": "any text to render on the image, or null"
   }
-}`;
+}`);
+
+  const metadata: GenerationMetadata = {
+    hookUsed,
+    pillarUsed,
+    targetType,
+    targetValue,
+    toneConstraints,
+    visualDirection,
+  };
+
+  return { prompt: sections.join("\n"), metadata };
 }
 
 // System prompt for product analysis

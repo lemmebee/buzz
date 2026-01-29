@@ -16,9 +16,6 @@ export function ProductForm({ product }: ProductFormProps) {
 
   const [name, setName] = useState(product?.name || "");
   const [description, setDescription] = useState(product?.description || "");
-  const [url, setUrl] = useState(product?.url || "");
-  const [audience, setAudience] = useState(product?.audience || "");
-  const [tone, setTone] = useState(product?.tone || "");
   const [planFile, setPlanFile] = useState(product?.planFile || "");
   const [planFileName, setPlanFileName] = useState(product?.planFileName || "");
   const [textProvider, setTextProvider] = useState(product?.textProvider || "gemini");
@@ -45,25 +42,6 @@ export function ProductForm({ product }: ProductFormProps) {
   function autoPopulateFromPlan(content: string) {
     const lines = content.split("\n");
 
-    // Helper to extract list items from a section
-    function extractListItems(sectionContent: string): string[] {
-      return sectionContent
-        .split("\n")
-        .filter(line => line.match(/^[\s]*[-*•]\s+/) || line.match(/^\d+\.\s+/))
-        .map(line => line.replace(/^[\s]*[-*•]\s+/, "").replace(/^\d+\.\s+/, "").replace(/\*\*/g, "").trim())
-        .filter(Boolean);
-    }
-
-    // Helper to find section content by various header patterns
-    function findSection(...patterns: string[]): string | null {
-      for (const pattern of patterns) {
-        const regex = new RegExp(`(?:^|\\n)#+\\s*${pattern}\\s*\\n([\\s\\S]*?)(?=\\n#+\\s|$)`, "i");
-        const match = content.match(regex);
-        if (match) return match[1];
-      }
-      return null;
-    }
-
     // Extract name from first heading (# Title or ## Title)
     const titleMatch = content.match(/^#+\s+(.+)$/m);
     if (titleMatch) {
@@ -89,29 +67,6 @@ export function ProductForm({ product }: ProductFormProps) {
       setDescription(descLines.join(" "));
     }
 
-    // Extract audience
-    const audienceSection = findSection("Target\\s+Audience", "Audience", "Who\\s+is\\s+this\\s+for");
-    if (audienceSection) {
-      const audienceItems = extractListItems(audienceSection);
-      if (audienceItems.length > 0) {
-        setAudience(audienceItems.join(", "));
-      } else {
-        // Try first non-empty line
-        const firstLine = audienceSection.split("\n").find(l => l.trim() && !l.match(/^#+/));
-        if (firstLine) setAudience(firstLine.trim());
-      }
-    }
-
-    // Extract tone
-    const toneSection = findSection("Tone", "Voice", "Brand\\s+Voice", "Tone\\s+&\\s+Voice");
-    if (toneSection) {
-      const toneText = toneSection.toLowerCase();
-      if (toneText.includes("casual")) setTone("casual");
-      else if (toneText.includes("professional")) setTone("professional");
-      else if (toneText.includes("playful")) setTone("playful");
-      else if (toneText.includes("warm")) setTone("warm");
-      else if (toneText.includes("edgy")) setTone("edgy");
-    }
   }
 
   function handleRemoveFile() {
@@ -148,9 +103,6 @@ export function ProductForm({ product }: ProductFormProps) {
     const data = {
       name,
       description,
-      url: url || null,
-      audience: audience || null,
-      tone: tone || null,
       planFile: planFile || null,
       planFileName: planFileName || null,
       textProvider: textProvider || null,
@@ -304,50 +256,7 @@ export function ProductForm({ product }: ProductFormProps) {
           onChange={handleScreenshotUpload}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
-        <p className="text-xs text-gray-500 mt-1">Upload app screenshots for image generation</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          URL
-        </label>
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Target Audience
-        </label>
-        <input
-          type="text"
-          value={audience}
-          onChange={(e) => setAudience(e.target.value)}
-          placeholder="e.g., Cannabis users 18-35"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tone
-        </label>
-        <select
-          value={tone}
-          onChange={(e) => setTone(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="">Select tone...</option>
-          <option value="casual">Casual</option>
-          <option value="professional">Professional</option>
-          <option value="playful">Playful</option>
-          <option value="warm">Warm</option>
-          <option value="edgy">Edgy</option>
-        </select>
+        <p className="text-xs text-gray-500 mt-1">Upload product screenshots for image generation</p>
       </div>
 
       <div className="flex gap-3">

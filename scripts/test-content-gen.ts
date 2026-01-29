@@ -8,12 +8,12 @@ import { prepareImages } from "../src/lib/images";
 
 async function main() {
   const product = db.select().from(schema.products).where(eq(schema.products.name, "Bud")).get();
-  if (!product?.appProfile || !product?.marketingStrategy) {
+  if (!product?.profile || !product?.marketingStrategy) {
     console.error("No Bud product with extracted profile/strategy found");
     return;
   }
 
-  const appProfile = JSON.parse(product.appProfile);
+  const profile = JSON.parse(product.profile);
   const marketingStrategy = JSON.parse(product.marketingStrategy);
 
   // Load screenshots (resized + compressed)
@@ -25,8 +25,8 @@ async function main() {
     images = prepared.map((p) => p.base64);
   } catch { /* no screenshots */ }
 
-  const systemPrompt = buildContentGenerationPrompt(
-    appProfile,
+  const { prompt: systemPrompt, metadata } = buildContentGenerationPrompt(
+    profile,
     marketingStrategy,
     images.length,
     "instagram",
@@ -35,7 +35,8 @@ async function main() {
 
   console.log(`Generating content for: ${product.name}`);
   console.log(`Screenshots: ${images.length}`);
-  console.log("Platform: instagram, Type: post\n");
+  console.log("Platform: instagram, Type: post");
+  console.log("Targeting metadata:", metadata, "\n");
 
   const provider = createHuggingFaceTextProvider();
   const result = await provider.generate({

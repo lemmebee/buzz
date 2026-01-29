@@ -20,8 +20,6 @@ export function buildGeneratePrompt({ product, contentType, count = 5 }: PromptP
 PRODUCT INFO:
 - Name: ${product.name}
 - Description: ${product.description}
-- Target Audience: ${product.audience || "General"}
-- Brand Tone: ${product.tone || "Casual"}
 
 TASK:
 Generate ${count} ${contentType} ${typeInstructions[contentType]}

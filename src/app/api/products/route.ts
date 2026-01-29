@@ -44,9 +44,6 @@ export async function POST(req: NextRequest) {
     const result = await db.insert(schema.products).values({
       name: body.name,
       description: body.description,
-      url: body.url || null,
-      audience: body.audience || null,
-      tone: body.tone || null,
       planFile: body.planFile || null,
       planFileName: body.planFileName || null,
       screenshots: screenshotPaths.length > 0 ? JSON.stringify(screenshotPaths) : null,
@@ -58,7 +55,14 @@ export async function POST(req: NextRequest) {
 
     // Extract profile + strategy if brief exists
     if (created.planFile) {
-      extractProfileAndStrategy(created.id, created.planFile, screenshotPaths, created.textProvider || undefined).catch(console.error);
+      extractProfileAndStrategy({
+        productId: created.id,
+        name: created.name,
+        description: created.description,
+        planFileContent: created.planFile,
+        screenshotPaths,
+        textProvider: created.textProvider || undefined,
+      }).catch(console.error);
     }
 
     return NextResponse.json(created, { status: 201 });
@@ -70,9 +74,6 @@ export async function POST(req: NextRequest) {
   const result = await db.insert(schema.products).values({
     name: body.name,
     description: body.description,
-    url: body.url || null,
-    audience: body.audience || null,
-    tone: body.tone || null,
     planFile: body.planFile || null,
     planFileName: body.planFileName || null,
     textProvider: body.textProvider || null,
@@ -82,7 +83,14 @@ export async function POST(req: NextRequest) {
   const created = result[0];
 
   if (created.planFile) {
-    extractProfileAndStrategy(created.id, created.planFile, [], created.textProvider || undefined).catch(console.error);
+    extractProfileAndStrategy({
+      productId: created.id,
+      name: created.name,
+      description: created.description,
+      planFileContent: created.planFile,
+      screenshotPaths: [],
+      textProvider: created.textProvider || undefined,
+    }).catch(console.error);
   }
 
   return NextResponse.json(created, { status: 201 });

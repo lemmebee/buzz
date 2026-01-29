@@ -32,6 +32,12 @@ export async function POST(req: NextRequest) {
       mediaUrl: body.mediaUrl || null,
       status: body.status || "draft",
       scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null,
+      hookUsed: body.hookUsed || null,
+      pillarUsed: body.pillarUsed || null,
+      targetType: body.targetType || null,
+      targetValue: body.targetValue || null,
+      toneConstraints: body.toneConstraints ? JSON.stringify(body.toneConstraints) : null,
+      visualDirection: body.visualDirection || null,
     })
     .returning();
 

@@ -4,16 +4,14 @@ export const products = sqliteTable("products", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  url: text("url"),
-  audience: text("audience"),
-  tone: text("tone"), // casual | professional | playful
   planFile: text("plan_file"), // markdown content
   planFileName: text("plan_file_name"), // original filename
   screenshots: text("screenshots"), // JSON array of file paths
-  appProfile: text("app_profile"), // JSON extracted profile
+  profile: text("profile"), // JSON extracted profile
   marketingStrategy: text("marketing_strategy"), // JSON extracted strategy
   textProvider: text("text_provider"), // gemini | huggingface
   extractionStatus: text("extraction_status"), // pending | extracting | done | failed
+  instagramAccountId: integer("instagram_account_id").references(() => instagramAccounts.id),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
@@ -28,6 +26,14 @@ export const posts = sqliteTable("posts", {
   scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
   postedAt: integer("posted_at", { mode: "timestamp" }),
   instagramId: text("instagram_id"),
+  // Targeting metadata
+  hookUsed: text("hook_used"),
+  pillarUsed: text("pillar_used"),
+  targetType: text("target_type"), // pain | desire | objection
+  targetValue: text("target_value"),
+  toneConstraints: text("tone_constraints"), // JSON array
+  visualDirection: text("visual_direction"),
+  generationParams: text("generation_params"), // full JSON for debugging
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

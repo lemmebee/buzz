@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID!;
@@ -8,6 +9,8 @@ const REDIRECT_URI = process.env.INSTAGRAM_REDIRECT_URI!;
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
+  const state = req.nextUrl.searchParams.get("state");
+  const productId = state ? parseInt(state) : null;
 
   if (error || !code) {
     return NextResponse.redirect(new URL("/settings?error=oauth_denied", req.url));
@@ -86,14 +89,38 @@ export async function GET(req: NextRequest) {
     );
     const igUserData = await igUserRes.json();
 
-    // Store in DB (upsert - clear existing and insert new)
-    await db.delete(schema.instagramAccounts);
-    await db.insert(schema.instagramAccounts).values({
-      instagramUserId,
-      username: igUserData.username,
-      accessToken: pageToken, // Use page token for Instagram API
-      tokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
+    // Upsert by instagramUserId
+    const existing = await db.query.instagramAccounts.findFirst({
+      where: eq(schema.instagramAccounts.instagramUserId, instagramUserId),
     });
+
+    let accountId: number;
+    if (existing) {
+      await db.update(schema.instagramAccounts)
+        .set({
+          username: igUserData.username,
+          accessToken: pageToken,
+          tokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
+        })
+        .where(eq(schema.instagramAccounts.id, existing.id));
+      accountId = existing.id;
+    } else {
+      const result = await db.insert(schema.instagramAccounts).values({
+        instagramUserId,
+        username: igUserData.username,
+        accessToken: pageToken,
+        tokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
+      }).returning();
+      accountId = result[0].id;
+    }
+
+    // Link to product if productId provided in state
+    if (productId) {
+      await db.update(schema.products)
+        .set({ instagramAccountId: accountId })
+        .where(eq(schema.products.id, productId));
+      return NextResponse.redirect(new URL(`/products?success=instagram_linked`, req.url));
+    }
 
     return NextResponse.redirect(new URL("/settings?success=connected", req.url));
   } catch (error) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ContentCard } from "@/components/ContentCard";
 import { Post, Product } from "../../../drizzle/schema";
@@ -8,10 +9,15 @@ import { Post, Product } from "../../../drizzle/schema";
 const statuses = ["all", "draft", "approved", "scheduled", "posted"] as const;
 
 export default function ContentPage() {
+  const searchParams = useSearchParams();
   const [posts, setPosts] = useState<Post[]>([]);
   const [products, setProducts] = useState<Record<number, Product>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
+  const [productFilter, setProductFilter] = useState<number | "all">(() => {
+    const productParam = searchParams.get("product");
+    return productParam ? parseInt(productParam) : "all";
+  });
 
   useEffect(() => {
     fetchData();
@@ -96,21 +102,33 @@ export default function ContentPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Filter tabs */}
-        <div className="flex gap-2 mb-6">
-          {statuses.map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-3 py-1.5 text-sm rounded-lg capitalize ${
-                filter === status
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              {status}
-            </button>
-          ))}
+        {/* Filters */}
+        <div className="flex gap-4 mb-6 items-center">
+          <div className="flex gap-2">
+            {statuses.map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-3 py-1.5 text-sm rounded-lg capitalize ${
+                  filter === status
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-700 bg-white"
+          >
+            <option value="all">All Products</option>
+            {Object.values(products).map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
         </div>
 
         {loading ? (
@@ -124,16 +142,18 @@ export default function ContentPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {posts.map((post) => (
-              <ContentCard
-                key={post.id}
-                post={post}
-                productName={post.productId ? products[post.productId]?.name : undefined}
-                onDelete={handleDelete}
-                onStatusChange={handleStatusChange}
-                onPostNow={handlePostNow}
-              />
-            ))}
+            {posts
+              .filter((p) => productFilter === "all" || p.productId === productFilter)
+              .map((post) => (
+                <ContentCard
+                  key={post.id}
+                  post={post}
+                  productName={post.productId ? products[post.productId]?.name : undefined}
+                  onDelete={handleDelete}
+                  onStatusChange={handleStatusChange}
+                  onPostNow={handlePostNow}
+                />
+              ))}
           </div>
         )}
       </main>

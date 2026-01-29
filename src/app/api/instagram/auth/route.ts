@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const FACEBOOK_APP_ID = process.env.FACEBOOK_APP_ID!;
 const REDIRECT_URI = process.env.INSTAGRAM_REDIRECT_URI!;
 
 // Redirect to Facebook OAuth dialog
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const productId = req.nextUrl.searchParams.get("productId");
+
   const scopes = [
     "instagram_basic",
     "instagram_content_publish",
@@ -18,6 +20,9 @@ export async function GET() {
   authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
   authUrl.searchParams.set("scope", scopes);
   authUrl.searchParams.set("response_type", "code");
+  if (productId) {
+    authUrl.searchParams.set("state", productId);
+  }
 
   return NextResponse.redirect(authUrl.toString());
 }

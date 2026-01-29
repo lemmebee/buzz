@@ -22,12 +22,18 @@ async function main() {
   console.log(`Screenshots: ${screenshotPaths.length}`);
   console.log("Running extraction...\n");
 
-  await extractProfileAndStrategy(product.id, product.planFile, screenshotPaths);
+  await extractProfileAndStrategy({
+    productId: product.id,
+    name: product.name,
+    description: product.description,
+    planFileContent: product.planFile,
+    screenshotPaths,
+  });
 
   // Read back from DB
   const updated = db.select().from(schema.products).where(eq(schema.products.id, product.id)).get();
-  console.log("\n--- App Profile ---");
-  console.log(JSON.stringify(JSON.parse(updated!.appProfile!), null, 2));
+  console.log("\n--- Product Profile ---");
+  console.log(JSON.stringify(JSON.parse(updated!.profile!), null, 2));
   console.log("\n--- Marketing Strategy ---");
   console.log(JSON.stringify(JSON.parse(updated!.marketingStrategy!), null, 2));
 }

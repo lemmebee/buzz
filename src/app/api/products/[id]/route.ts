@@ -56,15 +56,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const updateData: Record<string, unknown> = {
       name: body.name,
       description: body.description,
-      url: body.url || null,
-      audience: body.audience || null,
-      tone: body.tone || null,
       planFile: body.planFile || null,
       planFileName: body.planFileName || null,
       screenshots: allPaths.length > 0 ? JSON.stringify(allPaths) : null,
       textProvider: body.textProvider || null,
     };
-    if (body.appProfile !== undefined) updateData.appProfile = body.appProfile;
+    if (body.profile !== undefined) updateData.profile = body.profile;
     if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
 
     const result = await db.update(schema.products)
@@ -78,14 +75,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     let updated = result[0];
     // Only re-extract if planFile changed and not manually editing profile/strategy
-    if (updated.planFile && body.appProfile === undefined && body.marketingStrategy === undefined) {
+    if (updated.planFile && body.profile === undefined && body.marketingStrategy === undefined) {
       // Set pending status before starting extraction
       const statusResult = await db.update(schema.products)
         .set({ extractionStatus: "pending" })
         .where(eq(schema.products.id, parseInt(id)))
         .returning();
       updated = statusResult[0];
-      extractProfileAndStrategy(updated.id, updated.planFile!, allPaths, updated.textProvider || undefined).catch(console.error);
+      extractProfileAndStrategy({
+        productId: updated.id,
+        name: updated.name,
+        description: updated.description,
+        planFileContent: updated.planFile!,
+        screenshotPaths: allPaths,
+        textProvider: updated.textProvider || undefined,
+      }).catch(console.error);
     }
 
     return NextResponse.json(updated);
@@ -97,14 +101,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const updateData: Record<string, unknown> = {
     name: body.name,
     description: body.description,
-    url: body.url || null,
-    audience: body.audience || null,
-    tone: body.tone || null,
     planFile: body.planFile || null,
     planFileName: body.planFileName || null,
     textProvider: body.textProvider || null,
   };
-  if (body.appProfile !== undefined) updateData.appProfile = body.appProfile;
+  if (body.profile !== undefined) updateData.profile = body.profile;
   if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
 
   const result = await db.update(schema.products)
@@ -118,7 +119,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   let updated = result[0];
   // Only re-extract if planFile changed and not manually editing profile/strategy
-  if (updated.planFile && body.appProfile === undefined && body.marketingStrategy === undefined) {
+  if (updated.planFile && body.profile === undefined && body.marketingStrategy === undefined) {
     // Set pending status before starting extraction
     const statusResult = await db.update(schema.products)
       .set({ extractionStatus: "pending" })
@@ -126,7 +127,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
       .returning();
     updated = statusResult[0];
     const screenshotPaths: string[] = updated.screenshots ? JSON.parse(updated.screenshots) : [];
-    extractProfileAndStrategy(updated.id, updated.planFile!, screenshotPaths, updated.textProvider || undefined).catch(console.error);
+    extractProfileAndStrategy({
+      productId: updated.id,
+      name: updated.name,
+      description: updated.description,
+      planFileContent: updated.planFile!,
+      screenshotPaths,
+      textProvider: updated.textProvider || undefined,
+    }).catch(console.error);
   }
 
   return NextResponse.json(updated);

@@ -1,21 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Product } from "../../../drizzle/schema";
+import type { TargetType, ContentTargeting } from "@/lib/brain/types";
 
 type ContentType = "reel" | "post" | "carousel";
 
 interface GeneratedPost {
   content: string;
   hashtags: string[];
+  mediaUrl?: string | null;
+  metadata?: {
+    hookUsed?: string;
+    pillarUsed?: string;
+    targetType?: string;
+    targetValue?: string;
+    toneConstraints?: string[];
+    visualDirection?: string;
+  };
+}
+
+interface Suggestions {
+  suggestedHook: string | null;
+  suggestedPillar: string | null;
+  suggestedPain: string | null;
+  suggestedDesire: string | null;
+  suggestedObjection: string | null;
+  usageStats: {
+    hooks: Record<string, number>;
+    pillars: Record<string, number>;
+    pains: Record<string, number>;
+    desires: Record<string, number>;
+    objections: Record<string, number>;
+  };
+  available: {
+    hooks: string[];
+    pillars: string[];
+    pains: string[];
+    desires: string[];
+    objections: { objection: string; counter: string }[];
+  };
 }
 
 const contentTypes: { value: ContentType; label: string }[] = [
   { value: "post", label: "Post" },
   { value: "reel", label: "Reel" },
   { value: "carousel", label: "Carousel" },
+];
+
+const targetTypes: { value: TargetType | ""; label: string }[] = [
+  { value: "", label: "Auto" },
+  { value: "pain", label: "Pain Point" },
+  { value: "desire", label: "Desire" },
+  { value: "objection", label: "Objection" },
 ];
 
 export default function GeneratePage() {
@@ -30,19 +69,53 @@ export default function GeneratePage() {
   const [contentType, setContentType] = useState<ContentType>("post");
   const [count, setCount] = useState(5);
 
+  // Targeting
+  const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
+  const [hookMode, setHookMode] = useState<"auto" | "specific">("auto");
+  const [selectedHook, setSelectedHook] = useState<string>("");
+  const [selectedPillar, setSelectedPillar] = useState<string>("");
+  const [targetType, setTargetType] = useState<TargetType | "">("");
+  const [targetValue, setTargetValue] = useState<string>("");
+
   // Results
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  const fetchSuggestions = useCallback(async (pid: number) => {
+    try {
+      const res = await fetch(`/api/products/${pid}/suggestions`);
+      if (res.ok) {
+        const data = await res.json();
+        setSuggestions(data);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/products")
       .then((r) => r.json())
       .then((data) => {
         setProducts(data);
-        if (data.length > 0) setProductId(data[0].id);
+        if (data.length > 0) {
+          setProductId(data[0].id);
+          fetchSuggestions(data[0].id);
+        }
         setLoading(false);
       });
-  }, []);
+  }, [fetchSuggestions]);
+
+  useEffect(() => {
+    if (productId) {
+      fetchSuggestions(productId);
+      // Reset targeting when product changes
+      setSelectedHook("");
+      setSelectedPillar("");
+      setTargetType("");
+      setTargetValue("");
+    }
+  }, [productId, fetchSuggestions]);
 
   async function handleGenerate() {
     if (!productId) return;
@@ -51,19 +124,69 @@ export default function GeneratePage() {
     setGeneratedPosts([]);
     setSelected(new Set());
 
+    // Build targeting object - use suggestions when in auto mode
+    const targeting: ContentTargeting = {};
+
+    // Hook: use selected if specific mode, otherwise use suggestion
+    if (hookMode === "specific" && selectedHook) {
+      targeting.hook = selectedHook;
+    } else if (suggestions?.suggestedHook) {
+      targeting.hook = suggestions.suggestedHook;
+    }
+
+    // Pillar: use selected or suggestion
+    if (selectedPillar) {
+      targeting.pillar = selectedPillar;
+    } else if (suggestions?.suggestedPillar) {
+      targeting.pillar = suggestions.suggestedPillar;
+    }
+
+    // Target type/value: use selected or auto-pick from suggestions
+    if (targetType && targetValue) {
+      targeting.targetType = targetType;
+      targeting.targetValue = targetValue;
+    } else if (!targetType && suggestions) {
+      // Auto-rotate through pain/desire/objection based on least used
+      const painCount = Object.values(suggestions.usageStats.pains).reduce((a, b) => a + b, 0);
+      const desireCount = Object.values(suggestions.usageStats.desires).reduce((a, b) => a + b, 0);
+      const objectionCount = Object.values(suggestions.usageStats.objections).reduce((a, b) => a + b, 0);
+
+      // Pick the category with least total usage
+      const minCount = Math.min(painCount, desireCount, objectionCount);
+      if (minCount === painCount && suggestions.suggestedPain) {
+        targeting.targetType = "pain";
+        targeting.targetValue = suggestions.suggestedPain;
+      } else if (minCount === desireCount && suggestions.suggestedDesire) {
+        targeting.targetType = "desire";
+        targeting.targetValue = suggestions.suggestedDesire;
+      } else if (suggestions.suggestedObjection) {
+        targeting.targetType = "objection";
+        targeting.targetValue = suggestions.suggestedObjection;
+      }
+    }
+
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId, contentType, count }),
+        body: JSON.stringify({
+          productId,
+          contentType,
+          count,
+          platform: "instagram",
+          targeting: Object.keys(targeting).length > 0 ? targeting : undefined,
+        }),
       });
 
       if (!res.ok) throw new Error("Generation failed");
 
       const data = await res.json();
-      setGeneratedPosts(data.posts || []);
+      const posts = data.posts || [];
+      setGeneratedPosts(posts);
       // Select all by default
-      setSelected(new Set(data.posts?.map((_: unknown, i: number) => i) || []));
+      setSelected(new Set(posts.map((_: unknown, i: number) => i)));
+      // Refresh suggestions after generation
+      fetchSuggestions(productId);
     } catch (e) {
       alert("Failed to generate content");
       console.error(e);
@@ -89,12 +212,19 @@ export default function GeneratePage() {
             type: contentType,
             content: post.content,
             hashtags: post.hashtags,
+            mediaUrl: post.mediaUrl,
             status: "draft",
+            hookUsed: post.metadata?.hookUsed,
+            pillarUsed: post.metadata?.pillarUsed,
+            targetType: post.metadata?.targetType,
+            targetValue: post.metadata?.targetValue,
+            toneConstraints: post.metadata?.toneConstraints,
+            visualDirection: post.metadata?.visualDirection,
           }),
         });
       }
 
-      router.push("/content");
+      router.push(`/content?product=${productId}`);
     } catch (e) {
       alert("Failed to save posts");
       console.error(e);
@@ -206,6 +336,155 @@ export default function GeneratePage() {
                   />
                 </div>
               </div>
+
+              {/* Targeting Controls */}
+              {suggestions && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Targeting</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Hook selector */}
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        Hook
+                      </label>
+                      {suggestions.suggestedHook && hookMode === "auto" && (
+                        <div
+                          className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1.5 rounded leading-relaxed"
+                          title={suggestions.suggestedHook}
+                        >
+                          <span className="font-medium">Suggested:</span> {suggestions.suggestedHook}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <select
+                          value={hookMode}
+                          onChange={(e) => setHookMode(e.target.value as "auto" | "specific")}
+                          className="px-2 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="specific">Pick</option>
+                        </select>
+                        {hookMode === "specific" && (
+                          <select
+                            value={selectedHook}
+                            onChange={(e) => setSelectedHook(e.target.value)}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                          >
+                            <option value="">Select hook...</option>
+                            {suggestions.available.hooks.map((h) => (
+                              <option key={h} value={h} title={h}>
+                                {h} ({suggestions.usageStats.hooks[h] || 0}x)
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pillar selector */}
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        Content Pillar
+                      </label>
+                      {suggestions.suggestedPillar && !selectedPillar && (
+                        <div
+                          className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1.5 rounded leading-relaxed"
+                          title={suggestions.suggestedPillar}
+                        >
+                          <span className="font-medium">Suggested:</span> {suggestions.suggestedPillar}
+                        </div>
+                      )}
+                      <select
+                        value={selectedPillar}
+                        onChange={(e) => setSelectedPillar(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                      >
+                        <option value="">Auto</option>
+                        {suggestions.available.pillars.map((p) => (
+                          <option key={p} value={p}>
+                            {p} ({suggestions.usageStats.pillars[p] || 0}x)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Target type */}
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        Focus On
+                      </label>
+                      <select
+                        value={targetType}
+                        onChange={(e) => {
+                          setTargetType(e.target.value as TargetType | "");
+                          setTargetValue("");
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                      >
+                        {targetTypes.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Target value */}
+                    {targetType && (
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          {targetType === "pain" ? "Pain Point" : targetType === "desire" ? "Desire" : "Objection"}
+                        </label>
+                        {/* Show suggestion when no value selected */}
+                        {!targetValue && (
+                          (targetType === "pain" && suggestions.suggestedPain) ||
+                          (targetType === "desire" && suggestions.suggestedDesire) ||
+                          (targetType === "objection" && suggestions.suggestedObjection)
+                        ) && (
+                          <div
+                            className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1.5 rounded leading-relaxed"
+                            title={
+                              targetType === "pain" ? suggestions.suggestedPain || "" :
+                              targetType === "desire" ? suggestions.suggestedDesire || "" :
+                              suggestions.suggestedObjection || ""
+                            }
+                          >
+                            <span className="font-medium">Suggested:</span>{" "}
+                            {targetType === "pain" && suggestions.suggestedPain}
+                            {targetType === "desire" && suggestions.suggestedDesire}
+                            {targetType === "objection" && suggestions.suggestedObjection}
+                          </div>
+                        )}
+                        <select
+                          value={targetValue}
+                          onChange={(e) => setTargetValue(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                        >
+                          <option value="">Select...</option>
+                          {targetType === "pain" &&
+                            suggestions.available.pains.map((p) => (
+                              <option key={p} value={p} title={p}>
+                                {p} ({suggestions.usageStats.pains[p] || 0}x)
+                              </option>
+                            ))}
+                          {targetType === "desire" &&
+                            suggestions.available.desires.map((d) => (
+                              <option key={d} value={d} title={d}>
+                                {d} ({suggestions.usageStats.desires[d] || 0}x)
+                              </option>
+                            ))}
+                          {targetType === "objection" &&
+                            suggestions.available.objections.map((o) => (
+                              <option key={o.objection} value={o.objection} title={o.objection}>
+                                {o.objection} ({suggestions.usageStats.objections[o.objection] || 0}x)
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={handleGenerate}

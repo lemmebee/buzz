@@ -4,16 +4,27 @@ import { buildProfileAndStrategyPrompt } from "./prompts";
 import { createTextProvider } from "@/lib/providers";
 import { prepareImages } from "@/lib/images";
 
+interface ExtractionParams {
+  productId: number;
+  name: string;
+  description: string;
+  planFileContent: string;
+  screenshotPaths: string[];
+  textProvider?: string;
+}
+
 /**
- * Extract app profile + marketing strategy from brief + screenshots.
+ * Extract product profile + marketing strategy from brief + screenshots.
  * Runs async (fire-and-forget from API routes), stores results in DB.
  */
-export async function extractProfileAndStrategy(
-  productId: number,
-  planFileContent: string,
-  screenshotPaths: string[],
-  textProvider?: string
-): Promise<void> {
+export async function extractProfileAndStrategy({
+  productId,
+  name,
+  description,
+  planFileContent,
+  screenshotPaths,
+  textProvider,
+}: ExtractionParams): Promise<void> {
   // Set status to extracting
   await db.update(schema.products)
     .set({ extractionStatus: "extracting" })
@@ -21,7 +32,7 @@ export async function extractProfileAndStrategy(
 
   try {
     const provider = createTextProvider(textProvider);
-    const systemPrompt = buildProfileAndStrategyPrompt(planFileContent);
+    const systemPrompt = buildProfileAndStrategyPrompt({ name, description, planFileContent });
 
     // Load, resize, compress, and limit screenshots
     const prepared = await prepareImages(screenshotPaths);
@@ -30,7 +41,7 @@ export async function extractProfileAndStrategy(
     const result = await provider.generate({
       systemPrompt,
       userPrompt: images.length > 0
-        ? `I've attached ${images.length} app screenshots. Analyze the brief and screenshots together.`
+        ? `I've attached ${images.length} product screenshots. Analyze the brief and screenshots together.`
         : "Analyze the marketing brief and extract the profile and strategy.",
       images: images.length > 0 ? images : undefined,
       maxTokens: 4096,
@@ -51,7 +62,7 @@ export async function extractProfileAndStrategy(
 
     await db.update(schema.products)
       .set({
-        appProfile: JSON.stringify(parsed.appProfile),
+        profile: JSON.stringify(parsed.profile),
         marketingStrategy: JSON.stringify(parsed.marketingStrategy),
         extractionStatus: "done",
       })

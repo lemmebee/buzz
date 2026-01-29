@@ -4,39 +4,30 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-interface InstagramAccount {
-  connected: boolean;
-  username?: string;
-  expiresAt?: string;
+interface InstagramAccountWithProducts {
+  id: number;
+  username: string;
+  tokenExpiresAt: string;
+  linkedProducts: { id: number; name: string }[];
 }
 
 function SettingsContent() {
   const searchParams = useSearchParams();
-  const [account, setAccount] = useState<InstagramAccount | null>(null);
+  const [accounts, setAccounts] = useState<InstagramAccountWithProducts[]>([]);
   const [loading, setLoading] = useState(true);
-  const [disconnecting, setDisconnecting] = useState(false);
 
   const error = searchParams.get("error");
   const success = searchParams.get("success");
 
   useEffect(() => {
-    fetchAccount();
+    fetchAccounts();
   }, []);
 
-  async function fetchAccount() {
-    const res = await fetch("/api/instagram/account");
+  async function fetchAccounts() {
+    const res = await fetch("/api/instagram/accounts");
     const data = await res.json();
-    setAccount(data);
+    setAccounts(data);
     setLoading(false);
-  }
-
-  async function handleDisconnect() {
-    if (!confirm("Disconnect Instagram account?")) return;
-
-    setDisconnecting(true);
-    await fetch("/api/instagram/account", { method: "DELETE" });
-    setAccount({ connected: false });
-    setDisconnecting(false);
   }
 
   const errorMessages: Record<string, string> = {
@@ -66,56 +57,61 @@ function SettingsContent() {
         </div>
       )}
 
-      {/* Instagram Connection */}
+      {/* Instagram Accounts */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">
-          Instagram Connection
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-medium text-gray-900">
+            Instagram Accounts
+          </h2>
+          <a
+            href="/api/instagram/auth"
+            className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium rounded-lg hover:from-purple-600 hover:to-pink-600"
+          >
+            + Add Account
+          </a>
+        </div>
 
         {loading ? (
           <p className="text-gray-500">Loading...</p>
-        ) : account?.connected ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
-                {account.username?.[0]?.toUpperCase()}
+        ) : accounts.length > 0 ? (
+          <div className="space-y-3">
+            {accounts.map((account) => (
+              <div key={account.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
+                    {account.username?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">@{account.username}</p>
+                    <p className="text-xs text-gray-500">
+                      Expires: {account.tokenExpiresAt ? new Date(account.tokenExpiresAt).toLocaleDateString() : "Unknown"}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  {account.linkedProducts.length > 0 ? (
+                    <div className="text-xs text-gray-600">
+                      Linked to: {account.linkedProducts.map((p) => (
+                        <Link key={p.id} href={`/products/${p.id}`} className="text-blue-600 hover:underline ml-1">
+                          {p.name}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">Not linked to any product</span>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-gray-900">
-                  @{account.username}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Token expires:{" "}
-                  {account.expiresAt
-                    ? new Date(account.expiresAt).toLocaleDateString()
-                    : "Unknown"}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleDisconnect}
-              disabled={disconnecting}
-              className="px-4 py-2 text-red-600 text-sm font-medium border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
-            >
-              {disconnecting ? "Disconnecting..." : "Disconnect"}
-            </button>
+            ))}
           </div>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Connect your Instagram Business Account to start posting content.
+              No Instagram accounts connected yet. Add an account to start posting.
             </p>
             <p className="text-xs text-gray-500">
               Requirements: Facebook Page with linked Instagram Business Account
             </p>
-
-            <a
-              href="/api/instagram/auth"
-              className="inline-block px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium rounded-lg hover:from-purple-600 hover:to-pink-600"
-            >
-              Connect Instagram
-            </a>
           </div>
         )}
       </div>
