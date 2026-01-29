@@ -5,6 +5,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Product } from "../../drizzle/schema";
+import { InstagramLinkModal } from "./InstagramLinkModal";
 
 interface ProductCardProps {
   product: Product;
@@ -14,10 +15,12 @@ interface ProductCardProps {
 
 export function ProductCard({ product: initialProduct, onDelete, onUpdate }: ProductCardProps) {
   const [product, setProduct] = useState(initialProduct);
-  const [expanded, setExpanded] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
   const [showPlanFile, setShowPlanFile] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showStrategy, setShowStrategy] = useState(false);
+  const [showInstagram, setShowInstagram] = useState(false);
   const [saving, setSaving] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
@@ -29,7 +32,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
   // Editable content
   const [editPlanFile, setEditPlanFile] = useState(product.planFile || "");
   const [editProfileData, setEditProfileData] = useState<Record<string, unknown>>(
-    product.appProfile ? JSON.parse(product.appProfile) : {}
+    product.profile ? JSON.parse(product.profile) : {}
   );
   const [editStrategyData, setEditStrategyData] = useState<Record<string, unknown>>(
     product.marketingStrategy ? JSON.parse(product.marketingStrategy) : {}
@@ -84,9 +87,6 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
         body: JSON.stringify({
           name: product.name,
           description: product.description,
-          url: product.url,
-          audience: product.audience,
-          tone: product.tone,
           planFile: product.planFile,
           planFileName: product.planFileName,
           textProvider: product.textProvider,
@@ -102,15 +102,12 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
     }
   }
 
-  async function saveField(field: "planFile" | "appProfile" | "marketingStrategy", value: string) {
+  async function saveField(field: "planFile" | "profile" | "marketingStrategy", value: string) {
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
         name: product.name,
         description: product.description,
-        url: product.url,
-        audience: product.audience,
-        tone: product.tone,
         planFile: product.planFile,
         planFileName: product.planFileName,
         textProvider: product.textProvider,
@@ -118,8 +115,8 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
 
       if (field === "planFile") {
         payload.planFile = value;
-      } else if (field === "appProfile") {
-        payload.appProfile = value;
+      } else if (field === "profile") {
+        payload.profile = value;
       } else if (field === "marketingStrategy") {
         payload.marketingStrategy = value;
       }
@@ -135,7 +132,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
         setProduct(updated);
         onUpdate?.(updated);
         if (field === "planFile") { setShowPlanFile(false); setEditModePlan(false); }
-        if (field === "appProfile") { setShowProfile(false); setEditModeProfile(false); }
+        if (field === "profile") { setShowProfile(false); setEditModeProfile(false); }
         if (field === "marketingStrategy") { setShowStrategy(false); setEditModeStrategy(false); }
       } else {
         alert("Error saving");
@@ -152,7 +149,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
   }
 
   function openProfileModal() {
-    setEditProfileData(product.appProfile ? JSON.parse(product.appProfile) : {});
+    setEditProfileData(product.profile ? JSON.parse(product.profile) : {});
     setEditModeProfile(false);
     setShowProfile(true);
   }
@@ -165,130 +162,125 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
 
   const isExtracting = product.extractionStatus === "pending" || product.extractionStatus === "extracting";
 
+  const audience = product.profile ? JSON.parse(product.profile)?.audience : null;
+
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded(!expanded);
-          }}
-          className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-medium text-gray-900">{product.name}</span>
-            <span className="text-gray-400 text-sm flex-shrink-0 ml-2">{expanded ? "▲" : "▼"}</span>
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex justify-between items-start mb-2">
+          <span className="font-medium text-gray-900">{product.name}</span>
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1 text-gray-400 hover:text-gray-600 rounded"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+              </svg>
+            </button>
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
+                  <Link
+                    href={`/products/${product.id}`}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    Edit
+                  </Link>
+                  <button
+                    onClick={() => { setShowInstagram(true); setShowMenu(false); }}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Link Instagram
+                  </button>
+                  {onDelete && (
+                    <button
+                      onClick={() => { onDelete(product.id); setShowMenu(false); }}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
-          <div className="flex flex-wrap gap-1 mb-2">
-            {isExtracting && (
-              <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded animate-pulse">
-                extracting...
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1 mb-2">
+          {isExtracting && (
+            <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded animate-pulse">
+              extracting...
+            </span>
+          )}
+          {product.extractionStatus === "failed" && (
+            <button
+              onClick={retryExtraction}
+              disabled={retrying}
+              className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded flex items-center gap-1 hover:bg-red-200 transition-colors"
+              title="Click to retry extraction"
+            >
+              {retrying ? "retrying..." : "failed ↻"}
+            </button>
+          )}
+          {product.profile && (
+            <button
+              onClick={openProfileModal}
+              className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+            >
+              profile
+            </button>
+          )}
+          {product.marketingStrategy && (
+            <button
+              onClick={openStrategyModal}
+              className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
+            >
+              strategy
+            </button>
+          )}
+          {product.planFileName && (
+            <button
+              onClick={openPlanModal}
+              className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+            >
+              plan
+            </button>
+          )}
+          {product.textProvider && (
+            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{product.textProvider}</span>
+          )}
+          {audience && (
+            <div className="relative group/audience inline-block">
+              <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded cursor-help">
+                audience
               </span>
-            )}
-            {product.extractionStatus === "failed" && (
-              <button
-                onClick={(e) => { e.stopPropagation(); retryExtraction(); }}
-                disabled={retrying}
-                className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded flex items-center gap-1 hover:bg-red-200 transition-colors"
-                title="Click to retry extraction"
-              >
-                {retrying ? "retrying..." : "failed ↻"}
-              </button>
-            )}
-            {product.appProfile && (
-              <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">profile</span>
-            )}
-            {product.marketingStrategy && (
-              <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded">strategy</span>
-            )}
-            {product.planFileName && (
-              <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">plan</span>
-            )}
-            {product.textProvider && (
-              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{product.textProvider}</span>
-            )}
-            {product.tone && (
-              <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">{product.tone}</span>
-            )}
-          </div>
-          <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
-        </button>
-
-        {expanded && (
-          <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
-            {product.planFile && (
-              <div>
-                <span className="text-xs font-medium text-gray-500">Plan File</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <button
-                    onClick={openPlanModal}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    View/Edit
-                  </button>
-                </div>
+              <div className="absolute left-0 top-full mt-2 hidden group-hover/audience:block z-10 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
+                <div className="absolute left-4 bottom-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900" />
+                {audience.primary && (
+                  <p className="mb-1"><span className="text-gray-400">Primary:</span> {audience.primary}</p>
+                )}
+                {audience.demographics && (
+                  <p className="mb-1"><span className="text-gray-400">Demographics:</span> {audience.demographics}</p>
+                )}
+                {audience.psychographics && (
+                  <p><span className="text-gray-400">Psychographics:</span> {audience.psychographics}</p>
+                )}
               </div>
-            )}
-
-            {product.appProfile && (
-              <div>
-                <span className="text-xs font-medium text-gray-500">App Profile</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <button
-                    onClick={openProfileModal}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    View/Edit
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {product.marketingStrategy && (
-              <div>
-                <span className="text-xs font-medium text-gray-500">Marketing Strategy</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <button
-                    onClick={openStrategyModal}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    View/Edit
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {product.url && (
-              <div>
-                <span className="text-xs font-medium text-gray-500">URL</span>
-                <p className="text-sm text-gray-900">{product.url}</p>
-              </div>
-            )}
-
-            {product.audience && (
-              <div>
-                <span className="text-xs font-medium text-gray-500">Target Audience</span>
-                <p className="text-sm text-gray-900">{product.audience}</p>
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-2 border-t border-gray-100">
-              <Link
-                href={`/products/${product.id}`}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                Edit
-              </Link>
-              {onDelete && (
-                <button
-                  onClick={() => onDelete(product.id)}
-                  className="text-sm text-red-600 hover:text-red-800"
-                >
-                  Delete
-                </button>
-              )}
             </div>
-          </div>
+          )}
+        </div>
+
+        <p className={`text-sm text-gray-600 ${showFullDesc ? "" : "line-clamp-2"}`}>{product.description}</p>
+        {product.description.length > 100 && (
+          <button
+            onClick={() => setShowFullDesc(!showFullDesc)}
+            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+          >
+            {showFullDesc ? "less" : "more"}
+          </button>
         )}
       </div>
 
@@ -345,11 +337,11 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
         </Modal>
       )}
 
-      {/* App Profile Modal */}
+      {/* Product Profile Modal */}
       {showProfile && (
         <Modal onClose={() => { setShowProfile(false); setEditModeProfile(false); }}>
           <div className="flex justify-between items-center p-4 border-b border-gray-200">
-            <h3 className="font-medium text-gray-900">App Profile</h3>
+            <h3 className="font-medium text-gray-900">Product Profile</h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setEditModeProfile(!editModeProfile)}
@@ -370,7 +362,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               <JsonEditor data={editProfileData} onChange={setEditProfileData} />
             ) : (
               <div className="space-y-3">
-                <JsonToMarkdown data={product.appProfile ? JSON.parse(product.appProfile) : {}} />
+                <JsonToMarkdown data={product.profile ? JSON.parse(product.profile) : {}} />
               </div>
             )}
           </div>
@@ -383,7 +375,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
                 Cancel
               </button>
               <button
-                onClick={() => saveField("appProfile", JSON.stringify(editProfileData))}
+                onClick={() => saveField("profile", JSON.stringify(editProfileData))}
                 disabled={saving}
                 className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
@@ -441,6 +433,20 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
             </div>
           )}
         </Modal>
+      )}
+
+      {/* Instagram Link Modal */}
+      {showInstagram && (
+        <InstagramLinkModal
+          productId={product.id}
+          linkedAccountId={product.instagramAccountId ?? null}
+          onClose={() => setShowInstagram(false)}
+          onLinked={(accountId) => {
+            const updated = { ...product, instagramAccountId: accountId };
+            setProduct(updated);
+            onUpdate?.(updated);
+          }}
+        />
       )}
     </>
   );

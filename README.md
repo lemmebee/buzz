@@ -1,6 +1,6 @@
 # Buzz
 
-Self-deployable service that auto-generates and posts marketing content for software products. Platform-agnostic design, currently focused on Instagram.
+AI-powered social media content generator for product marketing. Creates Instagram-ready posts, reels, and carousels using product briefs and smart content rotation.
 
 ## Tech Stack
 
@@ -8,7 +8,7 @@ Self-deployable service that auto-generates and posts marketing content for soft
 - TypeScript
 - SQLite + Drizzle ORM
 - Tailwind CSS
-- Claude API (content generation)
+- LLM providers: Google Gemini, HuggingFace (pluggable)
 - Meta Graph API (Instagram posting)
 
 ## Setup
@@ -25,7 +25,8 @@ cp .env.example .env
 
 Required env vars:
 - `ADMIN_PASSWORD` - password for admin login
-- `ANTHROPIC_API_KEY` - Claude API key
+- `GEMINI_API_KEY` - Google Gemini API key
+- `HUGGINGFACE_API_KEY` - HuggingFace API key (optional, alternative provider)
 - `FACEBOOK_APP_ID` - from developers.facebook.com
 - `FACEBOOK_APP_SECRET` - from developers.facebook.com
 - `INSTAGRAM_REDIRECT_URI` - OAuth callback URL (e.g. `http://localhost:3000/api/instagram/callback`)
@@ -33,7 +34,7 @@ Required env vars:
 3. Initialize database:
 ```bash
 npm run db:push
-npm run db:seed  # optional: seeds Bud product
+npm run db:seed  # optional: seeds sample product
 ```
 
 4. Run dev server:
@@ -43,10 +44,35 @@ npm run dev
 
 ## Features
 
-- **Products** - manage products to market (name, description, audience, tone, themes)
-- **Generate** - AI-generated content via Claude (posts, reels, carousels)
-- **Content Queue** - review, edit, approve generated posts
-- **Instagram** - OAuth connection + direct posting
+### Product Management
+- Create products with marketing briefs & screenshots
+- AI extracts product profile (value prop, tone, visual identity) and marketing strategy
+- Async extraction with status tracking
+- Per-product Instagram account linking
+- Configurable LLM provider per product
+
+### Content Generation
+- Generate 1-10 content variations per batch
+- Content types: posts, reels, carousels
+- AI-generated captions + hashtags
+- Targeting metadata: pain points, desires, objections
+- Hooks and content pillars for variety
+
+### Smart Rotation
+- Tracks usage stats per product (hooks, pillars, targeting)
+- Suggests least-used elements to maintain content variety
+- Prevents repetitive messaging
+
+### Content Queue
+- Status workflow: draft → approved → scheduled → posted
+- Filter by status & product
+- Bulk save generated content
+- One-click Instagram publishing
+
+### Instagram Integration
+- OAuth 2.0 via Facebook Login
+- Long-lived token management (60-day expiry)
+- Publish posts via Meta Graph API v19.0
 
 ## DB Scripts
 

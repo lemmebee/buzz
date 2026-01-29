@@ -19,12 +19,12 @@ async function main() {
     process.exit(1);
   }
 
-  if (!product.appProfile || !product.marketingStrategy) {
-    console.error("Product missing appProfile or marketingStrategy. Run extraction first.");
+  if (!product.profile || !product.marketingStrategy) {
+    console.error("Product missing profile or marketingStrategy. Run extraction first.");
     process.exit(1);
   }
 
-  const appProfile = JSON.parse(product.appProfile);
+  const profile = JSON.parse(product.profile);
   const marketingStrategy = JSON.parse(product.marketingStrategy);
   const screenshotPaths: string[] = product.screenshots ? JSON.parse(product.screenshots) : [];
 
@@ -46,7 +46,7 @@ async function main() {
 
   // 1. Single call: caption + image instructions
   console.log("1. Generating caption + image instructions...");
-  const systemPrompt = buildContentGenerationPrompt(appProfile, marketingStrategy, images.length, "instagram", "post");
+  const { prompt: systemPrompt } = buildContentGenerationPrompt(profile, marketingStrategy, images.length, "instagram", "post");
   const textResult = await textProvider.generate({
     systemPrompt,
     userPrompt: "Generate the content now. Return valid JSON only.",
