@@ -6,7 +6,7 @@ export interface ProductPlan {
   visualStyle?: string;
 }
 
-export type Platform = "instagram" | "tiktok" | "youtube";
+export type Platform = "instagram" | "twitter";
 export type ContentPurpose = "reel" | "post" | "story" | "carousel" | "ad";
 export type MediaType = "image" | "video" | "audio";
 
