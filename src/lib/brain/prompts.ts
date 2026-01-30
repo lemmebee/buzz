@@ -10,22 +10,15 @@ const PLATFORM_RULES: Record<Platform, string> = {
 - Peak times: 11am-1pm, 7pm-9pm local time
 - Tone: Authentic, visually polished, aspirational but relatable`,
 
-  tiktok: `TikTok Rules:
-- Hook in first 1-2 seconds or lose viewer
-- Optimal length: 21-34 seconds for algorithm boost
-- Trending sounds increase reach 2-3x
-- Native/raw aesthetic outperforms polished content
-- Hashtags: 3-5 max, include #fyp variations sparingly
-- Duets and stitches drive organic reach
-- Tone: Entertaining first, promotional second`,
-
-  youtube: `YouTube Rules:
-- Shorts: Under 60 seconds, vertical, loop-friendly
-- Thumbnails: High contrast, faces, minimal text
-- First 30 seconds determine retention
-- SEO: Title, description, tags all matter
-- Cards and end screens for engagement
-- Tone: Value-driven, personality-forward`,
+  twitter: `Twitter/X Rules:
+- Tweets: 280 char limit, threads for longer content
+- Hook in first line - it shows in timeline preview
+- Images boost engagement 2-3x, videos 6x
+- Optimal posting: 2-5 tweets/day, spaced out
+- Hashtags: 1-2 max, more looks spammy
+- Quote tweets and replies drive organic reach
+- Threads: First tweet is the hook, value in middle, CTA at end
+- Tone: Conversational, punchy, personality-forward`,
 };
 
 // Content formulas by purpose
@@ -334,9 +327,8 @@ Generate a strategic hashtag set:
 - 2-3 micro tags (<50k posts) for engagement
 - 1-2 branded/unique tags if applicable
 
-${platform === "tiktok" ? "TikTok: Max 5 hashtags, avoid overused #fyp spam" : ""}
 ${platform === "instagram" ? "Instagram: 5-10 hashtags optimal, avoid banned tags" : ""}
-${platform === "youtube" ? "YouTube: Tags go in video settings, focus on searchability" : ""}
+${platform === "twitter" ? "Twitter: 1-2 hashtags max, more looks spammy" : ""}
 
 Return JSON array of hashtags without # symbol: ["tag1", "tag2", ...]`;
 }

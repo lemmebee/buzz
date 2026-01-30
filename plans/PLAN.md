@@ -1,321 +1,180 @@
-# Buzz
+# Buzz Refined Development Plan
 
-## Overview
-Self-deployable service that auto-generates and posts marketing content for software products. Platform-agnostic design, starting with Instagram.
+## Current State Summary
+
+**Done:**
+- Product CRUD + async AI extraction (profile, marketing strategy)
+- Smart content rotation (hooks, pillars, pain/desire/objection)
+- Instagram OAuth + publishing via Meta Graph API
+- Text providers: Gemini (primary), HuggingFace (alternate)
+- Image provider: Pollinations (framework ready, currently disabled)
+- Vision-capable generation (Gemini sees screenshots)
+- Admin auth (single password)
+
+**Framework Ready, Not Enabled:**
+- Image generation (`ENABLE_IMAGE_GENERATION = false` in code)
+- Video/audio provider stubs exist
 
 ---
 
-## Phase 1: Project Setup
-**Goal:** Initialize repo with basic Next.js structure
+## Priority Tiers
 
-### Tasks
-- [x] Create repo at `/home/lemmebee/sources/buzz`
-- [x] Init Next.js 14 with TypeScript
-- [x] Add Tailwind CSS
-- [x] Create folder structure
-- [x] Add .env.example
-- [x] Save this plan to `plans/` folder
+### Tier 1: Complete Core Loop (High Impact, Low Effort)
 
-### Structure Created
+#### 1.1 Enable Image Generation
+Current: Flag disabled, Pollinations provider ready
+- Flip `ENABLE_IMAGE_GENERATION = true`
+- Test with real product
+- Add image preview in ContentCard
+- Handle generation failures gracefully
+
+**Files:** `src/app/api/generate/route.ts`, `src/components/ContentCard.tsx`
+
+#### 1.2 Scheduled Publishing
+Current: DB has `scheduledAt` field, no scheduler
+- Add scheduler service (node-cron or similar)
+- Create `/api/scheduler/run` endpoint for cron trigger
+- UI: date/time picker on approved posts
+- Auto-transition scheduled→posted
+
+**Files:** `src/lib/scheduler.ts`, `src/app/api/scheduler/route.ts`, content UI
+
+#### 1.3 Token Refresh Flow
+Current: 60-day tokens stored, no refresh
+- Track token expiry in UI
+- Add refresh button/auto-refresh before expiry
+- Warn when tokens nearing expiration
+
+**Files:** Instagram API routes, settings page
+
+---
+
+### Tier 2: Platform Expansion (Medium Effort)
+
+#### 2.1 Twitter/X Integration
+- OAuth 2.0 with PKCE
+- Twitter API v2 for posting
+- Platform-specific prompt rules
+- Link Twitter account to product
+- Support: text posts, image posts, threads
+
+**New table:** `twitterAccounts`
+**New routes:** `/api/twitter/*`
+
+#### 2.2 Multi-Account Instagram
+Current: One Instagram account per product
+- Allow multiple IG accounts linked to one product
+- Account selection at post time
+- Bulk post to multiple accounts
+
+---
+
+### Tier 3: Analytics & Insights (Medium Effort)
+
+#### 3.1 Content Performance Tracking
+- Fetch engagement via Meta Graph API (likes, comments, reach)
+- Store metrics per post
+- Dashboard: top performing posts, engagement trends
+
+**New table:** `postMetrics`
+**New page:** `/analytics`
+
+#### 3.2 A/B Insights
+- Track which hooks/pillars/targets perform best
+- Feed learnings back into rotation algorithm
+- Suggest high-performers for new content
+
+#### 3.3 Content Calendar View
+- Calendar UI showing scheduled + posted content
+- Drag-drop rescheduling
+- Gap identification
+
+---
+
+### Tier 4: Video Generation (Higher Effort)
+
+#### 4.1 Video Provider Integration
+- Research: Runway ML, Pika, Luma Dream Machine
+- Implement VideoProvider interface
+- Generate reels/stories as video
+
+**Files:** `src/lib/providers/video.ts`
+
+#### 4.2 Audio/Voiceover
+- Text-to-speech provider (ElevenLabs, etc.)
+- Add voiceover to generated videos
+- Music/background audio options
+
+---
+
+### Tier 5: Scale & Polish
+
+#### 5.1 Bulk Operations
+- Bulk approve/reject posts
+- Bulk delete
+- Bulk reschedule
+
+#### 5.2 Content Templates
+- Save successful content as templates
+- Clone and modify templates
+- Template library per product
+
+#### 5.3 Export/Import
+- Export content queue as CSV/JSON
+- Import scheduled posts
+- Backup/restore products
+
+#### 5.4 Multi-User (Later)
+- User accounts + roles (admin, editor, viewer)
+- Team workspaces
+- Activity log
+
+---
+
+## Recommended Execution Order
+
 ```
-buzz/
-├── src/
-│   ├── app/          # Next.js pages
-│   ├── lib/          # Utilities
-│   └── components/   # React components
-├── drizzle/          # DB schema
-├── scripts/          # CLI scripts
-├── plans/            # This plan
-├── .env.example
-└── package.json
-```
+Phase 1 (Next Sprint)
+├── 1.1 Enable Image Generation
+├── 1.2 Scheduled Publishing
+└── 1.3 Token Refresh
 
-### Verification
-- `npm run dev` works
-- Tailwind compiles
+Phase 2
+├── 3.3 Content Calendar
+├── 2.2 Multi-Account Instagram
+└── 5.1 Bulk Operations
 
----
+Phase 3
+├── 2.1 Twitter/X Integration
+├── 3.1 Performance Tracking
+└── 3.2 A/B Insights
 
-## Phase 2: Database
-**Goal:** SQLite database with Drizzle ORM
+Phase 4
+├── 4.1 Video Provider
+└── 4.2 Audio/Voiceover
 
-### Tasks
-- [x] Install drizzle-orm, better-sqlite3
-- [x] Create schema (products, posts, accounts, settings)
-- [x] Generate migrations
-- [x] Add db client in `lib/db.ts`
-- [x] Seed script for Bud product
-
-### Files Created
-- `drizzle/schema.ts` - table definitions + types
-- `drizzle.config.ts` - Drizzle Kit config
-- `drizzle/migrations/` - generated SQL migrations
-- `src/lib/db.ts` - Drizzle client singleton
-- `scripts/seed.ts` - seeds Bud product
-- `data/buzz.db` - SQLite database file (gitignored)
-
-### Scripts Added
-- `npm run db:generate` - generate migrations
-- `npm run db:push` - push schema to DB
-- `npm run db:seed` - seed Bud product
-- `npm run db:studio` - open Drizzle Studio
-
-### Schema
-```ts
-products: id, name, description, url, features, audience, tone, themes
-posts: id, product_id, type, content, hashtags, media_url, status, scheduled_at, posted_at
-instagram_accounts: id, access_token, token_expires_at
-settings: id, key, value
-```
-
-### Verification
-- Can insert/query products
-- Bud product seeded
-
----
-
-## Phase 3: Admin Auth
-**Goal:** Simple password-based auth
-
-### Tasks
-- [x] Env var `ADMIN_PASSWORD`
-- [x] Login page with password input
-- [x] Session cookie (httpOnly)
-- [x] Auth middleware for protected routes
-
-### Files Created
-- `src/lib/auth.ts` - session management (create/verify/destroy)
-- `src/middleware.ts` - protects all routes, redirects to /login
-- `src/app/login/page.tsx` - login form
-- `src/app/api/auth/login/route.ts` - POST login endpoint
-- `src/app/api/auth/logout/route.ts` - POST logout endpoint
-- `src/components/LogoutButton.tsx` - client logout button
-- `src/app/page.tsx` - dashboard with nav links
-
-### How It Works
-- Password stored in `ADMIN_PASSWORD` env var
-- Session = SHA256 hash of password, stored in httpOnly cookie
-- Middleware checks cookie on every request
-- Session expires after 7 days
-
-### Verification
-- Wrong password rejected
-- Correct password grants access
-- Session persists across refreshes
-
----
-
-## Phase 4: Product Management UI
-**Goal:** CRUD for products
-
-### Tasks
-- [x] `/products` - list all products
-- [x] `/products/new` - add product form
-- [x] `/products/[id]` - edit product
-- [x] API routes: GET/POST/PUT/DELETE products
-- [x] ProductCard component
-
-### Files Created
-- `src/app/api/products/route.ts` - GET all, POST new
-- `src/app/api/products/[id]/route.ts` - GET/PUT/DELETE single
-- `src/components/ProductCard.tsx` - product display card
-- `src/components/ProductForm.tsx` - create/edit form
-- `src/app/products/page.tsx` - list all products
-- `src/app/products/new/page.tsx` - create product
-- `src/app/products/[id]/page.tsx` - edit product
-
-### Verification
-- Can create new product
-- Can edit existing product
-- Can delete product
-- Bud appears in list
-
----
-
-## Phase 5: Claude Integration
-**Goal:** AI content generation
-
-### Tasks
-- [x] Install @anthropic-ai/sdk
-- [x] Create `lib/claude.ts` wrapper
-- [x] Create `lib/prompts.ts` with templates:
-  - Reel caption prompt
-  - Post caption prompt
-  - Carousel ideas prompt
-- [x] `/api/generate` route
-
-### Files Created
-- `src/lib/claude.ts` - Anthropic SDK wrapper
-- `src/lib/prompts.ts` - prompt templates + parser
-- `src/app/api/generate/route.ts` - POST endpoint
-
-### API Usage
-```bash
-POST /api/generate
-{
-  "productId": 1,
-  "contentType": "reel" | "post" | "carousel",
-  "count": 5
-}
-```
-
-### Verification
-- Generate content for Bud
-- Content matches tone/themes
-
----
-
-## Phase 6: Content Queue UI
-**Goal:** View, edit, approve generated content
-
-### Tasks
-- [ ] `/content` - list all posts (filterable by status)
-- [ ] `/content/[id]` - edit single post
-- [ ] ContentCard component
-- [ ] ContentEditor component
-- [ ] Status workflow: draft → approved → scheduled → posted
-- [ ] Approve/reject buttons
-
-### Verification
-- Can view generated content
-- Can edit and save
-- Status changes work
-
----
-
-## Phase 7: Generate Page
-**Goal:** UI to trigger content generation
-
-### Tasks
-- [ ] `/generate` page
-- [ ] Select product dropdown
-- [ ] Select content type (reel/post/carousel)
-- [ ] Generate button → calls Claude
-- [ ] Shows generated content for review
-- [ ] Save to queue button
-
-### Verification
-- Select Bud, generate 5 posts
-- Save to queue
-- Appear in content list
-
----
-
-## Phase 8: Instagram OAuth
-**Goal:** Connect Instagram Business account
-
-### Tasks
-- [ ] Create Meta Developer app
-- [ ] Add Instagram Graph API
-- [ ] `/api/instagram/auth` - start OAuth
-- [ ] `/api/instagram/callback` - exchange code for token
-- [ ] Store token in DB (encrypted)
-- [ ] `/settings` page - connect/disconnect account
-
-### Meta App Setup
-1. developers.facebook.com → Create App (Business)
-2. Add Instagram Graph API product
-3. Add redirect URI
-4. Env vars: META_APP_ID, META_APP_SECRET
-
-### Verification
-- OAuth flow completes
-- Token stored
-- Can fetch account info
-
----
-
-## Phase 9: Instagram Posting
-**Goal:** Post content to Instagram
-
-### Tasks
-- [ ] `/api/instagram/post` route
-- [ ] Container creation (image upload)
-- [ ] Publish endpoint
-- [ ] Update post status after publishing
-- [ ] Error handling
-- [ ] "Post Now" button in content queue
-
-### Verification
-- Approve a post
-- Click Post Now
-- Verify appears on Instagram
-- Status updates to "posted"
-
----
-
-## Phase 10: Scheduling
-**Goal:** Schedule posts for later
-
-### Tasks
-- [ ] Add schedule datetime picker to content editor
-- [ ] Cron job or edge function to check scheduled posts
-- [ ] Auto-post when time arrives
-- [ ] `/calendar` page - visual calendar view
-
-### Verification
-- Schedule post for 5 min later
-- Verify it posts automatically
-- Calendar shows scheduled posts
-
----
-
-## Phase 11: Polish & Deploy
-**Goal:** Production-ready
-
-### Tasks
-- [ ] Dashboard home with stats
-- [ ] Error handling throughout
-- [ ] Loading states
-- [ ] Mobile-responsive
-- [ ] Dockerfile for self-hosting
-- [ ] Vercel/Railway deploy instructions
-- [ ] README with setup guide
-
-### Verification
-- Fresh deploy works
-- All features functional
-- Responsive on mobile
-
----
-
-## Architecture
-```
-┌─────────────────┐     ┌─────────────────┐
-│  Web Dashboard  │────▶│   Next.js API   │
-└─────────────────┘     └────────┬────────┘
-                                 │
-                    ┌────────────┼────────────┐
-                    ▼            ▼            ▼
-              ┌─────────┐  ┌───────────┐  ┌─────────┐
-              │ Claude  │  │ Instagram │  │   DB    │
-              │   API   │  │    API    │  │ SQLite  │
-              └─────────┘  └───────────┘  └─────────┘
-```
-
-## Tech Stack
-- Next.js 14 (App Router)
-- TypeScript
-- SQLite + Drizzle ORM
-- Tailwind CSS
-- Claude API
-- Meta Graph API
-
-## First Product: Bud
-```
-name: Bud
-description: Cannabis relationship companion
-audience: Cannabis users 18-35
-tone: Warm, non-judgmental, curious
-themes:
-  - "Curious about your cannabis habits?"
-  - "Not trying to quit, just understand"
-  - "Your relationship with weed, on your terms"
+Phase 5
+├── 5.2 Content Templates
+├── 5.3 Export/Import
+└── 5.4 Multi-User
 ```
 
 ---
 
-## Future Phases
-- **Phase 12:** TikTok integration
-- **Phase 13:** Analytics dashboard
-- **Phase 14:** Multi-user support
+## Quick Wins (Can Do Anytime)
+
+- [ ] Loading states for async operations
+- [ ] Error toasts with actionable messages
+- [ ] Keyboard shortcuts (n=new post, e=edit, etc.)
+- [ ] Dark mode
+- [ ] Mobile-responsive polish
+- [ ] Rate limiting on generate endpoint
+
+---
+
+## Unresolved Questions
+
+1. Video provider choice? — TBD, decision not yet taken
+2. Scheduler approach (self-host vs external cron)? — decide when implementing
+3. Image storage (local vs CDN)? — decide when scaling
+4. Analytics polling frequency? — decide when implementing analytics

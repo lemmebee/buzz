@@ -68,7 +68,7 @@ interface ProductPlan {
 
 interface GenerationInput {
   product: ProductPlan;
-  platform: 'instagram' | 'tiktok' | 'youtube';
+  platform: 'instagram' | 'twitter';
   purpose: ContentPurpose;
   mediaType: MediaType;
 }
