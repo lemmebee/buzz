@@ -11,16 +11,25 @@ interface InstagramAccountWithProducts {
   linkedProducts: { id: number; name: string }[];
 }
 
+const TEXT_PROVIDERS = [
+  { value: "gemini", label: "Gemini — gemini-2.5-flash" },
+  { value: "gemini-flash-lite", label: "Gemini — gemini-2.5-flash-lite" },
+  { value: "huggingface", label: "HuggingFace — GLM-4.5V" },
+];
+
 function SettingsContent() {
   const searchParams = useSearchParams();
   const [accounts, setAccounts] = useState<InstagramAccountWithProducts[]>([]);
   const [loading, setLoading] = useState(true);
+  const [textProvider, setTextProvider] = useState("gemini");
+  const [providerSaving, setProviderSaving] = useState(false);
 
   const error = searchParams.get("error");
   const success = searchParams.get("success");
 
   useEffect(() => {
     fetchAccounts();
+    fetchSettings();
   }, []);
 
   async function fetchAccounts() {
@@ -28,6 +37,23 @@ function SettingsContent() {
     const data = await res.json();
     setAccounts(data);
     setLoading(false);
+  }
+
+  async function fetchSettings() {
+    const res = await fetch("/api/settings");
+    const data = await res.json();
+    if (data.TEXT_PROVIDER) setTextProvider(data.TEXT_PROVIDER);
+  }
+
+  async function updateTextProvider(value: string) {
+    setTextProvider(value);
+    setProviderSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "TEXT_PROVIDER", value }),
+    });
+    setProviderSaving(false);
   }
 
   const errorMessages: Record<string, string> = {
@@ -56,6 +82,27 @@ function SettingsContent() {
           </p>
         </div>
       )}
+
+      {/* Default Text Provider */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4">
+          Default Text Provider
+        </h2>
+        <select
+          value={textProvider}
+          onChange={(e) => updateTextProvider(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {TEXT_PROVIDERS.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        {providerSaving && (
+          <p className="mt-2 text-xs text-gray-500">Saving...</p>
+        )}
+      </div>
 
       {/* Instagram Accounts */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">

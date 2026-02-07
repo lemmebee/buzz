@@ -1,4 +1,5 @@
-import type { ProductPlan, Platform, ContentPurpose, MediaType, ContentTargeting, GenerationMetadata, MarketingStrategy } from "./types";
+import type { ProductPlan, Platform, ContentPurpose, MediaType, ContentTargeting, GenerationMetadata, CategorizedHook, HookType, BrandVoice } from "./types";
+import { normalizeProfile, normalizeStrategy } from "./types";
 
 // Platform-specific rules and best practices
 const PLATFORM_RULES: Record<Platform, string> = {
@@ -63,42 +64,41 @@ interface ExtractionInput {
 }
 
 export function buildProfileAndStrategyPrompt({ name, description, planFileContent }: ExtractionInput): string {
-  return `You are an expert marketing strategist. You will receive a marketing brief (and possibly product screenshots).
+  return `You are an expert marketing strategist extracting a deep product profile and content strategy from a marketing brief.
 
-Analyze everything and extract two things:
+## PHASE 1 — THINK (internal analysis, do NOT output this)
 
-1. PRODUCT PROFILE — structured JSON describing the product:
-{
-  "name": "string",
-  "tagline": "string — one-liner value prop",
-  "category": "string — product category",
-  "coreValue": "string — the #1 benefit",
-  "features": ["string — key features"],
-  "audience": {
-    "primary": "string — main target",
-    "demographics": "string — age, context",
-    "psychographics": "string — mindset, values"
-  },
-  "tone": "string — brand voice",
-  "visualIdentity": {
-    "style": "string — design language",
-    "colors": "string — palette description",
-    "mood": "string — emotional feel"
-  },
-  "differentiators": ["string — what makes it unique"]
-}
+Before writing any JSON, answer these questions internally:
+- What is the REAL problem this product solves? Not the feature description — the felt pain.
+- Who is the real buyer? What do they do at 2am when they can't sleep? What makes them feel behind?
+- What alternatives exist? Why would someone choose THIS over the obvious competitor?
+- What's the emotional journey from "never heard of it" → "just bought it"?
+- What objections come up at awareness vs consideration vs decision stage?
+- What would a customer say recommending this to a friend? (That's the real voice.)
 
-2. MARKETING STRATEGY — structured JSON with content strategy:
-{
-  "hooks": ["string — 5 scroll-stopping hooks"],
-  "themes": ["string — recurring content themes"],
-  "contentPillars": ["string — 3-4 content categories"],
-  "painPoints": ["string — audience problems this solves"],
-  "desirePoints": ["string — aspirations this fulfills"],
-  "objections": [{"objection": "string", "counter": "string"}],
-  "toneGuidelines": "string — how to write in this brand's voice",
-  "visualDirection": "string — how images should feel"
-}
+## PHASE 2 — QUALITY CRITERIA
+
+Every field you produce must be:
+- SPECIFIC — mentions the actual product, actual audience, actual use case. "Busy professionals" = bad. "Solo founders juggling dev + marketing at 11pm" = good.
+- ACTIONABLE — a content creator can use it directly in a post without rewording.
+- DISTINCT — each item in a list covers a different angle. No overlapping entries.
+- VOICE-AUTHENTIC — sounds like the brand would actually say it, not a marketing textbook.
+
+## PHASE 3 — EXAMPLES (good vs generic)
+
+Hooks:
+- GENERIC: "Tired of struggling with marketing?" ← could be any product
+- GOOD: "You spent 4 hours on a carousel that got 12 likes. Here's why." ← specific, stings, curious
+
+Pain points:
+- GENERIC: "Difficulty creating content" ← obvious, vague
+- GOOD: "Staring at a blank Canva screen for 45 minutes then posting nothing" ← visceral, relatable
+
+Voice rules:
+- GENERIC: "Be friendly and professional" ← meaningless
+- GOOD: "Write like a smart friend texting — lowercase ok, dashes over commas, never say 'utilize'" ← actionable
+
+## PHASE 4 — OUTPUT
 
 Product: ${name}
 Description: ${description}
@@ -106,13 +106,121 @@ Description: ${description}
 Marketing Brief:
 ${planFileContent}
 
-If screenshots are provided, use them to inform visual identity, features, and UI style.
+## SCREENSHOT ANALYSIS (if screenshots are provided)
 
-Return ONLY valid JSON:
+Screenshots are PRIMARY evidence — they reveal what the brief can't say. Analyze every screenshot carefully and extract:
+
+**Visual Identity (→ profile.visualIdentity)**
+- Exact dominant colors: name + approximate hex (e.g. "deep navy #1a2744, warm amber #e8a54b")
+- Secondary/accent colors used for CTAs, highlights, links
+- Typography: serif vs sans-serif, weight, rounded vs geometric, monospaced elements
+- Shape language: rounded corners vs sharp, card-based vs flat, border styles
+- Spacing: airy/minimal vs dense/data-rich, whitespace usage
+- Overall aesthetic: minimal, playful, corporate, premium, brutalist, technical, etc.
+
+**Features & Core Value (→ profile.features, profile.coreValue)**
+- Every visible UI element, screen, dashboard, or feature shown
+- What the product ACTUALLY DOES based on what you can see — not just what the brief claims
+- Navigation items, menu labels, section headers = feature map
+- Empty states, onboarding flows = intended user journey
+
+**Brand Personality (→ profile.brandPersonality)**
+- Microcopy tone: are buttons formal ("Submit") or casual ("Let's go")?
+- Error messages, tooltips, labels — these reveal true brand voice
+- Illustration style if present: hand-drawn, geometric, 3D, none
+- Does it feel startup-y, enterprise, indie, playful?
+
+**Price Positioning (→ profile.pricePositioning)**
+- Pricing page if visible: tiers, amounts, free trial presence
+- UI polish level: highly polished = premium, functional/sparse = budget/developer tool
+- Feature density: more features visible = mid-market/enterprise
+
+**Audience Signals (→ profile.audience, profile.customerSegments)**
+- Who would USE this interface? What skill level does the UI assume?
+- Dashboard complexity → technical vs non-technical user
+- Jargon in labels → industry-specific audience
+- Mobile vs desktop layout → usage context
+
+**Competitive Clues (→ profile.competitorContext)**
+- Does the UI resemble known products? Note which ones and how it differs
+- Unique UI patterns that competitors don't have
+
+**Content Hooks (→ marketingStrategy.hooks)**
+- Impressive UI moments that would make good "look at this" content
+- Before/after states visible in the UI
+- Data visualizations or results screens = social proof material
+
+If NO screenshots are provided, derive visual identity from the brief's tone and category. State assumptions.
+
+Return ONLY valid JSON with this exact structure:
 {
-  "profile": { ... },
-  "marketingStrategy": { ... }
-}`;
+  "profile": {
+    "name": "string",
+    "tagline": "string — one-liner value prop that could be a tweet",
+    "category": "string — product category",
+    "coreValue": "string — the #1 benefit in one sentence",
+    "features": ["string — 4-6 key features"],
+    "audience": {
+      "primary": "string — specific main target",
+      "demographics": "string — age, role, context",
+      "psychographics": "string — mindset, values, frustrations"
+    },
+    "tone": "string — brand voice in a phrase",
+    "visualIdentity": {
+      "style": "string — design language",
+      "colors": "string — palette description",
+      "mood": "string — emotional feel"
+    },
+    "differentiators": ["string — 3-5 things that make it genuinely unique"],
+    "pricePositioning": "premium|mid-market|budget|freemium",
+    "brandPersonality": {
+      "archetypes": ["string — 1-2 brand archetypes e.g. 'rebel', 'sage', 'creator'"],
+      "traits": ["string — 3-5 personality adjectives"],
+      "voiceDos": ["string — 4-6 specific writing rules TO follow"],
+      "voiceDonts": ["string — 4-6 specific things to NEVER say or do"]
+    },
+    "competitorContext": "string — 1-2 sentences positioning vs alternatives",
+    "customerSegments": [
+      {
+        "label": "string — segment name",
+        "painPoints": ["string — 2-3 pains specific to this segment"],
+        "desires": ["string — 2-3 desires specific to this segment"],
+        "messagingAngle": "string — how to talk to this segment"
+      }
+    ],
+    "brandStory": "string — 2-3 sentence origin/mission story"
+  },
+  "marketingStrategy": {
+    "hooks": [
+      {"text": "string — scroll-stopping hook", "type": "curiosity|pain|desire|social-proof|contrarian"}
+    ],
+    "themes": ["string — recurring content themes"],
+    "contentPillars": ["string — 3-4 content categories"],
+    "painPoints": ["string — 5-7 audience problems this solves"],
+    "desirePoints": ["string — 5-7 aspirations this fulfills"],
+    "objections": [
+      {"objection": "string", "counter": "string", "stage": "awareness|consideration|decision"}
+    ],
+    "brandVoice": {
+      "dos": ["string — 5-7 voice rules to follow"],
+      "donts": ["string — 5-7 voice rules to avoid"],
+      "samplePhrases": ["string — 5-8 phrases that sound like this brand"]
+    },
+    "ctaStrategies": [
+      {"goal": "follow|save|comment|click|share|buy", "cta": "string — the actual CTA text", "context": "string — when to use this CTA"}
+    ],
+    "visualDirection": "string — how images should feel"
+  }
+}
+
+COUNT REQUIREMENTS:
+- hooks: 10-12 (mix all 5 types: curiosity, pain, desire, social-proof, contrarian)
+- customerSegments: 2-3
+- objections: 5-7 (spread across awareness, consideration, decision)
+- ctaStrategies: 4-6 (cover different goals)
+- painPoints: 5-7
+- desirePoints: 5-7
+- brandVoice.samplePhrases: 5-8`;
 }
 
 // Parse tone guidelines into constraint list
@@ -125,22 +233,46 @@ function parseToneGuidelines(toneGuidelines: string): string[] {
     .filter(s => s.length > 0 && s.length < 100);
 }
 
+// Hook type preferences by content type for smart selection
+const HOOK_TYPE_PREFERENCES: Record<ContentPurpose, HookType[]> = {
+  ad: ["pain", "social-proof", "desire"],
+  reel: ["curiosity", "contrarian", "desire"],
+  post: ["curiosity", "pain", "social-proof"],
+  story: ["curiosity", "desire", "contrarian"],
+  carousel: ["pain", "curiosity", "social-proof"],
+};
+
+/** Pick a hook, preferring types that match content type */
+function selectHook(hooks: CategorizedHook[], contentType: ContentPurpose, manualHook?: string): string | null {
+  if (manualHook) return manualHook;
+  if (hooks.length === 0) return null;
+
+  const preferred = HOOK_TYPE_PREFERENCES[contentType] || [];
+  // Try preferred types first
+  const preferredHooks = hooks.filter(h => preferred.includes(h.type));
+  const pool = preferredHooks.length > 0 ? preferredHooks : hooks;
+  return pool[Math.floor(Math.random() * pool.length)].text;
+}
+
 // Unified content generation prompt — produces caption + image instructions in one call
 export function buildContentGenerationPrompt(
-  profile: Record<string, unknown>,
-  marketingStrategy: Record<string, unknown>,
+  rawProfile: Record<string, unknown>,
+  rawStrategy: Record<string, unknown>,
   screenshotCount: number,
   platform: Platform,
   contentType: ContentPurpose,
-  targeting?: ContentTargeting
+  targeting?: ContentTargeting,
+  accountHandle?: string,
+  productName?: string
 ): { prompt: string; metadata: GenerationMetadata } {
-  const strategy = marketingStrategy as unknown as MarketingStrategy;
+  const profile = normalizeProfile(rawProfile);
+  const strategy = normalizeStrategy(rawStrategy);
   const aspectRatio =
     contentType === "post" && platform === "instagram" ? "1:1 square" : "9:16 vertical";
 
-  // Determine hook to use
-  const hooks = strategy.hooks || [];
-  const hookUsed = targeting?.hook || (hooks.length > 0 ? hooks[Math.floor(Math.random() * hooks.length)] : null);
+  // Determine hook to use (smart selection by content type)
+  const hooks = strategy.hooks as CategorizedHook[];
+  const hookUsed = selectHook(hooks, contentType, targeting?.hook);
 
   // Pillar
   const pillarUsed = targeting?.pillar || null;
@@ -149,23 +281,67 @@ export function buildContentGenerationPrompt(
   const targetType = targeting?.targetType || null;
   const targetValue = targeting?.targetValue || null;
 
-  // Parse tone constraints
-  const toneConstraints = parseToneGuidelines(strategy.toneGuidelines || "");
+  // Brand voice (new) with fallback to parsed toneGuidelines
+  const brandVoice: BrandVoice | undefined = strategy.brandVoice;
+  const toneConstraints = brandVoice?.dos || parseToneGuidelines(strategy.toneGuidelines || "");
   const visualDirection = strategy.visualDirection || "";
+
+  // Extract visual identity from profile
+  const brandStyle = profile.visualIdentity?.style || "";
+  const brandColors = profile.visualIdentity?.colors || "";
+  const brandMood = profile.visualIdentity?.mood || "";
 
   // Build targeted sections
   const sections: string[] = [];
 
-  sections.push(`You are a creative director producing a single ${platform} ${contentType}.`);
+  const name = productName || profile.name;
+  sections.push(`You are a creative director producing a single ${platform} ${contentType} for "${name}".`);
+  sections.push(`CRITICAL: You are writing ONLY about "${name}". Never mention, reference, or generate content about any other product or brand. Every caption must be specifically about "${name}" and its features/values described below.`);
   sections.push("");
 
-  // Product context (condensed)
-  sections.push("PRODUCT CONTEXT:");
-  sections.push(`Name: ${(profile as { name?: string }).name || "Unknown"}`);
-  sections.push(`Tagline: ${(profile as { tagline?: string }).tagline || ""}`);
-  sections.push(`Core Value: ${(profile as { coreValue?: string }).coreValue || ""}`);
-  sections.push(`Audience: ${JSON.stringify((profile as { audience?: unknown }).audience || {})}`);
+  sections.push(`WRITING STYLE (sound human, not AI-generated):
+- Write like a real person posting, not a marketing bot
+- Use casual, imperfect language: contractions, sentence fragments, dashes, lowercase starts are fine
+- NEVER use these AI cliché words/phrases: "elevate", "unlock", "dive into", "unleash", "game-changer", "seamlessly", "revolutionize", "empower", "leverage", "cutting-edge", "next-level", "Introducing..."
+- ABSOLUTELY NEVER use the em dash character (—) anywhere in your output. Not in captions, not in hashtags, nowhere. Use commas, periods, hyphens, or line breaks instead. This is a hard rule with zero exceptions.
+- No excessive exclamation marks or emoji spam
+- Vary sentence length. Mix short punchy lines with longer ones
+- Be specific and concrete, not vague and aspirational
+- Sound like someone who actually uses the product, not someone selling it
+- Match how real ${platform} creators write. Study the platform's native voice`);
   sections.push("");
+
+  // Product context (expanded)
+  sections.push("PRODUCT CONTEXT:");
+  sections.push(`Name: ${name}`);
+  if (accountHandle) {
+    sections.push(`Social Media Account: ${accountHandle}. Mention this handle naturally in the caption (e.g. "follow ${accountHandle}", "link in ${accountHandle} bio")`);
+  }
+  sections.push(`Tagline: ${profile.tagline || ""}`);
+  sections.push(`Core Value: ${profile.coreValue || ""}`);
+  sections.push(`Audience: ${JSON.stringify(profile.audience || {})}`);
+  if (profile.pricePositioning) {
+    sections.push(`Price Positioning: ${profile.pricePositioning}`);
+  }
+  if (profile.competitorContext) {
+    sections.push(`Competitive Edge: ${profile.competitorContext}`);
+  }
+  if (profile.brandStory) {
+    sections.push(`Brand Story: ${profile.brandStory}`);
+  }
+  if (brandStyle || brandColors || brandMood) {
+    sections.push(`Visual Identity — style: "${brandStyle}", colors: "${brandColors}", mood: "${brandMood}"`);
+  }
+  sections.push("");
+
+  // Customer segment context
+  if (profile.customerSegments && profile.customerSegments.length > 0) {
+    sections.push("CUSTOMER SEGMENTS (pick the most relevant for this content):");
+    for (const seg of profile.customerSegments) {
+      sections.push(`- ${seg.label}: pains=[${seg.painPoints.join(", ")}], desires=[${seg.desires.join(", ")}], angle="${seg.messagingAngle}"`);
+    }
+    sections.push("");
+  }
 
   // Targeting directives
   if (hookUsed) {
@@ -182,7 +358,6 @@ export function buildContentGenerationPrompt(
     } else if (targetType === "desire") {
       sections.push(`FOCUS: Tap into this desire - "${targetValue}"`);
     } else if (targetType === "objection") {
-      // Find matching objection with counter
       const objMatch = (strategy.objections || []).find(o => o.objection === targetValue);
       if (objMatch) {
         sections.push(`FOCUS: Address objection "${objMatch.objection}" with counter "${objMatch.counter}"`);
@@ -194,16 +369,45 @@ export function buildContentGenerationPrompt(
 
   sections.push("");
 
-  // Tone rules
-  if (toneConstraints.length > 0) {
+  // Brand voice rules (new format) or fallback tone rules
+  if (brandVoice) {
+    sections.push("BRAND VOICE:");
+    if (brandVoice.dos.length > 0) {
+      sections.push("DO:");
+      brandVoice.dos.forEach(d => sections.push(`- ${d}`));
+    }
+    if (brandVoice.donts.length > 0) {
+      sections.push("DON'T:");
+      brandVoice.donts.forEach(d => sections.push(`- ${d}`));
+    }
+    if (brandVoice.samplePhrases.length > 0) {
+      sections.push(`Sample phrases that sound like this brand: ${brandVoice.samplePhrases.map(p => `"${p}"`).join(", ")}`);
+    }
+    sections.push("");
+  } else if (toneConstraints.length > 0) {
     sections.push("TONE RULES:");
     toneConstraints.forEach(t => sections.push(`- ${t}`));
     sections.push("");
   }
 
-  // Visual constraints
-  if (visualDirection) {
-    sections.push(`VISUAL CONSTRAINTS: ${visualDirection}`);
+  // CTA strategy injection
+  if (strategy.ctaStrategies && strategy.ctaStrategies.length > 0) {
+    // Map content types to likely CTA goals
+    const ctaGoalMap: Record<ContentPurpose, string[]> = {
+      reel: ["follow", "save", "comment"],
+      post: ["save", "comment", "share"],
+      story: ["click", "comment", "follow"],
+      carousel: ["save", "share", "follow"],
+      ad: ["click", "buy", "follow"],
+    };
+    const preferredGoals = ctaGoalMap[contentType] || [];
+    const matchedCtas = strategy.ctaStrategies.filter(c => preferredGoals.includes(c.goal));
+    const ctasToShow = matchedCtas.length > 0 ? matchedCtas : strategy.ctaStrategies.slice(0, 2);
+
+    sections.push("CTA OPTIONS (pick the best fit):");
+    for (const cta of ctasToShow) {
+      sections.push(`- [${cta.goal}] "${cta.cta}" — ${cta.context}`);
+    }
     sections.push("");
   }
 
@@ -213,17 +417,39 @@ export function buildContentGenerationPrompt(
   sections.push("");
 
   if (screenshotCount > 0) {
-    sections.push(`You have ${screenshotCount} product screenshots attached. Use them as creative assets — you decide how:
-- Feature a screenshot as the hero image
-- Use screenshots as reference for describing the UI in the caption
-- Combine multiple screenshots in a collage-style composition
-- Use them as background/context elements
-- Or ignore them if the content works better without`);
+    sections.push(`You have ${screenshotCount} uploaded image(s) attached.
+
+IMAGE CLASSIFICATION — for EACH image, determine its type:
+
+A) FEATURE SPOTLIGHT (app screen, UI screenshot, product feature, dashboard, product photo)
+   → CAPTION: reference specific UI elements, features, or experiences visible. Be concrete.
+   → IMAGE PROMPT: translate the feature's purpose into a visual metaphor or marketing scene. Do NOT recreate the UI literally. Example: a task management board → an organized desk with neatly arranged objects.
+
+B) STYLE REFERENCE (moodboard, aesthetic inspo, design reference, color palette, lifestyle photo)
+   → CAPTION: do NOT mention or describe this image. It's for visual direction only.
+   → IMAGE PROMPT: extract mood, palette, lighting, composition, and texture from this image. Apply these qualities to the scene you create.
+
+If you receive a mix, handle each image according to its type. Combine feature content in the caption and style cues in the image prompt.
+
+The image model cannot see these images - your description is the only bridge. Weave extracted colors into "brandColorUsage".`);
   } else {
-    sections.push("No screenshots available.");
+    sections.push("No images provided. Use the Visual Identity from PRODUCT CONTEXT for color and style cues.");
   }
 
+  // IMAGE GENERATION RULES for Flux-optimized prompts
   sections.push("");
+  sections.push(`IMAGE GENERATION RULES (the image model is Flux — follow these strictly):
+- Write the scene as a natural language paragraph, NOT comma-separated tags
+- Lead with the main visual element in the first sentence
+- Weave brand colors (${brandColors || "infer from product"}) and mood (${brandMood || "infer from product"}) into the scene naturally
+- Include camera lens/aperture for photo-realistic scenes (e.g. "shot on 50mm f/2.0")
+- Do NOT add quality tags like "8k", "uhd", "highly detailed" — Flux ignores them
+- Target 20-60 words for the scene field
+- NEVER include people, human figures, faces, hands, or body parts — Flux renders them poorly
+- NEVER include text, lettering, words, or typography in the scene — Flux cannot render text correctly
+- Focus on products, objects, environments, abstract compositions, and still-life setups instead`);
+  sections.push("");
+
   sections.push(`Produce BOTH a caption and image generation instructions together, so they are creatively aligned.
 
 Return ONLY valid JSON:
@@ -231,12 +457,11 @@ Return ONLY valid JSON:
   "caption": "the full caption text without hashtags",
   "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
   "imagePrompt": {
-    "scene": "detailed description of the image to generate",
-    "screenshotUsage": "how screenshots should be incorporated (or 'none')",
-    "mood": "emotional tone of the image",
-    "style": "visual style (photo-realistic, illustrated, minimal, etc.)",
-    "aspectRatio": "${aspectRatio}",
-    "textOverlay": "any text to render on the image, or null"
+    "scene": "Natural language paragraph describing an environment, abstract composition, or still-life that evokes the product's essence. Lead with the main visual element. Include setting, lighting, camera spec, and brand colors woven naturally. No people, no devices, no text. Example: 'A sunlit loft workspace with exposed brick walls and monstera plants, warm amber light pooling across a navy blue velvet surface with scattered gold geometric shapes, shot on 50mm f/2.0 with shallow depth of field.'",
+    "brandColorUsage": "How brand colors appear in the scene (e.g. 'navy in the furniture, amber in the lighting')",
+    "mood": "single word or short phrase — energetic, calm, luxurious, playful, professional, cozy, etc.",
+    "style": "one of: photo-realistic, illustrated, minimal-graphic, cinematic, 3d-render, flat-design",
+    "aspectRatio": "${aspectRatio}"
   }
 }`);
 

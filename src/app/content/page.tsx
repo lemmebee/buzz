@@ -49,13 +49,40 @@ export default function ContentPage() {
   }
 
   async function handleStatusChange(id: number, status: string) {
+    const body: Record<string, unknown> = { status };
+    if (status !== "scheduled") body.scheduledAt = null;
     await fetch(`/api/posts/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(body),
     });
     setPosts(
-      posts.map((p) => (p.id === id ? { ...p, status } : p))
+      posts
+        .map((p) =>
+          p.id === id
+            ? { ...p, status, scheduledAt: status !== "scheduled" ? null : p.scheduledAt }
+            : p
+        )
+        .filter((p) => filter === "all" || p.status === filter)
+    );
+  }
+
+  async function handleSchedule(id: number, scheduledAt: string) {
+    const res = await fetch(`/api/posts/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "scheduled",
+        scheduledAt: new Date(scheduledAt).toISOString(),
+      }),
+    });
+    const updated = await res.json();
+    setPosts(
+      posts
+        .map((p) =>
+          p.id === id ? { ...p, status: "scheduled", scheduledAt: updated.scheduledAt } : p
+        )
+        .filter((p) => filter === "all" || p.status === filter)
     );
   }
 
@@ -76,9 +103,11 @@ export default function ContentPage() {
     }
 
     setPosts(
-      posts.map((p) =>
-        p.id === id ? { ...p, status: "posted", instagramId: data.instagramId } : p
-      )
+      posts
+        .map((p) =>
+          p.id === id ? { ...p, status: "posted", instagramId: data.instagramId } : p
+        )
+        .filter((p) => filter === "all" || p.status === filter)
     );
   }
 
@@ -152,6 +181,7 @@ export default function ContentPage() {
                   onDelete={handleDelete}
                   onStatusChange={handleStatusChange}
                   onPostNow={handlePostNow}
+                  onSchedule={handleSchedule}
                 />
               ))}
           </div>

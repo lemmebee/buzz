@@ -10,7 +10,9 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const error = req.nextUrl.searchParams.get("error");
   const state = req.nextUrl.searchParams.get("state");
-  const productId = state ? parseInt(state) : null;
+  const cookieProductId = req.cookies.get("oauth_product_id")?.value;
+  const rawProductId = cookieProductId || state;
+  const productId = rawProductId ? parseInt(rawProductId) : null;
 
   if (error || !code) {
     return NextResponse.redirect(new URL("/settings?error=oauth_denied", req.url));
@@ -114,15 +116,19 @@ export async function GET(req: NextRequest) {
       accountId = result[0].id;
     }
 
-    // Link to product if productId provided in state
+    // Link to product if productId provided via cookie or state
     if (productId) {
       await db.update(schema.products)
         .set({ instagramAccountId: accountId })
         .where(eq(schema.products.id, productId));
-      return NextResponse.redirect(new URL(`/products?success=instagram_linked`, req.url));
+      const res = NextResponse.redirect(new URL(`/products?success=instagram_linked`, req.url));
+      res.cookies.delete("oauth_product_id");
+      return res;
     }
 
-    return NextResponse.redirect(new URL("/settings?success=connected", req.url));
+    const res = NextResponse.redirect(new URL("/settings?success=connected", req.url));
+    res.cookies.delete("oauth_product_id");
+    return res;
   } catch (error) {
     console.error("OAuth callback error:", error);
     return NextResponse.redirect(new URL("/settings?error=unknown", req.url));

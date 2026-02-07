@@ -30,6 +30,7 @@ export function createGeminiTextProvider(config: ProviderConfig = {}): TextProvi
         }
       }
 
+      console.log(`[TextProvider] sending request to gemini/${modelName}`);
       const result = await model.generateContent(parts);
       const response = result.response;
       const text = response.text();

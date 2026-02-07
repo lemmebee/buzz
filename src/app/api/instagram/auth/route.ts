@@ -24,5 +24,13 @@ export async function GET(req: NextRequest) {
     authUrl.searchParams.set("state", productId);
   }
 
-  return NextResponse.redirect(authUrl.toString());
+  const response = NextResponse.redirect(authUrl.toString());
+  response.cookies.set("oauth_product_id", productId || "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600, // 10 minutes
+  });
+  return response;
 }

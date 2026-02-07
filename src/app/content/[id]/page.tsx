@@ -23,6 +23,7 @@ export default function ContentEditPage() {
   const [type, setType] = useState("post");
   const [status, setStatus] = useState("draft");
   const [mediaUrl, setMediaUrl] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -52,6 +53,11 @@ export default function ContentEditPage() {
     setType(postData.type);
     setStatus(postData.status);
     setMediaUrl(postData.mediaUrl || "");
+    setScheduledAt(
+      postData.scheduledAt
+        ? new Date(postData.scheduledAt).toISOString().slice(0, 16)
+        : ""
+    );
     setLoading(false);
   }
 
@@ -63,6 +69,7 @@ export default function ContentEditPage() {
       .map((t) => t.trim().replace(/^#/, ""))
       .filter(Boolean);
 
+    const saveStatus = scheduledAt ? "scheduled" : status;
     await fetch(`/api/posts/${params.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -70,8 +77,9 @@ export default function ContentEditPage() {
         content,
         hashtags: hashtagsArray,
         type,
-        status,
+        status: saveStatus,
         mediaUrl: mediaUrl || null,
+        scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
       }),
     });
 
@@ -187,7 +195,12 @@ export default function ContentEditPage() {
               </label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  if (e.target.value !== "scheduled" && e.target.value !== "approved") {
+                    setScheduledAt("");
+                  }
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
               >
                 {statuses.map((s) => (
@@ -198,6 +211,26 @@ export default function ContentEditPage() {
               </select>
             </div>
           </div>
+
+          {/* Schedule */}
+          {(status === "approved" || status === "scheduled") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Schedule For
+              </label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+              />
+              {scheduledAt && (
+                <p className="text-xs text-blue-600 mt-1">
+                  Will auto-post at this time
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Content */}
           <div>
@@ -240,6 +273,16 @@ export default function ContentEditPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
               placeholder="https://..."
             />
+            {/* Image preview */}
+            {mediaUrl && (
+              <div className="mt-3 max-w-sm">
+                <img
+                  src={mediaUrl}
+                  alt="Preview"
+                  className="w-full rounded-lg border border-gray-200"
+                />
+              </div>
+            )}
           </div>
         </div>
       </main>

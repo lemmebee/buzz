@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { extractProfileAndStrategy } from "@/lib/brain/extract";
+import { snapshotChangedFields } from "@/lib/revisions";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -64,6 +65,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (body.profile !== undefined) updateData.profile = body.profile;
     if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
 
+    // Snapshot before overwriting
+    const existing = await db.select().from(schema.products).where(eq(schema.products.id, parseInt(id))).get();
+    if (existing) {
+      await snapshotChangedFields(existing, {
+        planFile: updateData.planFile as string | null,
+        profile: updateData.profile as string | null | undefined,
+        marketingStrategy: updateData.marketingStrategy as string | null | undefined,
+      }, "manual");
+    }
+
     const result = await db.update(schema.products)
       .set(updateData)
       .where(eq(schema.products.id, parseInt(id)))
@@ -107,6 +118,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
   };
   if (body.profile !== undefined) updateData.profile = body.profile;
   if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
+
+  // Snapshot before overwriting
+  const existingJson = await db.select().from(schema.products).where(eq(schema.products.id, parseInt(id))).get();
+  if (existingJson) {
+    await snapshotChangedFields(existingJson, {
+      planFile: updateData.planFile as string | null,
+      profile: updateData.profile as string | null | undefined,
+      marketingStrategy: updateData.marketingStrategy as string | null | undefined,
+    }, "manual");
+  }
 
   const result = await db.update(schema.products)
     .set(updateData)

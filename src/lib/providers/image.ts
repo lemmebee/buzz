@@ -19,6 +19,7 @@ export function createPollinationsImageProvider(): ImageProvider {
         height: String(height),
         model: "flux",
         nologo: "true",
+        enhance: "true",
         seed: String(Math.floor(Math.random() * 1000000)),
       });
 
