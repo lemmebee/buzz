@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Post, Product } from "../../../../drizzle/schema";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 const statuses = ["draft", "approved", "scheduled", "posted"] as const;
 const types = ["reel", "post", "story", "carousel"] as const;
@@ -16,6 +17,8 @@ export default function ContentEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [posting, setPosting] = useState(false);
+
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   // Form state
   const [content, setContent] = useState("");
@@ -279,9 +282,13 @@ export default function ContentEditPage() {
                 <img
                   src={mediaUrl}
                   alt="Preview"
-                  className="w-full rounded-lg border border-gray-200"
+                  className="w-full rounded-lg border border-gray-200 cursor-pointer"
+                  onClick={() => setLightboxSrc(mediaUrl)}
                 />
               </div>
+            )}
+            {lightboxSrc && (
+              <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
             )}
           </div>
         </div>
