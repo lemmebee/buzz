@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Post } from "../../drizzle/schema";
+import { ImageLightbox } from "./ImageLightbox";
 
 interface ContentCardProps {
   post: Post;
@@ -39,20 +40,25 @@ export function ContentCard({
   const hashtags = post.hashtags ? JSON.parse(post.hashtags) : [];
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-gray-300 transition-colors">
       {/* Image preview */}
       {post.mediaUrl && (
-        <Link href={`/content/${post.id}`}>
-          <div className="aspect-square bg-gray-100">
-            <img
-              src={post.mediaUrl}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </Link>
+        <div
+          className="aspect-square bg-gray-100 cursor-pointer"
+          onClick={() => setLightboxSrc(post.mediaUrl!)}
+        >
+          <img
+            src={post.mediaUrl}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+      {lightboxSrc && (
+        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
       )}
 
       <div className="p-4">

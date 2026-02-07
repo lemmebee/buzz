@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Product } from "../../../drizzle/schema";
 import type { TargetType, ContentTargeting } from "@/lib/brain/types";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 type PlatformType = "instagram" | "twitter";
 type ContentType = "reel" | "post" | "carousel" | "story" | "ad";
@@ -111,6 +112,9 @@ export default function GeneratePage() {
   // Results
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  // Lightbox
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   // Mix & Match
   const [mixMode, setMixMode] = useState(false);
@@ -673,7 +677,8 @@ export default function GeneratePage() {
                         <img
                           src={src}
                           alt={`Screenshot ${i + 1}`}
-                          className="w-full aspect-square object-cover rounded-lg border border-gray-200"
+                          className="w-full aspect-square object-cover rounded-lg border border-gray-200 cursor-pointer"
+                          onClick={() => setLightboxSrc(src)}
                         />
                         <button
                           type="button"
@@ -761,7 +766,7 @@ export default function GeneratePage() {
                         {post.mediaUrl ? (
                           <div
                             onClick={() => handleMixClick(i, "image")}
-                            className={`aspect-square bg-gray-100 relative cursor-pointer transition-all ${
+                            className={`aspect-square bg-gray-100 relative cursor-pointer transition-all group ${
                               selectedImageIndex === i
                                 ? "ring-2 ring-green-500 ring-inset"
                                 : "hover:ring-1 hover:ring-green-300 hover:ring-inset"
@@ -772,6 +777,19 @@ export default function GeneratePage() {
                               alt="Generated"
                               className="w-full h-full object-cover"
                             />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxSrc(post.mediaUrl!);
+                              }}
+                              className="absolute top-2 right-2 w-7 h-7 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="View full size"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                                <path d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" />
+                                <path d="M9 6.75a.75.75 0 01.75.75v1.5h1.5a.75.75 0 010 1.5h-1.5v1.5a.75.75 0 01-1.5 0v-1.5h-1.5a.75.75 0 010-1.5h1.5v-1.5A.75.75 0 019 6.75z" />
+                              </svg>
+                            </button>
                             {selectedImageIndex === i && (
                               <span className="absolute top-2 left-2 px-2 py-0.5 bg-green-500 text-white text-xs font-medium rounded">
                                 Image
@@ -822,7 +840,7 @@ export default function GeneratePage() {
                         }`}
                       >
                         {post.mediaUrl && (
-                          <div className="aspect-square bg-gray-100 relative">
+                          <div className="aspect-square bg-gray-100 relative group">
                             <img
                               src={post.mediaUrl}
                               alt="Generated"
@@ -837,6 +855,19 @@ export default function GeneratePage() {
                                 onClick={(e) => e.stopPropagation()}
                               />
                             </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxSrc(post.mediaUrl!);
+                              }}
+                              className="absolute top-2 right-2 w-7 h-7 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="View full size"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                                <path d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" />
+                                <path d="M9 6.75a.75.75 0 01.75.75v1.5h1.5a.75.75 0 010 1.5h-1.5v1.5a.75.75 0 01-1.5 0v-1.5h-1.5a.75.75 0 010-1.5h1.5v-1.5A.75.75 0 019 6.75z" />
+                              </svg>
+                            </button>
                           </div>
                         )}
                         <div className="p-3">
@@ -878,7 +909,8 @@ export default function GeneratePage() {
                           <img
                             src={generatedPosts[selectedImageIndex].mediaUrl!}
                             alt="Selected"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={() => setLightboxSrc(generatedPosts[selectedImageIndex].mediaUrl!)}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
@@ -968,6 +1000,9 @@ export default function GeneratePage() {
             )}
           </div>
         )}
+      {lightboxSrc && (
+        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
       </main>
     </div>
   );
