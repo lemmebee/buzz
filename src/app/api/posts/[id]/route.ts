@@ -34,6 +34,7 @@ export async function PUT(
     updateData.hashtags = JSON.stringify(body.hashtags);
   if (body.status !== undefined) updateData.status = body.status;
   if (body.mediaUrl !== undefined) updateData.mediaUrl = body.mediaUrl;
+  if (body.publicMediaUrl !== undefined) updateData.publicMediaUrl = body.publicMediaUrl;
   if (body.scheduledAt !== undefined)
     updateData.scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null;
   if (body.postedAt !== undefined)

@@ -70,6 +70,7 @@ export function createHuggingFaceTextProvider(config: ProviderConfig = {}): Text
 
       const url = `${baseUrl}/chat/completions`;
 
+      console.log(`[TextProvider] sending request to huggingface/${model} at ${url}`);
       const response = await fetch(url, {
         method: "POST",
         headers: {

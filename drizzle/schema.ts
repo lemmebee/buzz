@@ -22,6 +22,7 @@ export const posts = sqliteTable("posts", {
   content: text("content").notNull(),
   hashtags: text("hashtags"), // JSON array
   mediaUrl: text("media_url"),
+  publicMediaUrl: text("public_media_url"), // publicly accessible URL for platform APIs
   status: text("status").notNull().default("draft"), // draft | approved | scheduled | posted
   scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
   postedAt: integer("posted_at", { mode: "timestamp" }),
@@ -46,6 +47,16 @@ export const instagramAccounts = sqliteTable("instagram_accounts", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+export const productRevisions = sqliteTable("product_revisions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  field: text("field").notNull(), // planFile | profile | marketingStrategy
+  content: text("content").notNull(),
+  textProvider: text("text_provider"), // model used at time of change (null for manual)
+  source: text("source").notNull(), // manual | extraction
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   key: text("key").notNull().unique(),
@@ -59,3 +70,4 @@ export type Post = typeof posts.$inferSelect;
 export type NewPost = typeof posts.$inferInsert;
 export type InstagramAccount = typeof instagramAccounts.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
+export type ProductRevision = typeof productRevisions.$inferSelect;

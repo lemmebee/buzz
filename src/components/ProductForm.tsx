@@ -13,6 +13,8 @@ export function ProductForm({ product }: ProductFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const screenshotInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  const [reExtracting, setReExtracting] = useState(false);
+  const [extractionStatus, setExtractionStatus] = useState(product?.extractionStatus || null);
 
   const [name, setName] = useState(product?.name || "");
   const [description, setDescription] = useState(product?.description || "");
@@ -48,7 +50,7 @@ export function ProductForm({ product }: ProductFormProps) {
       setName(titleMatch[1].trim());
     }
 
-    // Find description - first paragraph after title
+    // Find description — first paragraph after title
     let foundTitle = false;
     const descLines: string[] = [];
     for (const line of lines) {
@@ -94,6 +96,37 @@ export function ProductForm({ product }: ProductFormProps) {
     URL.revokeObjectURL(newScreenshotPreviews[index]);
     setNewScreenshots((prev) => prev.filter((_, i) => i !== index));
     setNewScreenshotPreviews((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleReExtract() {
+    if (!product) return;
+    setReExtracting(true);
+    setExtractionStatus("extracting");
+    try {
+      const res = await fetch(`/api/products/${product.id}/re-extract`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Re-extraction failed");
+        setExtractionStatus("failed");
+        setReExtracting(false);
+        return;
+      }
+      // Poll for completion
+      const poll = setInterval(async () => {
+        const r = await fetch(`/api/products/${product.id}`);
+        if (r.ok) {
+          const p = await r.json();
+          setExtractionStatus(p.extractionStatus);
+          if (p.extractionStatus === "done" || p.extractionStatus === "failed") {
+            clearInterval(poll);
+            setReExtracting(false);
+          }
+        }
+      }, 2000);
+    } catch {
+      setExtractionStatus("failed");
+      setReExtracting(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -201,6 +234,32 @@ export function ProductForm({ product }: ProductFormProps) {
         <p className="text-xs text-gray-500 mt-1">Upload a markdown file describing the product</p>
       </div>
 
+      {product && planFileName && (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleReExtract}
+            disabled={reExtracting}
+            className="px-3 py-1.5 text-sm font-medium rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+          >
+            {reExtracting ? "Re-extracting..." : "Re-extract Profile & Strategy"}
+          </button>
+          {extractionStatus && (
+            <span className={`text-xs font-medium ${
+              extractionStatus === "done" ? "text-green-600" :
+              extractionStatus === "failed" ? "text-red-600" :
+              extractionStatus === "extracting" ? "text-yellow-600" :
+              "text-gray-500"
+            }`}>
+              {extractionStatus === "done" ? "Extraction complete" :
+               extractionStatus === "failed" ? "Extraction failed" :
+               extractionStatus === "extracting" ? "Extracting..." :
+               extractionStatus === "pending" ? "Pending..." : ""}
+            </span>
+          )}
+        </div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Text Provider
@@ -210,8 +269,9 @@ export function ProductForm({ product }: ProductFormProps) {
           onChange={(e) => setTextProvider(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
-          <option value="gemini">Gemini</option>
-          <option value="huggingface">Hugging Face</option>
+          <option value="gemini">Gemini — gemini-2.5-flash</option>
+          <option value="gemini-flash-lite">Gemini — gemini-2.5-flash-lite</option>
+          <option value="huggingface">HuggingFace — GLM-4.5V</option>
         </select>
         <p className="text-xs text-gray-500 mt-1">LLM provider for profile/strategy extraction</p>
       </div>

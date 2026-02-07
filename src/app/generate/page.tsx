@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Product } from "../../../drizzle/schema";
 import type { TargetType, ContentTargeting } from "@/lib/brain/types";
 
-type ContentType = "reel" | "post" | "carousel";
+type PlatformType = "instagram" | "twitter";
+type ContentType = "reel" | "post" | "carousel" | "story" | "ad";
 
 interface GeneratedPost {
   content: string;
   hashtags: string[];
   mediaUrl?: string | null;
+  publicMediaUrl?: string | null;
   metadata?: {
     hookUsed?: string;
     pillarUsed?: string;
@@ -20,6 +22,16 @@ interface GeneratedPost {
     toneConstraints?: string[];
     visualDirection?: string;
   };
+}
+
+interface ComposedPost {
+  textSourceIndex: number;
+  imageSourceIndex: number | null;
+  content: string;
+  hashtags: string[];
+  mediaUrl: string | null;
+  publicMediaUrl: string | null;
+  metadata: GeneratedPost["metadata"];
 }
 
 interface Suggestions {
@@ -44,11 +56,23 @@ interface Suggestions {
   };
 }
 
-const contentTypes: { value: ContentType; label: string }[] = [
-  { value: "post", label: "Post" },
-  { value: "reel", label: "Reel" },
-  { value: "carousel", label: "Carousel" },
+const platformTypes: { value: PlatformType; label: string }[] = [
+  { value: "instagram", label: "Instagram" },
+  { value: "twitter", label: "Twitter/X" },
 ];
+
+const contentTypesByPlatform: Record<PlatformType, { value: ContentType; label: string }[]> = {
+  instagram: [
+    { value: "post", label: "Post" },
+    { value: "reel", label: "Reel" },
+    { value: "story", label: "Story" },
+    { value: "ad", label: "Ad" },
+  ],
+  twitter: [
+    { value: "post", label: "Tweet" },
+    { value: "ad", label: "Ad" },
+  ],
+};
 
 const targetTypes: { value: TargetType | ""; label: string }[] = [
   { value: "", label: "Auto" },
@@ -63,9 +87,11 @@ export default function GeneratePage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Form
   const [productId, setProductId] = useState<number | null>(null);
+  const [platform, setPlatform] = useState<PlatformType>("instagram");
   const [contentType, setContentType] = useState<ContentType>("post");
   const [count, setCount] = useState(5);
 
@@ -77,9 +103,35 @@ export default function GeneratePage() {
   const [targetType, setTargetType] = useState<TargetType | "">("");
   const [targetValue, setTargetValue] = useState<string>("");
 
+  // Screenshots
+  const [screenshots, setScreenshots] = useState<File[]>([]);
+  const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([]);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
+
   // Results
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  // Mix & Match
+  const [mixMode, setMixMode] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [selectedTextIndex, setSelectedTextIndex] = useState<number | null>(null);
+  const [compositionQueue, setCompositionQueue] = useState<ComposedPost[]>([]);
+
+  function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setScreenshots((prev) => [...prev, ...files]);
+    const newPreviews = files.map((f) => URL.createObjectURL(f));
+    setScreenshotPreviews((prev) => [...prev, ...newPreviews]);
+    if (screenshotInputRef.current) screenshotInputRef.current.value = "";
+  }
+
+  function removeScreenshot(index: number) {
+    URL.revokeObjectURL(screenshotPreviews[index]);
+    setScreenshots((prev) => prev.filter((_, i) => i !== index));
+    setScreenshotPreviews((prev) => prev.filter((_, i) => i !== index));
+  }
 
   const fetchSuggestions = useCallback(async (pid: number) => {
     try {
@@ -121,8 +173,11 @@ export default function GeneratePage() {
     if (!productId) return;
 
     setGenerating(true);
+    setError(null);
     setGeneratedPosts([]);
     setSelected(new Set());
+    setSelectedImageIndex(null);
+    setSelectedTextIndex(null);
 
     // Build targeting object - use suggestions when in auto mode
     const targeting: ContentTargeting = {};
@@ -166,19 +221,30 @@ export default function GeneratePage() {
     }
 
     try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const formData = new FormData();
+      formData.append(
+        "data",
+        JSON.stringify({
           productId,
           contentType,
           count,
-          platform: "instagram",
+          platform,
           targeting: Object.keys(targeting).length > 0 ? targeting : undefined,
-        }),
+        })
+      );
+      for (const file of screenshots) {
+        formData.append("screenshots", file);
+      }
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        body: formData,
       });
 
-      if (!res.ok) throw new Error("Generation failed");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || "Generation failed");
+      }
 
       const data = await res.json();
       const posts = data.posts || [];
@@ -188,7 +254,7 @@ export default function GeneratePage() {
       // Refresh suggestions after generation
       fetchSuggestions(productId);
     } catch (e) {
-      alert("Failed to generate content");
+      setError(e instanceof Error ? e.message : "Failed to generate content");
       console.error(e);
     } finally {
       setGenerating(false);
@@ -213,6 +279,7 @@ export default function GeneratePage() {
             content: post.content,
             hashtags: post.hashtags,
             mediaUrl: post.mediaUrl,
+            publicMediaUrl: post.publicMediaUrl,
             status: "draft",
             hookUsed: post.metadata?.hookUsed,
             pillarUsed: post.metadata?.pillarUsed,
@@ -251,6 +318,83 @@ export default function GeneratePage() {
     }
   }
 
+  function handleMixClick(index: number, type: "image" | "text") {
+    if (type === "image") {
+      setSelectedImageIndex((prev) => (prev === index ? null : index));
+    } else {
+      setSelectedTextIndex((prev) => (prev === index ? null : index));
+    }
+  }
+
+  function buildComposedPost(): ComposedPost | null {
+    if (selectedTextIndex === null) return null;
+    const textPost = generatedPosts[selectedTextIndex];
+    const imagePost = selectedImageIndex !== null ? generatedPosts[selectedImageIndex] : null;
+
+    return {
+      textSourceIndex: selectedTextIndex,
+      imageSourceIndex: selectedImageIndex,
+      content: textPost.content,
+      hashtags: textPost.hashtags,
+      mediaUrl: imagePost?.mediaUrl ?? null,
+      publicMediaUrl: imagePost?.publicMediaUrl ?? null,
+      metadata: {
+        hookUsed: textPost.metadata?.hookUsed,
+        pillarUsed: textPost.metadata?.pillarUsed,
+        targetType: textPost.metadata?.targetType,
+        targetValue: textPost.metadata?.targetValue,
+        toneConstraints: textPost.metadata?.toneConstraints,
+        visualDirection: imagePost?.metadata?.visualDirection ?? textPost.metadata?.visualDirection,
+      },
+    };
+  }
+
+  function addToQueue() {
+    const composed = buildComposedPost();
+    if (!composed) return;
+    setCompositionQueue((prev) => [...prev, composed]);
+    setSelectedImageIndex(null);
+    setSelectedTextIndex(null);
+  }
+
+  function removeFromQueue(index: number) {
+    setCompositionQueue((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleSaveCompositions() {
+    if (compositionQueue.length === 0) return;
+    setSaving(true);
+    try {
+      for (const post of compositionQueue) {
+        await fetch("/api/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productId,
+            type: contentType,
+            content: post.content,
+            hashtags: post.hashtags,
+            mediaUrl: post.mediaUrl,
+            publicMediaUrl: post.publicMediaUrl,
+            status: "draft",
+            hookUsed: post.metadata?.hookUsed,
+            pillarUsed: post.metadata?.pillarUsed,
+            targetType: post.metadata?.targetType,
+            targetValue: post.metadata?.targetValue,
+            toneConstraints: post.metadata?.toneConstraints,
+            visualDirection: post.metadata?.visualDirection,
+          }),
+        });
+      }
+      router.push(`/content?product=${productId}`);
+    } catch (e) {
+      alert("Failed to save compositions");
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -284,7 +428,7 @@ export default function GeneratePage() {
           <div className="space-y-6">
             {/* Generation form */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Product selector */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -303,6 +447,29 @@ export default function GeneratePage() {
                   </select>
                 </div>
 
+                {/* Platform */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Platform
+                  </label>
+                  <select
+                    value={platform}
+                    onChange={(e) => {
+                      const p = e.target.value as PlatformType;
+                      setPlatform(p);
+                      // Reset content type to first available for new platform
+                      setContentType(contentTypesByPlatform[p][0].value);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                  >
+                    {platformTypes.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Content type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -313,7 +480,7 @@ export default function GeneratePage() {
                     onChange={(e) => setContentType(e.target.value as ContentType)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                   >
-                    {contentTypes.map((ct) => (
+                    {contentTypesByPlatform[platform].map((ct) => (
                       <option key={ct.value} value={ct.value}>
                         {ct.label}
                       </option>
@@ -486,6 +653,41 @@ export default function GeneratePage() {
                 </div>
               )}
 
+              {/* Screenshot Upload */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reference Screenshots (optional)
+                </label>
+                <input
+                  ref={screenshotInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleScreenshotUpload}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {screenshotPreviews.length > 0 && (
+                  <div className="mt-3 grid grid-cols-4 gap-2">
+                    {screenshotPreviews.map((src, i) => (
+                      <div key={i} className="relative group">
+                        <img
+                          src={src}
+                          alt={`Screenshot ${i + 1}`}
+                          className="w-full aspect-square object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeScreenshot(i)}
+                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          x
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={handleGenerate}
                 disabled={generating || !productId}
@@ -493,6 +695,21 @@ export default function GeneratePage() {
               >
                 {generating ? "Generating..." : "Generate"}
               </button>
+
+              {error && (
+                <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <span className="text-red-500 text-sm leading-5 flex-shrink-0">!</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-red-400 hover:text-red-600 text-sm flex-shrink-0"
+                  >
+                    x
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Generated content */}
@@ -504,40 +721,134 @@ export default function GeneratePage() {
                   </h2>
                   <div className="flex gap-2">
                     <button
-                      onClick={toggleAll}
-                      className="text-sm text-gray-600 hover:text-gray-800"
+                      onClick={() => setMixMode((v) => !v)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                        mixMode
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
                     >
-                      {selected.size === generatedPosts.length ? "Deselect All" : "Select All"}
+                      Mix & Match
                     </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving || selected.size === 0}
-                      className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {saving ? "Saving..." : `Save ${selected.size} to Queue`}
-                    </button>
+                    {!mixMode && (
+                      <>
+                        <button
+                          onClick={toggleAll}
+                          className="text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          {selected.size === generatedPosts.length ? "Deselect All" : "Select All"}
+                        </button>
+                        <button
+                          onClick={handleSave}
+                          disabled={saving || selected.size === 0}
+                          className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {saving ? "Saving..." : `Save ${selected.size} to Queue`}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  {generatedPosts.map((post, i) => (
-                    <div
-                      key={i}
-                      onClick={() => toggleSelect(i)}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selected.has(i)
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(i)}
-                          onChange={() => toggleSelect(i)}
-                          className="mt-1"
-                        />
-                        <div className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {generatedPosts.map((post, i) =>
+                    mixMode ? (
+                      <div
+                        key={i}
+                        className="border border-gray-200 rounded-lg overflow-hidden"
+                      >
+                        {/* Image area */}
+                        {post.mediaUrl ? (
+                          <div
+                            onClick={() => handleMixClick(i, "image")}
+                            className={`aspect-square bg-gray-100 relative cursor-pointer transition-all ${
+                              selectedImageIndex === i
+                                ? "ring-2 ring-green-500 ring-inset"
+                                : "hover:ring-1 hover:ring-green-300 hover:ring-inset"
+                            }`}
+                          >
+                            <img
+                              src={post.mediaUrl}
+                              alt="Generated"
+                              className="w-full h-full object-cover"
+                            />
+                            {selectedImageIndex === i && (
+                              <span className="absolute top-2 left-2 px-2 py-0.5 bg-green-500 text-white text-xs font-medium rounded">
+                                Image
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="h-20 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                            No image
+                          </div>
+                        )}
+                        {/* Text area */}
+                        <div
+                          onClick={() => handleMixClick(i, "text")}
+                          className={`p-3 cursor-pointer transition-all ${
+                            selectedTextIndex === i
+                              ? "ring-2 ring-blue-500 ring-inset bg-blue-50"
+                              : "hover:bg-gray-50"
+                          }`}
+                        >
+                          {selectedTextIndex === i && (
+                            <span className="inline-block mb-1 px-2 py-0.5 bg-blue-500 text-white text-xs font-medium rounded">
+                              Text
+                            </span>
+                          )}
+                          <p className="text-sm text-gray-900 whitespace-pre-wrap line-clamp-4">
+                            {post.content}
+                          </p>
+                          {post.hashtags?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {post.hashtags.map((tag, j) => (
+                                <span key={j} className="text-xs text-blue-600">
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        key={i}
+                        onClick={() => toggleSelect(i)}
+                        className={`border rounded-lg cursor-pointer transition-colors overflow-hidden ${
+                          selected.has(i)
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        {post.mediaUrl && (
+                          <div className="aspect-square bg-gray-100 relative">
+                            <img
+                              src={post.mediaUrl}
+                              alt="Generated"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-2 left-2">
+                              <input
+                                type="checkbox"
+                                checked={selected.has(i)}
+                                onChange={() => toggleSelect(i)}
+                                className="w-5 h-5"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <div className="p-3">
+                          {!post.mediaUrl && (
+                            <input
+                              type="checkbox"
+                              checked={selected.has(i)}
+                              onChange={() => toggleSelect(i)}
+                              className="mr-2"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
                           <p className="text-sm text-gray-900 whitespace-pre-wrap">
                             {post.content}
                           </p>
@@ -552,9 +863,107 @@ export default function GeneratePage() {
                           )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
+
+                {/* Composition preview */}
+                {mixMode && (selectedTextIndex !== null || selectedImageIndex !== null) && (
+                  <div className="mt-4 p-4 border border-purple-200 bg-purple-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-purple-900 mb-3">Composition Preview</h3>
+                    <div className="flex gap-4 items-start">
+                      {/* Image thumbnail */}
+                      <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
+                        {selectedImageIndex !== null && generatedPosts[selectedImageIndex]?.mediaUrl ? (
+                          <img
+                            src={generatedPosts[selectedImageIndex].mediaUrl!}
+                            alt="Selected"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                            No image
+                          </div>
+                        )}
+                      </div>
+                      {/* Text preview */}
+                      <div className="flex-1 min-w-0">
+                        {selectedTextIndex !== null ? (
+                          <>
+                            <p className="text-sm text-gray-900 whitespace-pre-wrap line-clamp-4">
+                              {generatedPosts[selectedTextIndex].content}
+                            </p>
+                            {generatedPosts[selectedTextIndex].hashtags?.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {generatedPosts[selectedTextIndex].hashtags.map((tag, j) => (
+                                  <span key={j} className="text-xs text-blue-600">
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">Select a text source</p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={addToQueue}
+                      disabled={selectedTextIndex === null}
+                      className="mt-3 px-4 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      Add to Queue
+                    </button>
+                  </div>
+                )}
+
+                {/* Composition queue */}
+                {compositionQueue.length > 0 && (
+                  <div className="mt-4 p-4 border border-gray-200 bg-gray-50 rounded-lg">
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">
+                      Composition Queue ({compositionQueue.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {compositionQueue.map((comp, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 bg-white p-2 rounded-lg border border-gray-200"
+                        >
+                          <div className="w-10 h-10 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                            {comp.mediaUrl ? (
+                              <img
+                                src={comp.mediaUrl}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">
+                                --
+                              </div>
+                            )}
+                          </div>
+                          <p className="flex-1 text-sm text-gray-700 truncate">
+                            {comp.content}
+                          </p>
+                          <button
+                            onClick={() => removeFromQueue(i)}
+                            className="text-red-500 hover:text-red-700 text-sm flex-shrink-0"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={handleSaveCompositions}
+                      disabled={saving}
+                      className="mt-3 px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {saving ? "Saving..." : `Save ${compositionQueue.length} to Queue`}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

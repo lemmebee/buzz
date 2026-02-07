@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       content: body.content,
       hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,
       mediaUrl: body.mediaUrl || null,
+      publicMediaUrl: body.publicMediaUrl || null,
       status: body.status || "draft",
       scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null,
       hookUsed: body.hookUsed || null,

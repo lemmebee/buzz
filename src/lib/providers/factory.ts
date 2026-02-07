@@ -8,6 +8,8 @@ export function createTextProvider(providerName?: string): TextProvider {
   switch (provider) {
     case "gemini":
       return createGeminiTextProvider();
+    case "gemini-flash-lite":
+      return createGeminiTextProvider({ model: "gemini-2.5-flash-lite" });
     case "huggingface":
       return createHuggingFaceTextProvider();
     default:

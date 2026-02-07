@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Product } from "../../drizzle/schema";
+import { Product, ProductRevision } from "../../drizzle/schema";
 import { InstagramLinkModal } from "./InstagramLinkModal";
 
 interface ProductCardProps {
@@ -28,6 +28,9 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
   const [editModePlan, setEditModePlan] = useState(false);
   const [editModeProfile, setEditModeProfile] = useState(false);
   const [editModeStrategy, setEditModeStrategy] = useState(false);
+
+  // History panel toggles
+  const [historyField, setHistoryField] = useState<"planFile" | "profile" | "marketingStrategy" | null>(null);
 
   // Editable content
   const [editPlanFile, setEditPlanFile] = useState(product.planFile || "");
@@ -77,25 +80,15 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
     setProduct(initialProduct);
   }, [initialProduct]);
 
-  async function retryExtraction() {
+  async function reExtract() {
     setRetrying(true);
     try {
-      // Trigger re-extraction by updating with same data
-      const res = await fetch(`/api/products/${product.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: product.name,
-          description: product.description,
-          planFile: product.planFile,
-          planFileName: product.planFileName,
-          textProvider: product.textProvider,
-        }),
-      });
+      const res = await fetch(`/api/products/${product.id}/re-extract`, { method: "POST" });
       if (res.ok) {
-        const updated = await res.json();
-        setProduct(updated);
-        onUpdate?.(updated);
+        setProduct({ ...product, extractionStatus: "extracting" });
+      } else {
+        const data = await res.json();
+        alert(data.error || "Re-extraction failed");
       }
     } finally {
       setRetrying(false);
@@ -217,7 +210,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
           )}
           {product.extractionStatus === "failed" && (
             <button
-              onClick={retryExtraction}
+              onClick={reExtract}
               disabled={retrying}
               className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded flex items-center gap-1 hover:bg-red-200 transition-colors"
               title="Click to retry extraction"
@@ -286,18 +279,42 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
 
       {/* Plan File Modal */}
       {showPlanFile && (
-        <Modal onClose={() => { setShowPlanFile(false); setEditModePlan(false); }}>
+        <Modal onClose={() => { setShowPlanFile(false); setEditModePlan(false); setHistoryField(null); }}>
           <div className="flex justify-between items-center p-4 border-b border-gray-200">
             <h3 className="font-medium text-gray-900">Plan File</h3>
             <div className="flex items-center gap-2">
+              {historyField === "planFile" ? (
+                <button
+                  onClick={() => setHistoryField(null)}
+                  className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200"
+                >
+                  &larr; Current
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setEditModePlan(false); setHistoryField("planFile"); }}
+                    className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600"
+                  >
+                    History
+                  </button>
+                  <button
+                    onClick={() => { reExtract(); setShowPlanFile(false); }}
+                    disabled={retrying || isExtracting}
+                    className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
+                  >
+                    {isExtracting ? "Extracting..." : "Re-extract"}
+                  </button>
+                  <button
+                    onClick={() => setEditModePlan(!editModePlan)}
+                    className={`text-xs px-2 py-1 rounded ${editModePlan ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                  >
+                    {editModePlan ? "Preview" : "Edit"}
+                  </button>
+                </>
+              )}
               <button
-                onClick={() => setEditModePlan(!editModePlan)}
-                className={`text-xs px-2 py-1 rounded ${editModePlan ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
-              >
-                {editModePlan ? "Preview" : "Edit"}
-              </button>
-              <button
-                onClick={() => { setShowPlanFile(false); setEditModePlan(false); }}
+                onClick={() => { setShowPlanFile(false); setEditModePlan(false); setHistoryField(null); }}
                 className="text-gray-500 hover:text-gray-700 text-xl"
               >
                 ×
@@ -305,7 +322,22 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
             </div>
           </div>
           <div className="flex-1 overflow-auto p-6">
-            {editModePlan ? (
+            {historyField === "planFile" ? (
+              <RevisionPanel
+                productId={product.id}
+                field="planFile"
+                renderContent={(content) => (
+                  <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:mt-3 prose-headings:mb-1 prose-p:text-gray-700 prose-p:my-1 prose-li:text-gray-700 prose-li:my-0 prose-ul:my-1 prose-ol:my-1 prose-strong:text-gray-900 prose-code:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded prose-pre:bg-gray-100 prose-pre:text-gray-900 prose-pre:my-2">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+                  </div>
+                )}
+                onRevert={(updated) => {
+                  setProduct(updated);
+                  onUpdate?.(updated);
+                  setHistoryField(null);
+                }}
+              />
+            ) : editModePlan ? (
               <textarea
                 value={editPlanFile}
                 onChange={(e) => setEditPlanFile(e.target.value)}
@@ -317,7 +349,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               </div>
             )}
           </div>
-          {editModePlan && (
+          {editModePlan && !historyField && (
             <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
               <button
                 onClick={() => { setShowPlanFile(false); setEditModePlan(false); }}
@@ -339,18 +371,35 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
 
       {/* Product Profile Modal */}
       {showProfile && (
-        <Modal onClose={() => { setShowProfile(false); setEditModeProfile(false); }}>
+        <Modal onClose={() => { setShowProfile(false); setEditModeProfile(false); setHistoryField(null); }}>
           <div className="flex justify-between items-center p-4 border-b border-gray-200">
             <h3 className="font-medium text-gray-900">Product Profile</h3>
             <div className="flex items-center gap-2">
+              {historyField === "profile" ? (
+                <button
+                  onClick={() => setHistoryField(null)}
+                  className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200"
+                >
+                  &larr; Current
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setEditModeProfile(false); setHistoryField("profile"); }}
+                    className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600"
+                  >
+                    History
+                  </button>
+                  <button
+                    onClick={() => setEditModeProfile(!editModeProfile)}
+                    className={`text-xs px-2 py-1 rounded ${editModeProfile ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                  >
+                    {editModeProfile ? "Preview" : "Edit"}
+                  </button>
+                </>
+              )}
               <button
-                onClick={() => setEditModeProfile(!editModeProfile)}
-                className={`text-xs px-2 py-1 rounded ${editModeProfile ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
-              >
-                {editModeProfile ? "Preview" : "Edit"}
-              </button>
-              <button
-                onClick={() => { setShowProfile(false); setEditModeProfile(false); }}
+                onClick={() => { setShowProfile(false); setEditModeProfile(false); setHistoryField(null); }}
                 className="text-gray-500 hover:text-gray-700 text-xl"
               >
                 ×
@@ -358,7 +407,22 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
             </div>
           </div>
           <div className="flex-1 overflow-auto p-6">
-            {editModeProfile ? (
+            {historyField === "profile" ? (
+              <RevisionPanel
+                productId={product.id}
+                field="profile"
+                renderContent={(content) => (
+                  <div className="space-y-3">
+                    <JsonToMarkdown data={JSON.parse(content)} />
+                  </div>
+                )}
+                onRevert={(updated) => {
+                  setProduct(updated);
+                  onUpdate?.(updated);
+                  setHistoryField(null);
+                }}
+              />
+            ) : editModeProfile ? (
               <JsonEditor data={editProfileData} onChange={setEditProfileData} />
             ) : (
               <div className="space-y-3">
@@ -366,7 +430,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               </div>
             )}
           </div>
-          {editModeProfile && (
+          {editModeProfile && !historyField && (
             <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
               <button
                 onClick={() => { setShowProfile(false); setEditModeProfile(false); }}
@@ -388,18 +452,35 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
 
       {/* Marketing Strategy Modal */}
       {showStrategy && (
-        <Modal onClose={() => { setShowStrategy(false); setEditModeStrategy(false); }}>
+        <Modal onClose={() => { setShowStrategy(false); setEditModeStrategy(false); setHistoryField(null); }}>
           <div className="flex justify-between items-center p-4 border-b border-gray-200">
             <h3 className="font-medium text-gray-900">Marketing Strategy</h3>
             <div className="flex items-center gap-2">
+              {historyField === "marketingStrategy" ? (
+                <button
+                  onClick={() => setHistoryField(null)}
+                  className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200"
+                >
+                  &larr; Current
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setEditModeStrategy(false); setHistoryField("marketingStrategy"); }}
+                    className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600"
+                  >
+                    History
+                  </button>
+                  <button
+                    onClick={() => setEditModeStrategy(!editModeStrategy)}
+                    className={`text-xs px-2 py-1 rounded ${editModeStrategy ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                  >
+                    {editModeStrategy ? "Preview" : "Edit"}
+                  </button>
+                </>
+              )}
               <button
-                onClick={() => setEditModeStrategy(!editModeStrategy)}
-                className={`text-xs px-2 py-1 rounded ${editModeStrategy ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
-              >
-                {editModeStrategy ? "Preview" : "Edit"}
-              </button>
-              <button
-                onClick={() => { setShowStrategy(false); setEditModeStrategy(false); }}
+                onClick={() => { setShowStrategy(false); setEditModeStrategy(false); setHistoryField(null); }}
                 className="text-gray-500 hover:text-gray-700 text-xl"
               >
                 ×
@@ -407,7 +488,22 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
             </div>
           </div>
           <div className="flex-1 overflow-auto p-6">
-            {editModeStrategy ? (
+            {historyField === "marketingStrategy" ? (
+              <RevisionPanel
+                productId={product.id}
+                field="marketingStrategy"
+                renderContent={(content) => (
+                  <div className="space-y-3">
+                    <JsonToMarkdown data={JSON.parse(content)} />
+                  </div>
+                )}
+                onRevert={(updated) => {
+                  setProduct(updated);
+                  onUpdate?.(updated);
+                  setHistoryField(null);
+                }}
+              />
+            ) : editModeStrategy ? (
               <JsonEditor data={editStrategyData} onChange={setEditStrategyData} />
             ) : (
               <div className="space-y-3">
@@ -415,7 +511,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               </div>
             )}
           </div>
-          {editModeStrategy && (
+          {editModeStrategy && !historyField && (
             <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
               <button
                 onClick={() => { setShowStrategy(false); setEditModeStrategy(false); }}
@@ -589,6 +685,110 @@ function JsonEditor({ data, onChange }: { data: Record<string, unknown>; onChang
       ))}
     </div>
   );
+}
+
+// Revision history panel
+function RevisionPanel({
+  productId,
+  field,
+  renderContent,
+  onRevert,
+}: {
+  productId: number;
+  field: "planFile" | "profile" | "marketingStrategy";
+  renderContent: (content: string) => React.ReactNode;
+  onRevert: (updated: Product) => void;
+}) {
+  const [revisions, setRevisions] = useState<ProductRevision[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [previewId, setPreviewId] = useState<number | null>(null);
+  const [reverting, setReverting] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/products/${productId}/revisions?field=${field}`)
+      .then((r) => r.json())
+      .then((data) => { setRevisions(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [productId, field]);
+
+  async function handleRevert(revisionId: number) {
+    setReverting(true);
+    try {
+      const res = await fetch(`/api/products/${productId}/revisions/${revisionId}/revert`, { method: "POST" });
+      if (res.ok) {
+        const updated = await res.json();
+        onRevert(updated);
+      }
+    } finally {
+      setReverting(false);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-gray-500">Loading history...</p>;
+  if (revisions.length === 0) return <p className="text-sm text-gray-500">No revision history yet.</p>;
+
+  const previewed = revisions.find((r) => r.id === previewId);
+
+  if (previewed) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={() => setPreviewId(null)} className="text-xs text-blue-600 hover:text-blue-800">
+            &larr; Back to list
+          </button>
+          <span className="text-xs text-gray-500">{timeAgo(previewed.createdAt)}</span>
+          <span className={`text-xs px-1.5 py-0.5 rounded ${previewed.source === "extraction" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+            {previewed.source}
+          </span>
+          {previewed.textProvider && (
+            <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">{previewed.textProvider}</span>
+          )}
+          <button
+            onClick={() => handleRevert(previewed.id)}
+            disabled={reverting}
+            className="ml-auto text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200 disabled:opacity-50"
+          >
+            {reverting ? "Reverting..." : "Revert to this"}
+          </button>
+        </div>
+        {renderContent(previewed.content)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {revisions.map((rev) => (
+        <button
+          key={rev.id}
+          onClick={() => setPreviewId(rev.id)}
+          className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+        >
+          <span className="text-sm text-gray-700 flex-1">{timeAgo(rev.createdAt)}</span>
+          <span className={`text-xs px-1.5 py-0.5 rounded ${rev.source === "extraction" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+            {rev.source}
+          </span>
+          {rev.textProvider && (
+            <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">{rev.textProvider}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function timeAgo(date: Date | null): string {
+  if (!date) return "unknown";
+  const d = typeof date === "number" ? new Date(date) : date instanceof Date ? date : new Date(date);
+  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return d.toLocaleDateString();
 }
 
 function FieldEditor({ value, onChange }: { value: unknown; onChange: (v: unknown) => void }) {

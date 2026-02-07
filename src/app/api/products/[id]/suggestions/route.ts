@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { getUsageStats, suggestLeastUsed } from "@/lib/brain/rotation";
-import type { MarketingStrategy } from "@/lib/brain/types";
+import { normalizeStrategy } from "@/lib/brain/types";
 
 export async function GET(
   req: NextRequest,
@@ -27,27 +27,29 @@ export async function GET(
     return NextResponse.json({ error: "Product has no marketing strategy" }, { status: 400 });
   }
 
-  const strategy: MarketingStrategy = JSON.parse(product.marketingStrategy);
+  const strategy = normalizeStrategy(JSON.parse(product.marketingStrategy));
   const usageStats = await getUsageStats(productId);
 
+  // Extract hook texts for rotation compat
+  const hookTexts = strategy.hooks.map(h => typeof h === "string" ? h : h.text);
+  // Strip stage from objections for rotation compat
+  const objectionTexts = strategy.objections.map(o => o.objection);
+
   const suggestions = {
-    suggestedHook: suggestLeastUsed(strategy.hooks || [], usageStats.hooks),
+    suggestedHook: suggestLeastUsed(hookTexts, usageStats.hooks),
     suggestedPillar: suggestLeastUsed(strategy.contentPillars || [], usageStats.pillars),
     suggestedPain: suggestLeastUsed(strategy.painPoints || [], usageStats.pains),
     suggestedDesire: suggestLeastUsed(strategy.desirePoints || [], usageStats.desires),
-    suggestedObjection: strategy.objections?.length
-      ? suggestLeastUsed(
-          strategy.objections.map(o => o.objection),
-          usageStats.objections
-        )
+    suggestedObjection: objectionTexts.length
+      ? suggestLeastUsed(objectionTexts, usageStats.objections)
       : null,
     usageStats,
     available: {
-      hooks: strategy.hooks || [],
+      hooks: hookTexts,
       pillars: strategy.contentPillars || [],
       pains: strategy.painPoints || [],
       desires: strategy.desirePoints || [],
-      objections: strategy.objections || [],
+      objections: strategy.objections.map(o => ({ objection: o.objection, counter: o.counter })),
     },
   };
 
