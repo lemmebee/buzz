@@ -7,6 +7,7 @@ import { Post, Product } from "../../../../drizzle/schema";
 
 const statuses = ["draft", "approved", "scheduled", "posted"] as const;
 const types = ["reel", "post", "story", "carousel"] as const;
+const platforms = ["instagram", "twitter"] as const;
 
 export default function ContentEditPage() {
   const params = useParams();
@@ -21,6 +22,7 @@ export default function ContentEditPage() {
   const [content, setContent] = useState("");
   const [hashtags, setHashtags] = useState("");
   const [type, setType] = useState("post");
+  const [platform, setPlatform] = useState("instagram");
   const [status, setStatus] = useState("draft");
   const [mediaUrl, setMediaUrl] = useState("");
 
@@ -50,6 +52,7 @@ export default function ContentEditPage() {
       postData.hashtags ? JSON.parse(postData.hashtags).join(", ") : ""
     );
     setType(postData.type);
+    setPlatform(postData.platform || "instagram");
     setStatus(postData.status);
     setMediaUrl(postData.mediaUrl || "");
     setLoading(false);
@@ -70,6 +73,7 @@ export default function ContentEditPage() {
         content,
         hashtags: hashtagsArray,
         type,
+        platform,
         status,
         mediaUrl: mediaUrl || null,
       }),
@@ -86,10 +90,12 @@ export default function ContentEditPage() {
   }
 
   async function handlePostNow() {
-    if (!confirm("Post to Instagram now?")) return;
+    const platformLabel = platform === "twitter" ? "X" : "Instagram";
+    if (!confirm(`Post to ${platformLabel} now?`)) return;
 
     setPosting(true);
-    const res = await fetch("/api/instagram/post", {
+    const endpoint = platform === "twitter" ? "/api/x/post" : "/api/instagram/post";
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ postId: params.id }),
@@ -104,7 +110,16 @@ export default function ContentEditPage() {
     }
 
     setStatus("posted");
-    setPost((p) => (p ? { ...p, status: "posted", instagramId: data.instagramId } : p));
+    setPost((p) =>
+      p
+        ? {
+            ...p,
+            status: "posted",
+            instagramId: data.instagramId || p.instagramId,
+            xPostId: data.xPostId || p.xPostId,
+          }
+        : p
+    );
   }
 
   if (loading) {
@@ -134,7 +149,7 @@ export default function ContentEditPage() {
             >
               Delete
             </button>
-            {status === "approved" && mediaUrl && (
+            {status === "approved" && (platform === "twitter" || !!mediaUrl) && (
               <button
                 onClick={handlePostNow}
                 disabled={posting}
@@ -164,7 +179,7 @@ export default function ContentEditPage() {
           )}
 
           {/* Type & Status */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Type
@@ -177,6 +192,22 @@ export default function ContentEditPage() {
                 {types.map((t) => (
                   <option key={t} value={t}>
                     {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Platform
+              </label>
+              <select
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+              >
+                {platforms.map((p) => (
+                  <option key={p} value={p}>
+                    {p === "twitter" ? "X" : "Instagram"}
                   </option>
                 ))}
               </select>

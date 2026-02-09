@@ -25,6 +25,11 @@ const typeLabels: Record<string, string> = {
   carousel: "Carousel",
 };
 
+const platformLabels: Record<string, string> = {
+  instagram: "Instagram",
+  twitter: "X",
+};
+
 export function ContentCard({
   post,
   productName,
@@ -38,6 +43,9 @@ export function ContentCard({
     <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2">
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+            {platformLabels[post.platform] || post.platform || "Instagram"}
+          </span>
           <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
             {typeLabels[post.type] || post.type}
           </span>
@@ -95,7 +103,7 @@ export function ContentCard({
           </button>
         )}
 
-        {post.status === "approved" && post.mediaUrl && onPostNow && (
+        {post.status === "approved" && onPostNow && (post.platform === "twitter" || !!post.mediaUrl) && (
           <button
             onClick={() => onPostNow(post.id)}
             className="text-xs text-purple-600 hover:text-purple-800 font-medium"

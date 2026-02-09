@@ -12,12 +12,14 @@ export const products = sqliteTable("products", {
   textProvider: text("text_provider"), // gemini | huggingface
   extractionStatus: text("extraction_status"), // pending | extracting | done | failed
   instagramAccountId: integer("instagram_account_id").references(() => instagramAccounts.id),
+  xAccountId: integer("x_account_id").references(() => xAccounts.id),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
 export const posts = sqliteTable("posts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   productId: integer("product_id").references(() => products.id),
+  platform: text("platform").notNull().default("instagram"), // instagram | twitter
   type: text("type").notNull(), // reel | post | story | carousel
   content: text("content").notNull(),
   hashtags: text("hashtags"), // JSON array
@@ -26,6 +28,7 @@ export const posts = sqliteTable("posts", {
   scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
   postedAt: integer("posted_at", { mode: "timestamp" }),
   instagramId: text("instagram_id"),
+  xPostId: text("x_post_id"),
   // Targeting metadata
   hookUsed: text("hook_used"),
   pillarUsed: text("pillar_used"),
@@ -46,6 +49,16 @@ export const instagramAccounts = sqliteTable("instagram_accounts", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+export const xAccounts = sqliteTable("x_accounts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  xUserId: text("x_user_id").notNull(),
+  username: text("username"),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  tokenExpiresAt: integer("token_expires_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   key: text("key").notNull().unique(),
@@ -58,4 +71,5 @@ export type NewProduct = typeof products.$inferInsert;
 export type Post = typeof posts.$inferSelect;
 export type NewPost = typeof posts.$inferInsert;
 export type InstagramAccount = typeof instagramAccounts.$inferSelect;
+export type XAccount = typeof xAccounts.$inferSelect;
 export type Setting = typeof settings.$inferSelect;

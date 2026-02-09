@@ -15,7 +15,8 @@
     "test:provider": "npx tsx scripts/test-text-provider.ts",
     "test:bud": "npx tsx scripts/test-bud-generation.ts",
     "test:buzz": "npx tsx scripts/test-buzz-flow.ts",
-    "test:insta": "npx tsx scripts/test-insta-post.ts"
+    "test:insta": "npx tsx scripts/test-insta-post.ts",
+    "test:x": "npx tsx scripts/test-x-post.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

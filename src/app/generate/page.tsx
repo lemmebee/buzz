@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Product } from "../../../drizzle/schema";
-import type { TargetType, ContentTargeting } from "@/lib/brain/types";
+import type { TargetType, ContentTargeting, Platform } from "@/lib/brain/types";
 
 type ContentType = "reel" | "post" | "carousel";
 
@@ -66,6 +66,7 @@ export default function GeneratePage() {
 
   // Form
   const [productId, setProductId] = useState<number | null>(null);
+  const [platform, setPlatform] = useState<Platform>("instagram");
   const [contentType, setContentType] = useState<ContentType>("post");
   const [count, setCount] = useState(5);
 
@@ -173,7 +174,7 @@ export default function GeneratePage() {
           productId,
           contentType,
           count,
-          platform: "instagram",
+          platform,
           targeting: Object.keys(targeting).length > 0 ? targeting : undefined,
         }),
       });
@@ -209,6 +210,7 @@ export default function GeneratePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             productId,
+            platform,
             type: contentType,
             content: post.content,
             hashtags: post.hashtags,
@@ -284,7 +286,7 @@ export default function GeneratePage() {
           <div className="space-y-6">
             {/* Generation form */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Product selector */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -318,6 +320,21 @@ export default function GeneratePage() {
                         {ct.label}
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                {/* Platform */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Platform
+                  </label>
+                  <select
+                    value={platform}
+                    onChange={(e) => setPlatform(e.target.value as Platform)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                  >
+                    <option value="instagram">Instagram</option>
+                    <option value="twitter">X</option>
                   </select>
                 </div>
 

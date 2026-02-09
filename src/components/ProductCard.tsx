@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Product } from "../../drizzle/schema";
 import { InstagramLinkModal } from "./InstagramLinkModal";
+import { XLinkModal } from "./XLinkModal";
 
 interface ProductCardProps {
   product: Product;
@@ -21,6 +22,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
   const [showProfile, setShowProfile] = useState(false);
   const [showStrategy, setShowStrategy] = useState(false);
   const [showInstagram, setShowInstagram] = useState(false);
+  const [showX, setShowX] = useState(false);
   const [saving, setSaving] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
@@ -194,6 +196,12 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     Link Instagram
+                  </button>
+                  <button
+                    onClick={() => { setShowX(true); setShowMenu(false); }}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Link X
                   </button>
                   {onDelete && (
                     <button
@@ -443,6 +451,20 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
           onClose={() => setShowInstagram(false)}
           onLinked={(accountId) => {
             const updated = { ...product, instagramAccountId: accountId };
+            setProduct(updated);
+            onUpdate?.(updated);
+          }}
+        />
+      )}
+
+      {/* X Link Modal */}
+      {showX && (
+        <XLinkModal
+          productId={product.id}
+          linkedAccountId={product.xAccountId ?? null}
+          onClose={() => setShowX(false)}
+          onLinked={(accountId) => {
+            const updated = { ...product, xAccountId: accountId };
             setProduct(updated);
             onUpdate?.(updated);
           }}

@@ -33,12 +33,14 @@ export async function PUT(
   if (body.hashtags !== undefined)
     updateData.hashtags = JSON.stringify(body.hashtags);
   if (body.status !== undefined) updateData.status = body.status;
+  if (body.platform !== undefined) updateData.platform = body.platform;
   if (body.mediaUrl !== undefined) updateData.mediaUrl = body.mediaUrl;
   if (body.scheduledAt !== undefined)
     updateData.scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null;
   if (body.postedAt !== undefined)
     updateData.postedAt = body.postedAt ? new Date(body.postedAt) : null;
   if (body.instagramId !== undefined) updateData.instagramId = body.instagramId;
+  if (body.xPostId !== undefined) updateData.xPostId = body.xPostId;
 
   const result = await db
     .update(schema.posts)

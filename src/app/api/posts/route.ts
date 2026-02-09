@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     .insert(schema.posts)
     .values({
       productId: body.productId,
+      platform: body.platform || "instagram",
       type: body.type,
       content: body.content,
       hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,

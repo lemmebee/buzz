@@ -60,9 +60,14 @@ export default function ContentPage() {
   }
 
   async function handlePostNow(id: number) {
-    if (!confirm("Post to Instagram now?")) return;
+    const targetPost = posts.find((p) => p.id === id);
+    const platform = targetPost?.platform || "instagram";
+    const platformLabel = platform === "twitter" ? "X" : "Instagram";
 
-    const res = await fetch("/api/instagram/post", {
+    if (!confirm(`Post to ${platformLabel} now?`)) return;
+
+    const endpoint = platform === "twitter" ? "/api/x/post" : "/api/instagram/post";
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ postId: id }),
@@ -77,7 +82,14 @@ export default function ContentPage() {
 
     setPosts(
       posts.map((p) =>
-        p.id === id ? { ...p, status: "posted", instagramId: data.instagramId } : p
+        p.id === id
+          ? {
+              ...p,
+              status: "posted",
+              instagramId: data.instagramId || p.instagramId,
+              xPostId: data.xPostId || p.xPostId,
+            }
+          : p
       )
     );
   }
