@@ -6,6 +6,7 @@ import { db, schema } from "@/lib/db";
 import { buildContentGenerationPrompt } from "@/lib/brain/prompts";
 import type { Platform, ContentPurpose, ContentTargeting } from "@/lib/brain/types";
 import { createTextProvider, createPollinationsImageProvider } from "@/lib/providers";
+import { enforceTwitterConstraints } from "@/lib/platforms/twitter";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -104,6 +105,15 @@ export async function POST(req: NextRequest) {
 
     for (const generated of generatedItems) {
       let mediaUrl: string | null = null;
+      let content = generated.caption || "";
+      let hashtags = generated.hashtags || [];
+
+      if (platform === "twitter") {
+        const constrained = enforceTwitterConstraints(content, hashtags);
+        content = constrained.content;
+        hashtags = constrained.hashtags;
+      }
+
       if (ENABLE_IMAGE_GENERATION && generated.imagePrompt?.scene) {
         const imageProvider = createPollinationsImageProvider();
         const aspectRatio = generated.imagePrompt.aspectRatio || "1:1 square";
@@ -118,8 +128,8 @@ export async function POST(req: NextRequest) {
       }
 
       posts.push({
-        content: generated.caption,
-        hashtags: generated.hashtags || [],
+        content,
+        hashtags,
         mediaUrl,
         metadata,
       });

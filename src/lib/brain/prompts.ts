@@ -223,6 +223,14 @@ export function buildContentGenerationPrompt(
     sections.push("No screenshots available.");
   }
 
+  if (platform === "twitter") {
+    sections.push("");
+    sections.push("HARD CONSTRAINTS FOR X:");
+    sections.push("- Caption must be concise and hook-first.");
+    sections.push("- Keep hashtags to 0-2 only.");
+    sections.push("- The final tweet text (caption + optional two newlines + hashtags) MUST be <= 280 characters.");
+  }
+
   sections.push("");
   sections.push(`Produce BOTH a caption and image generation instructions together, so they are creatively aligned.
 
