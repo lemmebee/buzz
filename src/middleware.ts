@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/cron/", "/api/discord/interactions"];
 
 async function getExpectedToken(): Promise<string> {
   const password = process.env.ADMIN_PASSWORD;

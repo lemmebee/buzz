@@ -822,7 +822,7 @@ export default function GeneratePage() {
                             <div className="flex flex-wrap gap-1 mt-2">
                               {post.hashtags.map((tag, j) => (
                                 <span key={j} className="text-xs text-blue-600">
-                                  #{tag}
+                                  #{tag.replace(/^#+/, "")}
                                 </span>
                               ))}
                             </div>
@@ -887,7 +887,7 @@ export default function GeneratePage() {
                             <div className="flex flex-wrap gap-1 mt-2">
                               {post.hashtags.map((tag, j) => (
                                 <span key={j} className="text-xs text-blue-600">
-                                  #{tag}
+                                  #{tag.replace(/^#+/, "")}
                                 </span>
                               ))}
                             </div>
@@ -929,7 +929,7 @@ export default function GeneratePage() {
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {generatedPosts[selectedTextIndex].hashtags.map((tag, j) => (
                                   <span key={j} className="text-xs text-blue-600">
-                                    #{tag}
+                                    #{tag.replace(/^#+/, "")}
                                   </span>
                                 ))}
                               </div>

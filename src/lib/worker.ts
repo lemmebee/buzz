@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { generateContent } from "@/lib/generate";
-import { sendPostForApproval, startPolling } from "@/lib/telegram";
+import { sendPostForApproval } from "@/lib/discord";
 
 function isDue(schedule: typeof schema.generationSchedules.$inferSelect): boolean {
   const now = new Date();
@@ -52,7 +52,7 @@ async function runScheduledGeneration() {
         }).returning();
 
         const sent = await sendPostForApproval(saved.id);
-        console.log(`[Cron] Draft ${saved.id} created${sent ? " and sent to Telegram" : " but Telegram send FAILED"}`);
+        console.log(`[Cron] Draft ${saved.id} created${sent ? " and sent to Discord" : " but Discord send FAILED"}`);
       }
 
       await db.update(schema.generationSchedules)
@@ -75,7 +75,4 @@ export function startWorker() {
   cronInterval = setInterval(() => {
     runScheduledGeneration().catch(console.error);
   }, 5 * 60 * 1000);
-
-  // Start Telegram polling for button presses
-  startPolling();
 }

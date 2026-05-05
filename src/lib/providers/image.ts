@@ -44,7 +44,7 @@ export function createPollinationsImageProvider(): ImageProvider {
       const buffer = Buffer.from(await response.arrayBuffer());
       writeFileSync(localPath, buffer);
 
-      return { url, localPath: `/media/${filename}` };
+      return { url, localPath: `/api/media/${filename}` };
     },
   };
 }

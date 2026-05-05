@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 // GET all posts (optionally filter by status)
 export async function GET(req: NextRequest) {
@@ -10,11 +10,12 @@ export async function GET(req: NextRequest) {
     const posts = await db
       .select()
       .from(schema.posts)
-      .where(eq(schema.posts.status, status));
+      .where(eq(schema.posts.status, status))
+      .orderBy(desc(schema.posts.id));
     return NextResponse.json(posts);
   }
 
-  const posts = await db.select().from(schema.posts);
+  const posts = await db.select().from(schema.posts).orderBy(desc(schema.posts.id));
   return NextResponse.json(posts);
 }
 

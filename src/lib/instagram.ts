@@ -38,7 +38,7 @@ export async function publishPost(
   const hashtags = post.hashtags ? JSON.parse(post.hashtags) : [];
   const caption =
     hashtags.length > 0
-      ? `${post.content}\n\n${hashtags.map((t: string) => `#${t}`).join(" ")}`
+      ? `${post.content}\n\n${hashtags.map((t: string) => `#${t.replace(/^#+/, "")}`).join(" ")}`
       : post.content;
 
   try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ContentCard } from "@/components/ContentCard";
@@ -9,6 +9,14 @@ import { Post, Product } from "../../../drizzle/schema";
 const statuses = ["all", "draft", "approved", "scheduled", "posted"] as const;
 
 export default function ContentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>}>
+      <ContentPageInner />
+    </Suspense>
+  );
+}
+
+function ContentPageInner() {
   const searchParams = useSearchParams();
   const [posts, setPosts] = useState<Post[]>([]);
   const [products, setProducts] = useState<Record<number, Product>>({});
