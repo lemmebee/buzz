@@ -1,6 +1,7 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { processScheduledPosts } = await import("@/lib/scheduler");
+    const { startWorker } = await import("@/lib/worker");
 
     // Check for due scheduled posts every 60 seconds
     setInterval(async () => {
@@ -11,6 +12,9 @@ export async function register() {
       }
     }, 60_000);
 
-    console.log("Scheduler started (60s interval)");
+    // Start cron generation
+    startWorker();
+
+    console.log("Scheduler + worker started");
   }
 }

@@ -23,7 +23,7 @@ async function saveScreenshots(files: File[]): Promise<string[]> {
     const filepath = join(SCREENSHOTS_DIR, filename);
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filepath, buffer);
-    paths.push(`/media/screenshots/${filename}`);
+    paths.push(`/api/media/screenshots/${filename}`);
   }
   return paths;
 }

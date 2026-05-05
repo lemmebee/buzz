@@ -97,7 +97,7 @@ export function ContentCard({
         <div className="flex flex-wrap gap-1 mb-3">
           {hashtags.slice(0, 5).map((tag: string, i: number) => (
             <span key={i} className="text-xs text-blue-600">
-              #{tag}
+              #{tag.replace(/^#+/, "")}
             </span>
           ))}
           {hashtags.length > 5 && (

@@ -1,6 +1,10 @@
-# Buzz
+<p align="center">
+  <img src="public/icon.svg" alt="Buzz" width="120" height="120" />
+</p>
 
-AI-powered social media content generator for product marketing. Creates Instagram-ready posts, reels, and carousels using product briefs and smart content rotation.
+<h1 align="center">Buzz</h1>
+
+<p align="center">AI-powered social media content generator for product marketing. Creates Instagram-ready posts, reels, and carousels using product briefs and smart content rotation.</p>
 
 ## Tech Stack
 
@@ -11,9 +15,29 @@ AI-powered social media content generator for product marketing. Creates Instagr
 - LLM providers: Google Gemini, HuggingFace (pluggable)
 - Meta Graph API (Instagram posting)
 
-## Setup
+## Install
 
-**Requires Node.js 20+** (for better-sqlite3)
+**Requires Node.js 20+** (for better-sqlite3).
+
+### From release
+
+```bash
+curl -L https://github.com/lemmebee/buzz/archive/refs/tags/v0.1.0.tar.gz | tar -xz
+cd buzz-0.1.0
+npm install
+cp .env.example .env  # fill in values, see below
+npm run db:push
+npm run build
+npm start
+```
+
+Or via `gh`:
+```bash
+gh release download v0.1.0 --repo lemmebee/buzz --archive=tar.gz
+tar -xzf buzz-0.1.0.tar.gz && cd buzz-0.1.0
+```
+
+### From source
 
 1. Install dependencies:
 ```bash
@@ -100,3 +124,55 @@ npm run db:seed      # seed sample product
 3. Create Facebook Page and link Instagram Business Account
 4. Add OAuth redirect URI to app settings
 5. Connect account in Buzz Settings page
+
+## Discord Approval (drafts via bot)
+
+Generation schedules post each draft to a Discord channel with **Post** / **Delete** buttons. Click Post to publish to Instagram, Delete to drop the draft.
+
+### One-time bot setup
+
+1. Create a personal Discord server (any server you control works).
+2. [discord.com/developers/applications](https://discord.com/developers/applications) → **New Application** → name it.
+3. **Bot** tab → **Reset Token** → copy the token.
+4. **General Information** tab → copy the **Public Key** (64 hex chars).
+5. **OAuth2 → URL Generator** → scopes: `bot`, permissions: `Send Messages` + `Embed Links` → open generated URL → invite bot to your server.
+6. In Discord client: User Settings → Advanced → enable Developer Mode. Right-click target channel → **Copy Channel ID**.
+7. Buzz `/schedules` → Discord Notifications card → paste Bot Token, Public Key, Channel ID → **Connect Discord**. Test message lands in the channel.
+
+### Public URL for button clicks
+
+Discord button presses POST to your app. Localhost is not reachable from Discord, so you need a public HTTPS URL.
+
+For a quick tunnel:
+```bash
+cloudflared tunnel --url http://localhost:3000
+```
+Copy the printed `https://*.trycloudflare.com` URL.
+
+In the dev portal → **General Information** → set **Interactions Endpoint URL** to:
+```
+https://<your-tunnel-host>/api/discord/interactions
+```
+Save. Discord verifies the URL with a signed PING; save succeeds when Buzz is reachable and the public key is configured.
+
+For a permanent URL, set up a named Cloudflare tunnel or deploy Buzz behind any HTTPS reverse proxy.
+
+## Generation Schedules
+
+- `/schedules` page lets you set per-product cadence (frequency, preferred time, content type, count).
+- Worker runs every 5 minutes in-process (`src/lib/worker.ts`, started by `src/instrumentation.ts`).
+- Each due schedule generates drafts and ships them to Discord for approval.
+- External cron path also available: `POST /api/cron/generate` with header `x-cron-secret: $CRON_SECRET`.
+
+## Running as a systemd service (Linux)
+
+User unit at `~/.config/systemd/user/buzz.service` runs `npm start` (production build). Companion unit `buzz-tunnel.service` runs the Cloudflare tunnel. Manage with:
+
+```bash
+systemctl --user start  buzz.service buzz-tunnel.service
+systemctl --user enable buzz.service buzz-tunnel.service
+journalctl --user -u buzz.service -f
+journalctl --user -u buzz-tunnel.service | grep trycloudflare
+```
+
+The quick tunnel URL changes whenever `buzz-tunnel.service` restarts; re-paste it into the Discord dev portal each time, or use a named tunnel for a stable hostname.

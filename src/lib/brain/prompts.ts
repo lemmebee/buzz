@@ -423,7 +423,7 @@ IMAGE CLASSIFICATION — for EACH image, determine its type:
 
 A) FEATURE SPOTLIGHT (app screen, UI screenshot, product feature, dashboard, product photo)
    → CAPTION: reference specific UI elements, features, or experiences visible. Be concrete.
-   → IMAGE PROMPT: translate the feature's purpose into a visual metaphor or marketing scene. Do NOT recreate the UI literally. Example: a task management board → an organized desk with neatly arranged objects.
+   → IMAGE PROMPT: create a scene rooted in the feature's real-world subject matter - what the user DOES or FEELS when using it. Don't recreate the UI - depict the real-world context the feature lives in, styled using the product's visual identity. Example: a mood tracking screen → a warm evening scene with a journal and candlelight in the brand's color palette. A budget dashboard → a serene workspace with neatly sorted objects in brand colors.
 
 B) STYLE REFERENCE (moodboard, aesthetic inspo, design reference, color palette, lifestyle photo)
    → CAPTION: do NOT mention or describe this image. It's for visual direction only.

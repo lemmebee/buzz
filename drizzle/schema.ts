@@ -35,6 +35,7 @@ export const posts = sqliteTable("posts", {
   toneConstraints: text("tone_constraints"), // JSON array
   visualDirection: text("visual_direction"),
   generationParams: text("generation_params"), // full JSON for debugging
+  discordMessageId: text("discord_message_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
@@ -57,6 +58,19 @@ export const productRevisions = sqliteTable("product_revisions", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+export const generationSchedules = sqliteTable("generation_schedules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  platform: text("platform").notNull(), // instagram | twitter
+  contentType: text("content_type").notNull(), // reel | post | story | carousel | ad
+  count: integer("count").notNull().default(1),
+  frequencyHours: integer("frequency_hours").notNull().default(24),
+  preferredTime: text("preferred_time").notNull().default("09:00"), // HH:MM
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  lastRunAt: integer("last_run_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   key: text("key").notNull().unique(),
@@ -71,3 +85,5 @@ export type NewPost = typeof posts.$inferInsert;
 export type InstagramAccount = typeof instagramAccounts.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type ProductRevision = typeof productRevisions.$inferSelect;
+export type GenerationSchedule = typeof generationSchedules.$inferSelect;
+export type NewGenerationSchedule = typeof generationSchedules.$inferInsert;

@@ -55,73 +55,87 @@ export async function GET(req: NextRequest) {
     );
     const debugTokenData = await debugTokenRes.json();
 
-    // Extract page and Instagram IDs from granular_scopes
-    let pageId: string | null = null;
-    let instagramUserId: string | null = null;
-
+    // Collect ALL page IDs from granular_scopes
     const granularScopes = debugTokenData.data?.granular_scopes || [];
+    const pageIds: string[] = [];
     for (const scope of granularScopes) {
       if (scope.scope === "pages_show_list" && scope.target_ids?.length > 0) {
-        pageId = scope.target_ids[0];
-      }
-      if (scope.scope === "instagram_basic" && scope.target_ids?.length > 0) {
-        instagramUserId = scope.target_ids[0];
+        pageIds.push(...scope.target_ids);
       }
     }
 
-    if (!pageId || !instagramUserId) {
+    if (pageIds.length === 0) {
       return NextResponse.redirect(new URL("/settings?error=no_pages", req.url));
     }
 
-    // Get page access token
-    const pageTokenRes = await fetch(
-      `https://graph.facebook.com/v19.0/${pageId}?fields=access_token&access_token=${accessToken}`
-    );
-    const pageTokenData = await pageTokenRes.json();
+    // For each page, get page token + linked IG business account, upsert
+    const upsertedAccountIds: number[] = [];
 
-    if (pageTokenData.error || !pageTokenData.access_token) {
-      return NextResponse.redirect(new URL("/settings?error=no_page_token", req.url));
-    }
+    for (const pageId of pageIds) {
+      const pageRes = await fetch(
+        `https://graph.facebook.com/v19.0/${pageId}?fields=access_token,instagram_business_account{id,username}&access_token=${accessToken}`
+      );
+      const pageData = await pageRes.json();
 
-    const pageToken = pageTokenData.access_token;
+      if (pageData.error || !pageData.access_token) {
+        console.error(`Page ${pageId} token error:`, pageData.error);
+        continue;
+      }
 
-    // Get Instagram username
-    const igUserRes = await fetch(
-      `https://graph.facebook.com/v19.0/${instagramUserId}?fields=username&access_token=${pageToken}`
-    );
-    const igUserData = await igUserRes.json();
+      const igBusiness = pageData.instagram_business_account;
+      if (!igBusiness?.id) {
+        continue;
+      }
 
-    // Upsert by instagramUserId
-    const existing = await db.query.instagramAccounts.findFirst({
-      where: eq(schema.instagramAccounts.instagramUserId, instagramUserId),
-    });
+      const instagramUserId = igBusiness.id;
+      const username = igBusiness.username || null;
+      const pageToken = pageData.access_token;
 
-    let accountId: number;
-    if (existing) {
-      await db.update(schema.instagramAccounts)
-        .set({
-          username: igUserData.username,
+      const existing = await db.query.instagramAccounts.findFirst({
+        where: eq(schema.instagramAccounts.instagramUserId, instagramUserId),
+      });
+
+      let accountId: number;
+      if (existing) {
+        await db.update(schema.instagramAccounts)
+          .set({
+            username,
+            accessToken: pageToken,
+            tokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
+          })
+          .where(eq(schema.instagramAccounts.id, existing.id));
+        accountId = existing.id;
+      } else {
+        const result = await db.insert(schema.instagramAccounts).values({
+          instagramUserId,
+          username,
           accessToken: pageToken,
           tokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
-        })
-        .where(eq(schema.instagramAccounts.id, existing.id));
-      accountId = existing.id;
-    } else {
-      const result = await db.insert(schema.instagramAccounts).values({
-        instagramUserId,
-        username: igUserData.username,
-        accessToken: pageToken,
-        tokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
-      }).returning();
-      accountId = result[0].id;
+        }).returning();
+        accountId = result[0].id;
+      }
+
+      upsertedAccountIds.push(accountId);
     }
 
-    // Link to product if productId provided via cookie or state
-    if (productId) {
+    if (upsertedAccountIds.length === 0) {
+      return NextResponse.redirect(new URL("/settings?error=no_instagram", req.url));
+    }
+
+    // Link to product if productId provided
+    if (productId && upsertedAccountIds.length === 1) {
+      // Single account: auto-link
       await db.update(schema.products)
-        .set({ instagramAccountId: accountId })
+        .set({ instagramAccountId: upsertedAccountIds[0] })
         .where(eq(schema.products.id, productId));
-      const res = NextResponse.redirect(new URL(`/products?success=instagram_linked`, req.url));
+      const res = NextResponse.redirect(new URL("/products?success=instagram_linked", req.url));
+      res.cookies.delete("oauth_product_id");
+      return res;
+    }
+
+    if (productId) {
+      // Multiple accounts: let user pick via InstagramLinkModal
+      const res = NextResponse.redirect(new URL("/products?success=instagram_connected", req.url));
       res.cookies.delete("oauth_product_id");
       return res;
     }

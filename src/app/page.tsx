@@ -6,7 +6,11 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">Buzz</h1>
+          <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="Buzz" width={32} height={32} />
+            <h1 className="text-xl font-bold text-gray-900">Buzz</h1>
+          </div>
           <LogoutButton />
         </div>
       </header>
@@ -37,6 +41,14 @@ export default function Home() {
           >
             <h3 className="font-medium text-gray-900">Content Queue</h3>
             <p className="text-sm text-gray-500 mt-1">Review and approve posts</p>
+          </Link>
+
+          <Link
+            href="/schedules"
+            className="p-6 bg-white rounded-lg border border-gray-200 hover:border-blue-500 transition-colors"
+          >
+            <h3 className="font-medium text-gray-900">Schedules</h3>
+            <p className="text-sm text-gray-500 mt-1">Auto-generate content on a schedule</p>
           </Link>
 
           <Link
