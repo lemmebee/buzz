@@ -125,10 +125,6 @@ npm run db:seed      # seed sample product
 4. Add OAuth redirect URI to app settings
 5. Connect account in Buzz Settings page
 
-## License
-
-MIT - see [LICENSE](LICENSE).
-
 ## Discord Approval (drafts via bot)
 
 Generation schedules post each draft to a Discord channel with **Post** / **Delete** buttons. Click Post to publish to Instagram, Delete to drop the draft.
@@ -180,3 +176,7 @@ journalctl --user -u buzz-tunnel.service | grep trycloudflare
 ```
 
 The quick tunnel URL changes whenever `buzz-tunnel.service` restarts; re-paste it into the Discord dev portal each time, or use a named tunnel for a stable hostname.
+
+## License
+
+MIT - see [LICENSE](LICENSE).
