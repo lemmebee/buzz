@@ -10,7 +10,9 @@
 /coverage
 
 # media
-/public
+/public/*
+!/public/icon.svg
+!/public/logo.svg
 
 # next.js
 /.next/

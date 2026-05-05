@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <pattern id="grid" width="6" height="6" patternUnits="userSpaceOnUse">
+      <path d="M 6 0 L 0 0 0 6" stroke="#22d3ee" stroke-width="0.3" stroke-opacity="0.18" fill="none"/>
+    </pattern>
+    <radialGradient id="aura" cx="32" cy="32" r="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="boltGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <clipPath id="sq"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+  <g clip-path="url(#sq)">
+    <rect width="64" height="64" fill="#0a0a12"/>
+    <rect width="64" height="64" fill="url(#grid)"/>
+    <rect width="64" height="64" fill="url(#aura)"/>
+    <path d="M36 8 L18 36 L30 36 L26 56 L46 28 L34 28 Z" fill="#22d3ee" filter="url(#boltGlow)" opacity="0.55"/>
+    <path d="M36 8 L18 36 L30 36 L26 56 L46 28 L34 28 Z" fill="#ec4899" transform="translate(-2 0.5)" opacity="0.85"/>
+    <path d="M36 8 L18 36 L30 36 L26 56 L46 28 L34 28 Z" fill="#22d3ee" transform="translate(2 -0.5)" opacity="0.85"/>
+    <path d="M36 8 L18 36 L30 36 L26 56 L46 28 L34 28 Z" fill="white"/>
+  </g>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="white" stroke-opacity="0.14"/>
+</svg>
