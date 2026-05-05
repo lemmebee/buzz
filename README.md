@@ -125,6 +125,10 @@ npm run db:seed      # seed sample product
 4. Add OAuth redirect URI to app settings
 5. Connect account in Buzz Settings page
 
+## License
+
+MIT - see [LICENSE](LICENSE).
+
 ## Discord Approval (drafts via bot)
 
 Generation schedules post each draft to a Discord channel with **Post** / **Delete** buttons. Click Post to publish to Instagram, Delete to drop the draft.
