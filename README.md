@@ -15,9 +15,29 @@
 - LLM providers: Google Gemini, HuggingFace (pluggable)
 - Meta Graph API (Instagram posting)
 
-## Setup
+## Install
 
-**Requires Node.js 20+** (for better-sqlite3)
+**Requires Node.js 20+** (for better-sqlite3).
+
+### From release
+
+```bash
+curl -L https://github.com/lemmebee/buzz/archive/refs/tags/v0.1.0.tar.gz | tar -xz
+cd buzz-0.1.0
+npm install
+cp .env.example .env  # fill in values, see below
+npm run db:push
+npm run build
+npm start
+```
+
+Or via `gh`:
+```bash
+gh release download v0.1.0 --repo lemmebee/buzz --archive=tar.gz
+tar -xzf buzz-0.1.0.tar.gz && cd buzz-0.1.0
+```
+
+### From source
 
 1. Install dependencies:
 ```bash
