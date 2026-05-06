@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Platform, ContentPurpose, ContentTargeting } from "@/lib/brain/types";
 import { generateContent } from "@/lib/generate";
+import { classifyProviderError } from "@/lib/providers/errors";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -30,16 +31,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ posts });
   } catch (error) {
     console.error("Generation error:", error);
-
-    let message = "Failed to generate content";
-    const err = error as { status?: number; message?: string };
-
-    if (err.status === 429 || err.message?.includes("429") || err.message?.includes("quota")) {
-      message = "AI provider rate limit or quota exceeded. Try switching text providers in product settings.";
-    } else if (err.message) {
-      message = err.message;
-    }
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: classifyProviderError(error) }, { status: 500 });
   }
 }

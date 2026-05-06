@@ -11,6 +11,7 @@ export const products = sqliteTable("products", {
   marketingStrategy: text("marketing_strategy"), // JSON extracted strategy
   textProvider: text("text_provider"), // gemini | huggingface
   extractionStatus: text("extraction_status"), // pending | extracting | done | failed
+  extractionError: text("extraction_error"), // human-readable reason when failed
   instagramAccountId: integer("instagram_account_id").references(() => instagramAccounts.id),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });

@@ -4,6 +4,7 @@ import { buildProfileAndStrategyPrompt } from "./prompts";
 import { createTextProvider } from "@/lib/providers";
 import { prepareImages } from "@/lib/images";
 import { snapshotChangedFields } from "@/lib/revisions";
+import { classifyProviderError } from "@/lib/providers/errors";
 
 interface ExtractionParams {
   productId: number;
@@ -28,7 +29,7 @@ export async function extractProfileAndStrategy({
 }: ExtractionParams): Promise<void> {
   // Set status to extracting
   await db.update(schema.products)
-    .set({ extractionStatus: "extracting" })
+    .set({ extractionStatus: "extracting", extractionError: null })
     .where(eq(schema.products.id, productId));
 
   try {
@@ -54,7 +55,7 @@ export async function extractProfileAndStrategy({
     if (!jsonMatch) {
       console.error("Failed to parse extraction response:", result.text);
       await db.update(schema.products)
-        .set({ extractionStatus: "failed" })
+        .set({ extractionStatus: "failed", extractionError: "Model returned invalid JSON." })
         .where(eq(schema.products.id, productId));
       return;
     }
@@ -75,6 +76,7 @@ export async function extractProfileAndStrategy({
         profile: JSON.stringify(parsed.profile),
         marketingStrategy: JSON.stringify(parsed.marketingStrategy),
         extractionStatus: "done",
+        extractionError: null,
       })
       .where(eq(schema.products.id, productId));
 
@@ -82,7 +84,7 @@ export async function extractProfileAndStrategy({
   } catch (error) {
     console.error(`Extraction failed for product ${productId}:`, error);
     await db.update(schema.products)
-      .set({ extractionStatus: "failed" })
+      .set({ extractionStatus: "failed", extractionError: classifyProviderError(error) })
       .where(eq(schema.products.id, productId));
   }
 }
