@@ -29,7 +29,7 @@ const FREQUENCY_OPTIONS = [
 ];
 
 const PLATFORMS = ["instagram", "twitter"];
-const CONTENT_TYPES = ["post", "reel", "story", "carousel"];
+const CONTENT_TYPES = ["post", "reel", "story"];
 
 function frequencyLabel(hours: number) {
   return FREQUENCY_OPTIONS.find((f) => f.value === hours)?.label || `Every ${hours}h`;

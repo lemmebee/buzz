@@ -4,7 +4,7 @@
 
 <h1 align="center">Buzz</h1>
 
-<p align="center">AI-powered social media content generator for product marketing. Creates Instagram-ready posts, reels, and carousels using product briefs and smart content rotation.</p>
+<p align="center">AI-powered social media content generator for product marketing. Creates Instagram-ready posts, reels, and stories using product briefs and smart content rotation.</p>
 
 ## Tech Stack
 
@@ -85,7 +85,7 @@ npm run dev
 
 ### Content Generation
 - Generate 1-10 content variations per batch
-- Content types: posts, reels, stories, carousels, ads
+- Content types: posts, reels, stories, ads
 - AI-generated captions + hashtags
 - AI-generated images via Pollinations
 - Targeting metadata: pain points, desires, objections

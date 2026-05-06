@@ -8,7 +8,7 @@ import type { TargetType, ContentTargeting } from "@/lib/brain/types";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
 type PlatformType = "instagram" | "twitter";
-type ContentType = "reel" | "post" | "carousel" | "story" | "ad";
+type ContentType = "reel" | "post" | "story" | "ad";
 
 interface GeneratedPost {
   content: string;

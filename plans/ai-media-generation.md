@@ -87,7 +87,7 @@ interface GenerationOutput {
   };
 }
 
-type ContentPurpose = 'reel' | 'post' | 'story' | 'carousel' | 'ad';
+type ContentPurpose = 'reel' | 'post' | 'story' | 'ad';
 type MediaType = 'image' | 'video' | 'audio';
 
 // providers/types.ts
@@ -117,7 +117,7 @@ Files:
 Contains prompt templates for:
 - Analyzing product → extracting hooks, benefits, differentiators
 - Platform-specific content rules
-- Caption generation by purpose (reel/post/story/carousel)
+- Caption generation by purpose (reel/post/story)
 - Hashtag strategy
 - Media description for image/video AI
 - Script writing for video/audio

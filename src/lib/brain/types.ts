@@ -7,7 +7,7 @@ export interface ProductPlan {
 }
 
 export type Platform = "instagram" | "twitter";
-export type ContentPurpose = "reel" | "post" | "story" | "carousel" | "ad";
+export type ContentPurpose = "reel" | "post" | "story" | "ad";
 export type MediaType = "image" | "video" | "audio";
 
 export interface GenerationInput {

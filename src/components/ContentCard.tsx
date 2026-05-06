@@ -25,7 +25,6 @@ const typeLabels: Record<string, string> = {
   reel: "Reel",
   post: "Post",
   story: "Story",
-  carousel: "Carousel",
   ad: "Ad",
 };
 
