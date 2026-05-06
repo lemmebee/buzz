@@ -209,14 +209,23 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
             </span>
           )}
           {product.extractionStatus === "failed" && (
-            <button
-              onClick={reExtract}
-              disabled={retrying}
-              className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded flex items-center gap-1 hover:bg-red-200 transition-colors"
-              title="Click to retry extraction"
-            >
-              {retrying ? "retrying..." : "failed ↻"}
-            </button>
+            <div className="relative group/failed inline-block">
+              <button
+                onClick={reExtract}
+                disabled={retrying}
+                className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded flex items-center gap-1 hover:bg-red-200 transition-colors"
+              >
+                {retrying ? "retrying..." : "failed ↻"}
+              </button>
+              <div className="absolute left-0 top-full mt-2 hidden group-hover/failed:block z-10 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
+                <div className="absolute left-4 bottom-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900" />
+                <p className="mb-1 font-medium text-red-300">Extraction failed</p>
+                <p className="leading-relaxed">
+                  {product.extractionError || "We couldn't analyse this product. Click the badge to try again."}
+                </p>
+                <p className="mt-2 text-gray-400">Click the badge to retry.</p>
+              </div>
+            </div>
           )}
           {product.profile && (
             <button
