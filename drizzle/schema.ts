@@ -19,7 +19,7 @@ export const products = sqliteTable("products", {
 export const posts = sqliteTable("posts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   productId: integer("product_id").references(() => products.id),
-  type: text("type").notNull(), // reel | post | story | carousel
+  type: text("type").notNull(), // reel | post | story
   content: text("content").notNull(),
   hashtags: text("hashtags"), // JSON array
   mediaUrl: text("media_url"),
@@ -63,7 +63,7 @@ export const generationSchedules = sqliteTable("generation_schedules", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   platform: text("platform").notNull(), // instagram | twitter
-  contentType: text("content_type").notNull(), // reel | post | story | carousel | ad
+  contentType: text("content_type").notNull(), // reel | post | story | ad
   count: integer("count").notNull().default(1),
   frequencyHours: integer("frequency_hours").notNull().default(24),
   preferredTime: text("preferred_time").notNull().default("09:00"), // HH:MM

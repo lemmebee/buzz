@@ -1,6 +1,6 @@
 import type { Product } from "../../drizzle/schema";
 
-export type ContentType = "reel" | "post" | "carousel";
+export type ContentType = "reel" | "post";
 
 interface PromptParams {
   product: Product;
@@ -12,7 +12,6 @@ export function buildGeneratePrompt({ product, contentType, count = 5 }: PromptP
   const typeInstructions: Record<ContentType, string> = {
     reel: "short, punchy captions for Instagram Reels (under 100 chars). Hook viewers in first line.",
     post: "engaging captions for Instagram posts (under 300 chars). Include call-to-action.",
-    carousel: "educational carousel ideas with slide-by-slide breakdown (5-7 slides per idea).",
   };
 
   return `You are a social media marketer creating Instagram content.

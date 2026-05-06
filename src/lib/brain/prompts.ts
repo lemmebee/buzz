@@ -5,7 +5,7 @@ import { normalizeProfile, normalizeStrategy } from "./types";
 const PLATFORM_RULES: Record<Platform, string> = {
   instagram: `Instagram Rules:
 - Reels: Hook in first 3 seconds, 15-90 seconds optimal, vertical 9:16
-- Posts: Square or vertical, carousel performs best, 2200 char caption limit
+- Posts: Square or vertical, 2200 char caption limit
 - Stories: 15-second segments, interactive stickers boost engagement
 - Hashtags: 3-5 highly relevant > 30 generic, mix popular + niche
 - Peak times: 11am-1pm, 7pm-9pm local time
@@ -41,12 +41,6 @@ const CONTENT_FORMULAS: Record<ContentPurpose, string> = {
 2. Build context with 2-3 frames
 3. Payoff or CTA in final frame
 4. Use interactive elements (polls, sliders, quizzes)`,
-
-  carousel: `Carousel Formula:
-1. Slide 1: Thumb-stopping hook, promise of value
-2. Slides 2-8: One idea per slide, visual consistency
-3. Second-to-last: Summary or key takeaway
-4. Last slide: Strong CTA, save/share prompt`,
 
   ad: `Ad Formula:
 1. HOOK: Problem or desire in first 3 seconds
@@ -88,7 +82,7 @@ Every field you produce must be:
 
 Hooks:
 - GENERIC: "Tired of struggling with marketing?" ← could be any product
-- GOOD: "You spent 4 hours on a carousel that got 12 likes. Here's why." ← specific, stings, curious
+- GOOD: "You spent 4 hours on a reel that got 12 likes. Here's why." ← specific, stings, curious
 
 Pain points:
 - GENERIC: "Difficulty creating content" ← obvious, vague
@@ -239,7 +233,6 @@ const HOOK_TYPE_PREFERENCES: Record<ContentPurpose, HookType[]> = {
   reel: ["curiosity", "contrarian", "desire"],
   post: ["curiosity", "pain", "social-proof"],
   story: ["curiosity", "desire", "contrarian"],
-  carousel: ["pain", "curiosity", "social-proof"],
 };
 
 /** Pick a hook, preferring types that match content type */
@@ -397,7 +390,6 @@ export function buildContentGenerationPrompt(
       reel: ["follow", "save", "comment"],
       post: ["save", "comment", "share"],
       story: ["click", "comment", "follow"],
-      carousel: ["save", "share", "follow"],
       ad: ["click", "buy", "follow"],
     };
     const preferredGoals = ctaGoalMap[contentType] || [];

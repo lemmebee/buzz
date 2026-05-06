@@ -7,7 +7,7 @@ import { Post, Product } from "../../../../drizzle/schema";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
 const statuses = ["draft", "approved", "scheduled", "posted"] as const;
-const types = ["reel", "post", "story", "carousel"] as const;
+const types = ["reel", "post", "story"] as const;
 
 export default function ContentEditPage() {
   const params = useParams();

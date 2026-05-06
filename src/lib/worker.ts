@@ -35,7 +35,7 @@ async function runScheduledGeneration() {
       const posts = await generateContent({
         productId: schedule.productId,
         platform: schedule.platform as "instagram" | "twitter",
-        contentType: schedule.contentType as "reel" | "post" | "story" | "carousel" | "ad",
+        contentType: schedule.contentType as "reel" | "post" | "story" | "ad",
         count: schedule.count,
       });
 
