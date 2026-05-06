@@ -3,18 +3,23 @@ import { db, schema } from "@/lib/db";
 import { generateContent } from "@/lib/generate";
 import { sendPostForApproval } from "@/lib/discord";
 
+function latestAnchor(schedule: typeof schema.generationSchedules.$inferSelect, now: Date): Date {
+  const [h, m] = schedule.preferredTime.split(":").map(Number);
+  const today = new Date(now);
+  today.setHours(h, m, 0, 0);
+  const freqMs = schedule.frequencyHours * 60 * 60 * 1000;
+  let anchor = today.getTime();
+  while (anchor > now.getTime()) anchor -= freqMs;
+  while (anchor + freqMs <= now.getTime()) anchor += freqMs;
+  return new Date(anchor);
+}
+
 function isDue(schedule: typeof schema.generationSchedules.$inferSelect): boolean {
   const now = new Date();
-
-  const [prefHour, prefMin] = schedule.preferredTime.split(":").map(Number);
-  const prefTotal = prefHour * 60 + prefMin;
-  const nowTotal = now.getHours() * 60 + now.getMinutes();
-  if (Math.abs(nowTotal - prefTotal) > 30) return false;
-
-  if (!schedule.lastRunAt) return true;
-
-  const nextDue = new Date(schedule.lastRunAt.getTime() + schedule.frequencyHours * 60 * 60 * 1000);
-  return now >= nextDue;
+  const anchor = latestAnchor(schedule, now);
+  if (now < anchor) return false;
+  if (schedule.lastRunAt && schedule.lastRunAt >= anchor) return false;
+  return true;
 }
 
 async function runScheduledGeneration() {
