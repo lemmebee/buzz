@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Post, Product } from "../../../../drizzle/schema";
+import { ContentItem as Post, Product } from "../../../../drizzle/schema";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
 const statuses = ["draft", "approved", "scheduled", "posted"] as const;
@@ -276,15 +276,26 @@ export default function ContentEditPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
               placeholder="https://..."
             />
-            {/* Image preview */}
+            {/* Media preview */}
             {mediaUrl && (
               <div className="mt-3 max-w-sm">
-                <img
-                  src={mediaUrl}
-                  alt="Preview"
-                  className="w-full rounded-lg border border-gray-200 cursor-pointer"
-                  onClick={() => setLightboxSrc(mediaUrl)}
-                />
+                {/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl) ? (
+                  <video
+                    src={mediaUrl}
+                    controls
+                    muted
+                    loop
+                    playsInline
+                    className="w-full rounded-lg border border-gray-200"
+                  />
+                ) : (
+                  <img
+                    src={mediaUrl}
+                    alt="Preview"
+                    className="w-full rounded-lg border border-gray-200 cursor-pointer"
+                    onClick={() => setLightboxSrc(mediaUrl)}
+                  />
+                )}
               </div>
             )}
             {lightboxSrc && (

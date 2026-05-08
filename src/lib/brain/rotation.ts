@@ -10,8 +10,8 @@ export interface UsageStats {
 }
 
 export async function getUsageStats(productId: number): Promise<UsageStats> {
-  const posts = await db.query.posts.findMany({
-    where: eq(schema.posts.productId, productId),
+  const posts = await db.query.content.findMany({
+    where: eq(schema.content.productId, productId),
   });
 
   const stats: UsageStats = {

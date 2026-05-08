@@ -46,18 +46,26 @@ export async function POST(req: NextRequest) {
         const posts = await generateContent({
           productId: schedule.productId,
           platform: schedule.platform as "instagram" | "twitter",
-          contentType: schedule.contentType as "reel" | "post" | "story" | "ad",
+          mediaType: schedule.mediaType as "image" | "video",
+          targetSurface: schedule.targetSurface as "reel" | "post" | "story" | "ad",
+          config: schedule.config ? JSON.parse(schedule.config) : undefined,
           count: schedule.count,
         });
 
         for (const post of posts) {
-          const [saved] = await db.insert(schema.posts).values({
+          const [saved] = await db.insert(schema.content).values({
             productId: schedule.productId,
-            type: schedule.contentType,
+            mediaType: schedule.mediaType,
+            targetSurface: schedule.targetSurface,
             content: post.content,
             hashtags: post.hashtags ? JSON.stringify(post.hashtags) : null,
             mediaUrl: post.mediaUrl || null,
             publicMediaUrl: post.publicMediaUrl || null,
+            script: post.script || null,
+            duration: post.duration ?? null,
+            audioUrl: post.audioUrl || null,
+            captionsUrl: post.captionsUrl || null,
+            config: post.config ? JSON.stringify(post.config) : null,
             status: "draft",
             hookUsed: post.metadata.hookUsed,
             pillarUsed: post.metadata.pillarUsed,

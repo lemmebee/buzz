@@ -24,6 +24,11 @@ export async function GET(
   const contentType =
     ext === "png" ? "image/png" :
     ext === "webp" ? "image/webp" :
+    ext === "mp4" ? "video/mp4" :
+    ext === "webm" ? "video/webm" :
+    ext === "mp3" ? "audio/mpeg" :
+    ext === "wav" ? "audio/wav" :
+    ext === "srt" ? "application/x-subrip" :
     "image/jpeg";
 
   return new NextResponse(buffer, {

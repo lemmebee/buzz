@@ -40,16 +40,25 @@ export interface ImageGenerationOutput {
 
 export type ImageProvider = Provider<ImageGenerationInput, ImageGenerationOutput>;
 
-// Video generation (stub for future)
+// Video generation
+export interface SceneSpec {
+  imagePath: string; // absolute filesystem path to a still
+  durationSec: number;
+}
+
 export interface VideoGenerationInput {
-  prompt: string;
-  duration?: number;
-  aspectRatio?: string;
+  prompt?: string;
+  scenes: SceneSpec[];
+  audioPath: string; // absolute filesystem path to narration mp3
+  captionsPath?: string; // absolute filesystem path to SRT
+  durationSec: number;
+  aspectRatio: string; // "9:16" | "1:1" | "16:9" | "4:5"
 }
 
 export interface VideoGenerationOutput {
   url: string;
   localPath?: string;
+  duration?: number;
 }
 
 export type VideoProvider = Provider<VideoGenerationInput, VideoGenerationOutput>;

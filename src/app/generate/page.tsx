@@ -9,6 +9,38 @@ import { ImageLightbox } from "@/components/ImageLightbox";
 
 type PlatformType = "instagram" | "twitter";
 type ContentType = "reel" | "post" | "story" | "ad";
+type MediaTypeUi = "image" | "video";
+
+interface FormConfig {
+  durationSec?: number;
+  aspectRatio: string;
+  captions?: boolean;
+}
+
+const CONFIG_DEFAULTS: Record<ContentType, Record<MediaTypeUi, FormConfig>> = {
+  reel: {
+    video: { durationSec: 15, aspectRatio: "9:16", captions: true },
+    image: { aspectRatio: "9:16" }, // unreachable; UI hides this combo
+  },
+  post: {
+    image: { aspectRatio: "1:1" },
+    video: { durationSec: 30, aspectRatio: "1:1", captions: false },
+  },
+  story: {
+    image: { aspectRatio: "9:16" },
+    video: { durationSec: 15, aspectRatio: "9:16", captions: false },
+  },
+  ad: {
+    image: { aspectRatio: "1:1" },
+    video: { durationSec: 15, aspectRatio: "1:1", captions: true },
+  },
+};
+
+const ASPECT_OPTIONS = ["1:1", "9:16", "4:5", "16:9"];
+
+function isVideoUrl(url?: string | null): boolean {
+  return !!url && /\.(mp4|webm|mov)(\?|$)/i.test(url);
+}
 
 interface GeneratedPost {
   content: string;
@@ -93,8 +125,16 @@ export default function GeneratePage() {
   // Form
   const [productId, setProductId] = useState<number | null>(null);
   const [platform, setPlatform] = useState<PlatformType>("instagram");
+  const [mediaType, setMediaType] = useState<MediaTypeUi>("image");
   const [contentType, setContentType] = useState<ContentType>("post");
+  const [config, setConfig] = useState<FormConfig>(CONFIG_DEFAULTS.post.image);
   const [count, setCount] = useState(5);
+
+  useEffect(() => {
+    const surfaceMap = CONFIG_DEFAULTS[contentType];
+    const next = surfaceMap?.[mediaType];
+    if (next) setConfig({ ...next });
+  }, [mediaType, contentType]);
 
   // Targeting
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
@@ -230,7 +270,9 @@ export default function GeneratePage() {
         "data",
         JSON.stringify({
           productId,
-          contentType,
+          mediaType,
+          targetSurface: contentType,
+          config,
           count,
           platform,
           targeting: Object.keys(targeting).length > 0 ? targeting : undefined,
@@ -432,7 +474,7 @@ export default function GeneratePage() {
           <div className="space-y-6">
             {/* Generation form */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {/* Product selector */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -474,6 +516,27 @@ export default function GeneratePage() {
                   </select>
                 </div>
 
+                {/* Media type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Media Type
+                  </label>
+                  <select
+                    value={mediaType}
+                    onChange={(e) => {
+                      const next = e.target.value as MediaTypeUi;
+                      setMediaType(next);
+                      if (next === "image" && contentType === "reel") {
+                        setContentType("post");
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                  >
+                    <option value="image">Image</option>
+                    <option value="video">Video</option>
+                  </select>
+                </div>
+
                 {/* Content type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -484,11 +547,13 @@ export default function GeneratePage() {
                     onChange={(e) => setContentType(e.target.value as ContentType)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                   >
-                    {contentTypesByPlatform[platform].map((ct) => (
-                      <option key={ct.value} value={ct.value}>
-                        {ct.label}
-                      </option>
-                    ))}
+                    {contentTypesByPlatform[platform]
+                      .filter((ct) => !(ct.value === "reel" && mediaType === "image"))
+                      .map((ct) => (
+                        <option key={ct.value} value={ct.value}>
+                          {ct.label}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -505,6 +570,54 @@ export default function GeneratePage() {
                     onChange={(e) => setCount(parseInt(e.target.value) || 1)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
                   />
+                </div>
+              </div>
+
+              {/* Config tweaks */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Config (defaults from {contentType} / {mediaType})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Aspect Ratio</label>
+                    <select
+                      value={config.aspectRatio}
+                      onChange={(e) => setConfig({ ...config, aspectRatio: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                    >
+                      {ASPECT_OPTIONS.map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {mediaType === "video" && (
+                    <>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">Duration (sec)</label>
+                        <input
+                          type="number"
+                          min={5}
+                          max={90}
+                          value={config.durationSec ?? 15}
+                          onChange={(e) =>
+                            setConfig({ ...config, durationSec: parseInt(e.target.value) || 15 })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={config.captions ?? false}
+                            onChange={(e) => setConfig({ ...config, captions: e.target.checked })}
+                          />
+                          Burn-in captions
+                        </label>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -772,11 +885,22 @@ export default function GeneratePage() {
                                 : "hover:ring-1 hover:ring-green-300 hover:ring-inset"
                             }`}
                           >
-                            <img
-                              src={post.mediaUrl}
-                              alt="Generated"
-                              className="w-full h-full object-cover"
-                            />
+                            {isVideoUrl(post.mediaUrl) ? (
+                              <video
+                                src={post.mediaUrl!}
+                                controls
+                                muted
+                                loop
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src={post.mediaUrl!}
+                                alt="Generated"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -841,11 +965,22 @@ export default function GeneratePage() {
                       >
                         {post.mediaUrl && (
                           <div className="aspect-square bg-gray-100 relative group">
-                            <img
-                              src={post.mediaUrl}
-                              alt="Generated"
-                              className="w-full h-full object-cover"
-                            />
+                            {isVideoUrl(post.mediaUrl) ? (
+                              <video
+                                src={post.mediaUrl}
+                                controls
+                                muted
+                                loop
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src={post.mediaUrl}
+                                alt="Generated"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                             <div className="absolute top-2 left-2">
                               <input
                                 type="checkbox"

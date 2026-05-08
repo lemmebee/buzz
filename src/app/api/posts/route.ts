@@ -9,13 +9,13 @@ export async function GET(req: NextRequest) {
   if (status) {
     const posts = await db
       .select()
-      .from(schema.posts)
-      .where(eq(schema.posts.status, status))
-      .orderBy(desc(schema.posts.id));
+      .from(schema.content)
+      .where(eq(schema.content.status, status))
+      .orderBy(desc(schema.content.id));
     return NextResponse.json(posts);
   }
 
-  const posts = await db.select().from(schema.posts).orderBy(desc(schema.posts.id));
+  const posts = await db.select().from(schema.content).orderBy(desc(schema.content.id));
   return NextResponse.json(posts);
 }
 
@@ -24,14 +24,20 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   const result = await db
-    .insert(schema.posts)
+    .insert(schema.content)
     .values({
       productId: body.productId,
-      type: body.type,
+      mediaType: body.mediaType || "image",
+      targetSurface: body.targetSurface || body.type,
       content: body.content,
       hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,
       mediaUrl: body.mediaUrl || null,
       publicMediaUrl: body.publicMediaUrl || null,
+      script: body.script || null,
+      duration: body.duration ?? null,
+      audioUrl: body.audioUrl || null,
+      captionsUrl: body.captionsUrl || null,
+      config: body.config ? JSON.stringify(body.config) : null,
       status: body.status || "draft",
       scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : null,
       hookUsed: body.hookUsed || null,

@@ -16,19 +16,24 @@ export const products = sqliteTable("products", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
-export const posts = sqliteTable("posts", {
+export const content = sqliteTable("content", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   productId: integer("product_id").references(() => products.id),
-  type: text("type").notNull(), // reel | post | story
+  mediaType: text("media_type").notNull(), // image | video
+  targetSurface: text("target_surface").notNull(), // reel | post | story | ad
   content: text("content").notNull(),
   hashtags: text("hashtags"), // JSON array
   mediaUrl: text("media_url"),
   publicMediaUrl: text("public_media_url"), // publicly accessible URL for platform APIs
+  script: text("script"), // video script text
+  duration: integer("duration"), // seconds, video only
+  audioUrl: text("audio_url"), // narration mp3
+  captionsUrl: text("captions_url"), // SRT path if captions enabled
+  config: text("config"), // generation config snapshot, JSON
   status: text("status").notNull().default("draft"), // draft | approved | scheduled | posted
   scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
   postedAt: integer("posted_at", { mode: "timestamp" }),
   instagramId: text("instagram_id"),
-  // Targeting metadata
   hookUsed: text("hook_used"),
   pillarUsed: text("pillar_used"),
   targetType: text("target_type"), // pain | desire | objection
@@ -63,7 +68,9 @@ export const generationSchedules = sqliteTable("generation_schedules", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   platform: text("platform").notNull(), // instagram | twitter
-  contentType: text("content_type").notNull(), // reel | post | story | ad
+  mediaType: text("media_type").notNull().default("image"), // image | video
+  targetSurface: text("target_surface").notNull(), // reel | post | story | ad
+  config: text("config"), // generation config tweaks JSON
   count: integer("count").notNull().default(1),
   frequencyHours: integer("frequency_hours").notNull().default(24),
   preferredTime: text("preferred_time").notNull().default("09:00"), // HH:MM
@@ -81,8 +88,8 @@ export const settings = sqliteTable("settings", {
 // Types
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
-export type Post = typeof posts.$inferSelect;
-export type NewPost = typeof posts.$inferInsert;
+export type ContentItem = typeof content.$inferSelect;
+export type NewContentItem = typeof content.$inferInsert;
 export type InstagramAccount = typeof instagramAccounts.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type ProductRevision = typeof productRevisions.$inferSelect;

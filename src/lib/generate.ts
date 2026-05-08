@@ -2,15 +2,18 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { buildContentGenerationPrompt } from "@/lib/brain/prompts";
 import { buildFluxPrompt } from "@/lib/brain/imagePromptBuilder";
-import type { Platform, ContentPurpose, ContentTargeting, ImagePrompt, GenerationMetadata } from "@/lib/brain/types";
+import type { Platform, ContentPurpose, ContentTargeting, ImagePrompt, GenerationMetadata, MediaType } from "@/lib/brain/types";
 import { normalizeProfile, normalizeStrategy } from "@/lib/brain/types";
 import { createTextProvider, createPollinationsImageProvider } from "@/lib/providers";
 import { getTextProvider } from "@/lib/settings";
+import { getDefaults, type ContentConfig } from "@/lib/content/defaults";
 
 export interface GenerateContentInput {
   productId: number;
   platform: Platform;
-  contentType: ContentPurpose;
+  mediaType: MediaType;
+  targetSurface: ContentPurpose;
+  config?: Partial<ContentConfig>;
   targeting?: ContentTargeting;
   count?: number;
   images?: string[]; // base64 screenshots
@@ -21,6 +24,11 @@ export interface GeneratedPost {
   hashtags: string[];
   mediaUrl?: string | null;
   publicMediaUrl?: string | null;
+  script?: string | null;
+  duration?: number | null;
+  audioUrl?: string | null;
+  captionsUrl?: string | null;
+  config?: ContentConfig;
   metadata: GenerationMetadata;
 }
 
@@ -35,8 +43,16 @@ export function sanitizeCaption(text: string): string {
 }
 
 export async function generateContent(input: GenerateContentInput): Promise<GeneratedPost[]> {
-  const { productId, platform, contentType, targeting, count = 1, images = [] } = input;
+  const { productId, platform, mediaType, targetSurface, config: userConfig, targeting, count = 1, images = [] } = input;
   const generateCount = Math.min(Math.max(count, 1), 10);
+  const config: ContentConfig = { ...getDefaults(targetSurface, mediaType), ...(userConfig || {}) };
+
+  if (mediaType === "video") {
+    const { generateVideoContent } = await import("@/lib/video/orchestrator");
+    return generateVideoContent({ ...input, config });
+  }
+
+  const contentType = targetSurface;
 
   const product = await db.query.products.findFirst({
     where: eq(schema.products.id, productId),
@@ -125,6 +141,7 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
       hashtags: (generated.hashtags || []).map((t) => t.replace(/^#+/, "")),
       mediaUrl,
       publicMediaUrl,
+      config,
       metadata,
     });
   }
