@@ -9,12 +9,12 @@ export async function processScheduledPosts(): Promise<{
   const now = new Date();
 
   const duePosts = await db
-    .select({ id: schema.posts.id })
-    .from(schema.posts)
+    .select({ id: schema.content.id })
+    .from(schema.content)
     .where(
       and(
-        eq(schema.posts.status, "scheduled"),
-        lte(schema.posts.scheduledAt, now)
+        eq(schema.content.status, "scheduled"),
+        lte(schema.content.scheduledAt, now)
       )
     );
 

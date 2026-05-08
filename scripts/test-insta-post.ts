@@ -76,9 +76,10 @@ async function main() {
   }
 
   // 3. Store in DB
-  const post = db.insert(schema.posts).values({
+  const post = db.insert(schema.content).values({
     productId: product.id,
-    type: "post",
+    mediaType: "image",
+    targetSurface: "post",
     content: generated.caption,
     hashtags: generated.hashtags ? JSON.stringify(generated.hashtags) : null,
     mediaUrl: null,

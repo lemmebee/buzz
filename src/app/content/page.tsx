@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ContentCard } from "@/components/ContentCard";
-import { Post, Product } from "../../../drizzle/schema";
+import { ContentItem, Product } from "../../../drizzle/schema";
 
 const statuses = ["all", "draft", "approved", "scheduled", "posted"] as const;
 
@@ -18,7 +18,7 @@ export default function ContentPage() {
 
 function ContentPageInner() {
   const searchParams = useSearchParams();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<ContentItem[]>([]);
   const [products, setProducts] = useState<Record<number, Product>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");

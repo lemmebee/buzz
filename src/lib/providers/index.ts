@@ -35,7 +35,15 @@ export {
 // Text provider implementations
 export { createHuggingFaceTextProvider } from "./text";
 export { createGeminiTextProvider } from "./gemini";
-export { createTextProvider } from "./factory";
 
 // Image provider implementations
 export { createPollinationsImageProvider } from "./image";
+
+// Audio provider implementations
+export { createMsEdgeTtsAudioProvider } from "./audio";
+
+// Video provider implementations
+export { createFfmpegVideoProvider } from "./video";
+
+// Factory entry points
+export { createTextProvider, createAudioProvider, createVideoProvider } from "./factory";

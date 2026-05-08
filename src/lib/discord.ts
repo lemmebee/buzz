@@ -57,8 +57,8 @@ export async function sendPostForApproval(postId: number): Promise<boolean> {
   const config = await getDiscordConfig();
   if (!config) return false;
 
-  const post = await db.query.posts.findFirst({
-    where: eq(schema.posts.id, postId),
+  const post = await db.query.content.findFirst({
+    where: eq(schema.content.id, postId),
   });
   if (!post) return false;
 
@@ -90,7 +90,12 @@ export async function sendPostForApproval(postId: number): Promise<boolean> {
   };
 
   if (post.publicMediaUrl && !post.publicMediaUrl.startsWith("/")) {
-    payload.embeds = [{ image: { url: post.publicMediaUrl } }];
+    if (post.mediaType === "video") {
+      // Discord auto-embeds raw video URLs appended to message content
+      payload.content = `${body}\n${post.publicMediaUrl}`.slice(0, 2000);
+    } else {
+      payload.embeds = [{ image: { url: post.publicMediaUrl } }];
+    }
   }
 
   const res = await discordFetch(config.token, `/channels/${config.channelId}/messages`, {
@@ -106,9 +111,9 @@ export async function sendPostForApproval(postId: number): Promise<boolean> {
 
   const data = await res.json();
   if (data.id) {
-    await db.update(schema.posts)
+    await db.update(schema.content)
       .set({ discordMessageId: String(data.id) })
-      .where(eq(schema.posts.id, postId));
+      .where(eq(schema.content.id, postId));
     return true;
   }
   return false;
@@ -133,7 +138,7 @@ export async function handleComponentInteraction(interaction: ComponentInteracti
     const result = await publishPost(postId);
     resultText = result.success ? "Posted to Instagram" : `Failed: ${result.error}`;
   } else {
-    await db.delete(schema.posts).where(eq(schema.posts.id, postId));
+    await db.delete(schema.content).where(eq(schema.content.id, postId));
     resultText = "Draft deleted";
   }
 

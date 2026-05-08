@@ -10,8 +10,8 @@ export async function GET(
   const { id } = await params;
   const post = await db
     .select()
-    .from(schema.posts)
-    .where(eq(schema.posts.id, parseInt(id)));
+    .from(schema.content)
+    .where(eq(schema.content.id, parseInt(id)));
 
   if (post.length === 0) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -42,9 +42,9 @@ export async function PUT(
   if (body.instagramId !== undefined) updateData.instagramId = body.instagramId;
 
   const result = await db
-    .update(schema.posts)
+    .update(schema.content)
     .set(updateData)
-    .where(eq(schema.posts.id, parseInt(id)))
+    .where(eq(schema.content.id, parseInt(id)))
     .returning();
 
   if (result.length === 0) {
@@ -61,7 +61,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
 
-  await db.delete(schema.posts).where(eq(schema.posts.id, parseInt(id)));
+  await db.delete(schema.content).where(eq(schema.content.id, parseInt(id)));
 
   return NextResponse.json({ success: true });
 }

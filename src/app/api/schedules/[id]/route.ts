@@ -11,7 +11,14 @@ export async function PUT(
 
   const updates: Record<string, unknown> = {};
   if (body.platform !== undefined) updates.platform = body.platform;
-  if (body.contentType !== undefined) updates.contentType = body.contentType;
+  if (body.mediaType !== undefined) updates.mediaType = body.mediaType;
+  if (body.targetSurface !== undefined) updates.targetSurface = body.targetSurface;
+  if (body.contentType !== undefined && body.targetSurface === undefined) {
+    updates.targetSurface = body.contentType;
+  }
+  if (body.config !== undefined) {
+    updates.config = body.config ? JSON.stringify(body.config) : null;
+  }
   if (body.count !== undefined) updates.count = body.count;
   if (body.frequencyHours !== undefined) updates.frequencyHours = body.frequencyHours;
   if (body.preferredTime !== undefined) updates.preferredTime = body.preferredTime;

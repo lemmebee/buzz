@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Post } from "../../drizzle/schema";
+import { ContentItem as Post } from "../../drizzle/schema";
 import { ImageLightbox } from "./ImageLightbox";
 
 interface ContentCardProps {
@@ -43,18 +43,31 @@ export function ContentCard({
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:border-gray-300 transition-colors">
-      {/* Image preview */}
+      {/* Media preview */}
       {post.mediaUrl && (
-        <div
-          className="aspect-square bg-gray-100 cursor-pointer"
-          onClick={() => setLightboxSrc(post.mediaUrl!)}
-        >
-          <img
-            src={post.mediaUrl}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        </div>
+        post.mediaType === "video" ? (
+          <div className="aspect-square bg-gray-100">
+            <video
+              src={post.mediaUrl}
+              controls
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : (
+          <div
+            className="aspect-square bg-gray-100 cursor-pointer"
+            onClick={() => setLightboxSrc(post.mediaUrl!)}
+          >
+            <img
+              src={post.mediaUrl}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )
       )}
       {lightboxSrc && (
         <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
@@ -64,7 +77,7 @@ export function ContentCard({
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center gap-2">
             <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-              {typeLabels[post.type] || post.type}
+              {typeLabels[post.targetSurface] || post.targetSurface}
             </span>
             <span className={`text-xs px-2 py-0.5 rounded ${statusColors[post.status]}`}>
               {post.status}

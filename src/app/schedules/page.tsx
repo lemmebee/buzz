@@ -8,13 +8,42 @@ interface Schedule {
   productId: number;
   productName: string | null;
   platform: string;
-  contentType: string;
+  mediaType: string;
+  targetSurface: string;
+  config: string | null;
   count: number;
   frequencyHours: number;
   preferredTime: string;
   enabled: boolean;
   lastRunAt: string | null;
 }
+
+interface FormConfig {
+  durationSec?: number;
+  aspectRatio: string;
+  captions?: boolean;
+}
+
+const CONFIG_DEFAULTS: Record<string, Record<string, FormConfig>> = {
+  reel: {
+    video: { durationSec: 15, aspectRatio: "9:16", captions: true },
+  },
+  post: {
+    image: { aspectRatio: "1:1" },
+    video: { durationSec: 30, aspectRatio: "1:1", captions: false },
+  },
+  story: {
+    image: { aspectRatio: "9:16" },
+    video: { durationSec: 15, aspectRatio: "9:16", captions: false },
+  },
+  ad: {
+    image: { aspectRatio: "1:1" },
+    video: { durationSec: 15, aspectRatio: "1:1", captions: true },
+  },
+};
+
+const ASPECT_OPTIONS = ["1:1", "9:16", "4:5", "16:9"];
+const MEDIA_TYPES = ["image", "video"];
 
 interface Product {
   id: number;
@@ -29,7 +58,7 @@ const FREQUENCY_OPTIONS = [
 ];
 
 const PLATFORMS = ["instagram", "twitter"];
-const CONTENT_TYPES = ["post", "reel", "story"];
+const CONTENT_TYPES = ["post", "reel", "story", "ad"];
 
 function frequencyLabel(hours: number) {
   return FREQUENCY_OPTIONS.find((f) => f.value === hours)?.label || `Every ${hours}h`;
@@ -44,11 +73,18 @@ export default function SchedulesPage() {
   // Form state
   const [formProductId, setFormProductId] = useState<number>(0);
   const [formPlatform, setFormPlatform] = useState("instagram");
-  const [formContentType, setFormContentType] = useState("post");
+  const [formMediaType, setFormMediaType] = useState("image");
+  const [formTargetSurface, setFormTargetSurface] = useState("post");
+  const [formConfig, setFormConfig] = useState<FormConfig>(CONFIG_DEFAULTS.post.image);
   const [formCount, setFormCount] = useState(1);
   const [formFrequency, setFormFrequency] = useState(24);
   const [formTime, setFormTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const next = CONFIG_DEFAULTS[formTargetSurface]?.[formMediaType];
+    if (next) setFormConfig({ ...next });
+  }, [formMediaType, formTargetSurface]);
 
   // Discord setup
   const [dsToken, setDsToken] = useState("");
@@ -94,7 +130,9 @@ export default function SchedulesPage() {
       body: JSON.stringify({
         productId: formProductId,
         platform: formPlatform,
-        contentType: formContentType,
+        mediaType: formMediaType,
+        targetSurface: formTargetSurface,
+        config: formConfig,
         count: formCount,
         frequencyHours: formFrequency,
         preferredTime: formTime,
@@ -194,17 +232,77 @@ export default function SchedulesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Content Type</label>
+                <label className="block text-sm text-gray-600 mb-1">Media Type</label>
                 <select
-                  value={formContentType}
-                  onChange={(e) => setFormContentType(e.target.value)}
+                  value={formMediaType}
+                  onChange={(e) => {
+                    setFormMediaType(e.target.value);
+                    if (e.target.value === "image" && formTargetSurface === "reel") {
+                      setFormTargetSurface("post");
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
                 >
-                  {CONTENT_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                  {MEDIA_TYPES.map((m) => (
+                    <option key={m} value={m}>{m}</option>
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Content Type</label>
+                <select
+                  value={formTargetSurface}
+                  onChange={(e) => setFormTargetSurface(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                >
+                  {CONTENT_TYPES
+                    .filter((t) => !(t === "reel" && formMediaType === "image"))
+                    .map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Aspect Ratio</label>
+                <select
+                  value={formConfig.aspectRatio}
+                  onChange={(e) => setFormConfig({ ...formConfig, aspectRatio: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                >
+                  {ASPECT_OPTIONS.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+              {formMediaType === "video" && (
+                <>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Duration (sec)</label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={90}
+                      value={formConfig.durationSec ?? 15}
+                      onChange={(e) =>
+                        setFormConfig({ ...formConfig, durationSec: parseInt(e.target.value) || 15 })
+                      }
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={formConfig.captions ?? false}
+                        onChange={(e) =>
+                          setFormConfig({ ...formConfig, captions: e.target.checked })
+                        }
+                      />
+                      Burn-in captions
+                    </label>
+                  </div>
+                </>
+              )}
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Posts per run</label>
                 <select
@@ -275,7 +373,7 @@ export default function SchedulesPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-gray-900">{schedule.productName || "Unknown"}</span>
                     <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">{schedule.platform}</span>
-                    <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">{schedule.contentType}</span>
+                    <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">{schedule.mediaType}/{schedule.targetSurface}</span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
                     {frequencyLabel(schedule.frequencyHours)} at {schedule.preferredTime} - {schedule.count} post{schedule.count > 1 ? "s" : ""}/run
