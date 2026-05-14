@@ -149,7 +149,7 @@ Project board: https://github.com/users/lemmebee/projects/1/views/1
 | Q4 | Approval gate | Discord-only for v1 (existing plumbing). In-app queue only if >20 pending at any time |
 | Q5 | Hosting | Local until Buzz proves worthy. CodeRabbit + CI run on GitHub regardless |
 | Q6 | First test product | **Ruh** (ruhjourney.com). Web signup + 445 visits / 722 PV last 30 days = real attribution target |
-| Q7 | Repo public/private | **Private indefinitely.** Engager + scrapers stay closed-source forever |
+| Q7 | Repo public/private | **Public** (flipped from private after CodeRabbit pricing showed $30/seat/mo for private). Buzz core open-source. When Stage 5 (engager) lands, split into separate private repo OR ship as opt-in module. Free CodeRabbit Pro + free branch protection are the prize |
 
 ## Channel selection logic (Strategist must implement)
 
@@ -178,6 +178,7 @@ Early modules: Reddit, X, SEO blog, ASO. Late modules: TikTok, IG Reels, comment
 | Single-product test (Ruh) | One product = one data point. Validate architecture but expect channel mix to shift for next products |
 | Buzz instance offline | Stage 1-3 = local-only. Cron + webhook reliability constrained to user's machine uptime. Move to Railway/Fly at Stage 4+ |
 | Free-tier rate limits | Project-wide Gemini RPD ceiling (1500/day) caps fleet of products to ~10 actively-served |
+| Engager code public | Stage 5 engager must split to private repo OR opt-in plugin BEFORE merging to public Buzz |
 
 ## What human must still do (be honest about "minimal")
 
