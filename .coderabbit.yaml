@@ -1,0 +1,48 @@
+language: en-US
+early_access: false
+
+reviews:
+  profile: chill
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - master
+
+  path_filters:
+    - "!**/*.lock"
+    - "!**/*.svg"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/migrations/**"
+    - "!**/node_modules/**"
+    - "!data/**"
+    - "!public/media/**"
+
+  path_instructions:
+    - path: "src/lib/brain/**"
+      instructions: |
+        This is the marketing strategy + prompt logic core.
+        Flag any prompt change that could regress LLM output quality.
+        Check normalizers handle null + malformed inputs.
+    - path: "src/lib/providers/**"
+      instructions: |
+        Provider abstractions. Flag missing error handling, missing fallback paths,
+        and any provider-specific leakage above this layer.
+    - path: "drizzle/schema.ts"
+      instructions: |
+        Schema changes need a matching migration file in drizzle/migrations/.
+        Flag any schema change without migration.
+    - path: "src/app/api/**"
+      instructions: |
+        API routes. Check auth via middleware, input validation, error responses.
+        Flag any route that accepts user input without validation.
+
+chat:
+  auto_reply: true
