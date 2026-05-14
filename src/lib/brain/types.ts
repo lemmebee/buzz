@@ -56,7 +56,7 @@ export interface GenerationMetadata {
 
 // --- New profile types ---
 
-export type PricePositioning = "premium" | "mid-market" | "budget" | "freemium";
+export type PricePositioning = "premium" | "mid-market" | "budget" | "freemium" | "free" ;
 
 export interface BrandPersonality {
   archetypes: string[];
@@ -139,6 +139,58 @@ export interface MarketingStrategy {
   // New fields
   brandVoice?: BrandVoice;
   ctaStrategies?: CtaStrategy[];
+}
+
+// --- ICP / JTBD (S0.1) ---
+
+export interface ICP {
+  personaName: string;
+  ageRange?: string;        // e.g. "25-34"
+  platformsUsed: string[];  // channel keys: ["reddit", "x", "tiktok", ...]
+  topPains: string[];
+  topDesires: string[];
+  budgetBand?: string;      // e.g. "$0-10/mo", "free-only"
+  geography?: string;
+  notes?: string;
+}
+
+export interface JTBD {
+  when: string;
+  want: string;
+  soThat: string;
+}
+
+export function normalizeICP(raw: unknown): ICP | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (!r.personaName) return null;
+  return {
+    personaName: String(r.personaName),
+    ageRange: r.ageRange ? String(r.ageRange) : undefined,
+    platformsUsed: Array.isArray(r.platformsUsed) ? r.platformsUsed.map(String) : [],
+    topPains: Array.isArray(r.topPains) ? r.topPains.map(String) : [],
+    topDesires: Array.isArray(r.topDesires) ? r.topDesires.map(String) : [],
+    budgetBand: r.budgetBand ? String(r.budgetBand) : undefined,
+    geography: r.geography ? String(r.geography) : undefined,
+    notes: r.notes ? String(r.notes) : undefined,
+  };
+}
+
+export function normalizeJTBDList(raw: unknown): JTBD[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((j): j is Record<string, unknown> => !!j && typeof j === "object")
+    .map(j => ({
+      when: String(j.when || ""),
+      want: String(j.want || ""),
+      soThat: String(j.soThat || ""),
+    }))
+    .filter(j => j.when && j.want && j.soThat);
+}
+
+export function normalizeChannelHints(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(String).filter(s => s.length > 0);
 }
 
 export interface ImagePrompt {
