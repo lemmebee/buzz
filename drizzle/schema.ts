@@ -9,6 +9,11 @@ export const products = sqliteTable("products", {
   screenshots: text("screenshots"), // JSON array of file paths
   profile: text("profile"), // JSON extracted profile
   marketingStrategy: text("marketing_strategy"), // JSON extracted strategy
+  icp: text("icp", { mode: "json" }), // JSON ICP persona (see brain/types.ts ICP)
+  jtbd: text("jtbd", { mode: "json" }), // JSON JTBD[] (see brain/types.ts JTBD)
+  channelHints: text("channel_hints", { mode: "json" }), // JSON string[] of preferred channel keys
+  landingUrl: text("landing_url"), // public URL where attribution snippet lives
+  attributionWebhookSecret: text("attribution_webhook_secret"), // HMAC secret for /api/conversions
   textProvider: text("text_provider"), // gemini | huggingface
   extractionStatus: text("extraction_status"), // pending | extracting | done | failed
   extractionError: text("extraction_error"), // human-readable reason when failed

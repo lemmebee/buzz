@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
-import { randomUUID } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { db, schema } from "@/lib/db";
 import { extractProfileAndStrategy } from "@/lib/brain/extract";
+import { normalizeChannelHints, normalizeICP, normalizeJTBDList } from "@/lib/brain/types";
 
 const SCREENSHOTS_DIR = join(process.cwd(), "public/media/screenshots");
 
@@ -47,6 +48,11 @@ export async function POST(req: NextRequest) {
       planFile: body.planFile || null,
       planFileName: body.planFileName || null,
       screenshots: screenshotPaths.length > 0 ? JSON.stringify(screenshotPaths) : null,
+      icp: normalizeICP(body.icp),
+      jtbd: normalizeJTBDList(body.jtbd),
+      channelHints: normalizeChannelHints(body.channelHints),
+      landingUrl: body.landingUrl || null,
+      attributionWebhookSecret: randomBytes(32).toString("hex"),
       textProvider: body.textProvider || null,
       extractionStatus: body.planFile ? "pending" : null,
     }).returning();
@@ -76,6 +82,11 @@ export async function POST(req: NextRequest) {
     description: body.description,
     planFile: body.planFile || null,
     planFileName: body.planFileName || null,
+    icp: normalizeICP(body.icp),
+    jtbd: normalizeJTBDList(body.jtbd),
+    channelHints: normalizeChannelHints(body.channelHints),
+    landingUrl: body.landingUrl || null,
+    attributionWebhookSecret: randomBytes(32).toString("hex"),
     textProvider: body.textProvider || null,
     extractionStatus: body.planFile ? "pending" : null,
   }).returning();
