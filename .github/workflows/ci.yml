@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-typecheck-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        env:
+          ADMIN_PASSWORD: ci-placeholder
+          GOOGLE_AI_API_KEY: ci-placeholder
+          FACEBOOK_APP_ID: ci-placeholder
+          FACEBOOK_APP_SECRET: ci-placeholder
+          INSTAGRAM_REDIRECT_URI: http://localhost:3000/api/instagram/callback
+        run: npm run build
