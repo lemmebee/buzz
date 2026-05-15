@@ -164,6 +164,18 @@ For a permanent URL, set up a named Cloudflare tunnel or deploy Buzz behind any 
 - Each due schedule generates drafts and ships them to Discord for approval.
 - External cron path also available: `POST /api/cron/generate` with header `x-cron-secret: $CRON_SECRET`.
 
+### Monitoring Gemini usage in your own timezone
+
+[Google AI Studio Usage](https://aistudio.google.com/usage) charts are hardcoded to **UTC-8** with no timezone toggle, which makes correlating bars with scheduler runs annoying.
+
+For the same data with a TZ selector that respects your browser locale, use Cloud Console:
+
+```
+https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/metrics?project=$GOOGLE_CLOUD_PROJECT_ID
+```
+
+Set `GOOGLE_CLOUD_PROJECT_ID` in `.env` to the project that owns your `GOOGLE_AI_API_KEY` (visible in the AI Studio URL as `project=gen-lang-client-XXXX`). Each chart has a timezone control in its top-right menu.
+
 ## Running as a systemd service (Linux)
 
 User unit at `~/.config/systemd/user/buzz.service` runs `npm start` (production build). Companion unit `buzz-tunnel.service` runs the Cloudflare tunnel. Manage with:
