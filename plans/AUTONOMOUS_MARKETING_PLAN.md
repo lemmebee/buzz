@@ -45,6 +45,7 @@ Buzz today only attempts layer 2. Skip 1 + 3 = posting-into-void forever (curren
 | Launch sequencer (day-N playbook) | Missing | High |
 | Audience research / ICP enrichment | Manual at product creation | Medium |
 | Outbound engager (comments, replies) | Missing | Medium - high ban risk, build last |
+| Account-health monitor + warmer | Missing | **Critical** - publishers post into void without warm accounts. Added after #38 review by @m13v. See #72, #73 |
 | Approval policy (auto-approve high-trust templates) | Manual approval today | Medium |
 
 ## Target architecture
@@ -129,13 +130,13 @@ Detailed backlog lives in GitHub issues + milestones. Stage = milestone, ~6-week
 |---|---|---|---|---|
 | 0 | Product brain augmentation | 3 (#22-24) | 0.5 | ICP/JTBD/channelHints schema + UI + LLM draft |
 | 1 | Attribution + Critic on IG | 12 (#21, #25-35) | 3 | Close measurement loop on existing IG before scaling |
-| 2 | Multi-channel + Strategist v1 | 10 (#36-45) | 4 | Reddit, X, SEO blog, ASO + cross-channel allocator |
+| 2 | Multi-channel + Strategist v1 | 12 (#36-45, #72, #73) | 5 | Account health gate + warmer, Reddit, X, SEO blog, ASO + cross-channel allocator |
 | 3 | Launch motion + Approval policy | 6 (#46-51) | 2 | Day-N launch playbook + trust-scored auto-approve |
 | 4 | TikTok/Reels + dev.to/IH | 7 (#52-58) | 3 | Higher-reach channels using video pipeline |
 | 5 | Outbound engager | 6 (#59-64) | 2 | Subreddit/X watchers + value-add replies (highest ban risk - last) |
 | 6 | Paid amplification | 4 (#65-68) | 2 | Meta/Google Ads + unified CAC |
 
-**Critical path**: S0.1 -> S1.1 -> S1.2 -> S1.5 -> S1.7 -> S1.9. Everything else fans out from these.
+**Critical path**: S0.1 -> S1.1 -> S1.2 -> S1.5 -> S1.7 -> S1.9 -> S2.1 -> **S2.0 (#72)** -> **S2.0b (#73)** -> publishers. Everything else fans out from these. Account-health monitor + warmer are non-skippable prereqs for all Stage 2 publish work after #38 review by @m13v.
 
 Project board: https://github.com/users/lemmebee/projects/1/views/1
 
@@ -149,7 +150,7 @@ Project board: https://github.com/users/lemmebee/projects/1/views/1
 | Q4 | Approval gate | Discord-only for v1 (existing plumbing). In-app queue only if >20 pending at any time |
 | Q5 | Hosting | Local until Buzz proves worthy. CodeRabbit + CI run on GitHub regardless |
 | Q6 | First test product | **Ruh** (ruhjourney.com). Web signup + 445 visits / 722 PV last 30 days = real attribution target |
-| Q7 | Repo public/private | **Private indefinitely.** Engager + scrapers stay closed-source forever |
+| Q7 | Repo public/private | **Public** (flipped from private after CodeRabbit pricing showed $30/seat/mo for private). Buzz core open-source. When Stage 5 (engager) lands, split into separate private repo OR ship as opt-in module. Free CodeRabbit Pro + free branch protection are the prize |
 
 ## Channel selection logic (Strategist must implement)
 
@@ -178,6 +179,8 @@ Early modules: Reddit, X, SEO blog, ASO. Late modules: TikTok, IG Reels, comment
 | Single-product test (Ruh) | One product = one data point. Validate architecture but expect channel mix to shift for next products |
 | Buzz instance offline | Stage 1-3 = local-only. Cron + webhook reliability constrained to user's machine uptime. Move to Railway/Fly at Stage 4+ |
 | Free-tier rate limits | Project-wide Gemini RPD ceiling (1500/day) caps fleet of products to ~10 actively-served |
+| Engager code public | Stage 5 engager must split to private repo OR opt-in plugin BEFORE merging to public Buzz |
+| Cold-account auto-ban | Every publisher consults Account Health Monitor (#72) before posting; cold accounts route through Warmer (#73) until trust threshold met. Insight from @m13v on #38 |
 
 ## What human must still do (be honest about "minimal")
 
