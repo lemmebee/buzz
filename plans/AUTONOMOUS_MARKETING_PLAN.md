@@ -49,78 +49,190 @@ Buzz today only attempts layer 2. Skip 1 + 3 = posting-into-void forever (repres
 | Multi-ICP / sensitivity rules / locales / pillar weights / KPIs in product schema | S0.1 covers single-shape only | **Critical** - real briefs have multiple ICPs, multiple locales, weighted pillars, hard sensitivity constraints. See #75 |
 | Approval policy (auto-approve high-trust templates) | Manual approval today | Medium |
 
-## Target architecture
+## Refined design (v2)
 
+After review pass:
+
+- **Rename** `planFile` → `brief` (industry-standard term; single chore migration to file + grep-replace across schema/types/UI)
+- **Brief as onboarding artifact only.** Markdown brief parsed once via `extractBrain(brief) -> ProductBrain`. Brief kept as immutable historical record in `productRevisions`. NOT consulted at runtime.
+- **`ProductBrain` = single typed JSON** holding everything: profile, strategy (with weighted pillars), ICP[], JTBD[], sensitivity rules, KPI targets, channel hints, locales (locales fold into profile/strategy via `byLocale` keys; no separate `productLocales` table). Stored in `products.brain` JSON column.
+- **One-way truth**: `brief -> brain` via extraction. Field edits go directly to `brain` via form UI (no markdown round-trip).
+- **`extractBrain(productId)` = single function** (not per-section). Runs only on initial import or explicit re-import.
+- **Section addressability dropped.** Indexes ARE the queryable view; no need to re-address brief sections at runtime.
+- **Sensitivity rules injected as prompt prefix** in Strategist + Producer + Approval gate (NOT Critic - it doesn't generate user-facing content). Single chokepoint: `buildSystemPrompt(productId, audience)`.
+- **Critic loop closed via `brainPatches`.** Critic does TWO things autonomously: (1) updates `banditArms` posteriors instant; (2) detects drift between declared brain intent (e.g. pillar weights) vs observed reality. Sustained drift -> emits `ProposedBrainPatch` (structured: path + oldValue + newValue + reason) -> Discord approval -> on accept applies patch + logs revision. Brief markdown is never auto-rewritten. Indices update only via human-gated patch flow.
+
+## System architecture
+
+```mermaid
+graph TB
+    H[Human]
+    H -- upload brief.md or pick template --> BR[brief markdown<br/>immutable per revision]
+    BR -- extractBrain LLM, one-shot --> BRAIN[(products.brain<br/>ProductBrain JSON)]
+
+    BRAIN --> STR[Strategist agent<br/>weekly tick]
+    BRAIN --> PROD[Producer per channel slot]
+    BRAIN --> APP[Approval policy]
+
+    STR -- emits Campaign --> CAMP[(campaigns)]
+    CAMP -- per-channel slots --> PROD
+    PROD -- content draft --> APP
+    APP -- decide auto / queue / block --> HEAL[Account Health Monitor]
+
+    HEAL -- cold account --> WARM[Account Warmer<br/>S2.0b]
+    HEAL -- warm / trusted --> PUB[Publisher per channel]
+    PUB -- wrap outbound URLs --> SL[(shortLinks)]
+    PUB -- post --> EXT[Platform API<br/>IG / Reddit / X / TikTok / dev.to / SEO / ASO]
+
+    EXT -- metrics --> INGEST[Metrics ingestor]
+    SL -- /s/code click --> TRACK[click tracker + cookie]
+    TRACK --> LAND[Product landing page]
+    LAND -- SDK fires conversion --> WEBHOOK[POST /api/conversions HMAC]
+
+    INGEST --> METR[(contentMetrics)]
+    WEBHOOK --> CONV[(conversions)]
+
+    METR --> CRIT[Critic weekly]
+    CONV --> CRIT
+    CRIT -- update arms --> BAND[(banditArms)]
+    CRIT -- drift detected --> BP[(brainPatches<br/>pending approval)]
+    BP -- Discord approval --> H
+    H -- approve patch --> BRAIN
+
+    BAND --> STR
+    BAND --> PROD
+    BAND --> APP
+
+    Engager[Outbound Engager<br/>Stage 5] -. extends shared infra with Warmer .-> WARM
 ```
-                        +------------------------------+
-                        |  Product brain (EXISTING)    |
-                        |  + ICP, JTBD, channelHints   |  [aug schema]
-                        +--------------+---------------+
-                                       |
-                        +--------------v---------------+
-                        |  Strategist agent  (NEW)     |
-                        |  per-product weekly loop:    |
-                        |   - reads perf, brain        |
-                        |   - emits Campaign record    |
-                        +--------------+---------------+
-                                       |
-                +----------------------+----------------------+
-                v                      v                      v
-        +--------------+       +--------------+       +--------------+
-        |  Campaign    |       |  Rotation    |       |  Launch      |
-        |  table (NEW) +------>|  EXISTING +  |       |  sequencer   |
-        |              |       |  bandit weight|       |  (NEW)       |
-        +------+-------+       +------+-------+       +------+-------+
-               |                      |                       |
-               +----------------------+-----------------------+
-                                      v
-                        +------------------------------+
-                        |  Producer registry (NEW)     |
-                        |   - existing IG producer     |
-                        |   - reddit, X, HN, PH        |
-                        |   - dev.to, SEO blog, ASO    |
-                        |   - tiktok (later)           |
-                        +--------------+---------------+
-                                       |
-                        +--------------v---------------+
-                        |  Approval policy (NEW)       |
-                        |  trust-scored, Discord gate  |
-                        +--------------+---------------+
-                                       |
-                        +--------------v---------------+
-                        |  Publisher registry (NEW)    |
-                        |  per-channel post() + getMetrics()|
-                        +--------------+---------------+
-                                       |
-                +----------------------+----------------------+
-                v                      v                      v
-        +--------------+       +--------------+       +--------------+
-        | Short-link   |       |  Asset       |       |  Engager     |
-        | + UTM (NEW)  |       |  post -> DB  |       |  (NEW, last) |
-        +------+-------+       +--------------+       +--------------+
-               |
-               v
-        +--------------+       +--------------+
-        | Click+install|<------| Product app  |
-        | webhook (NEW)|       | SDK/snippet  |
-        +------+-------+       +--------------+
-               |
-               v
-        +------------------------------+
-        |  Metrics ingestor (NEW)      |
-        |   - platform APIs            |
-        |   - own click tracker        |
-        |   - product webhook          |
-        +--------------+---------------+
-                       v
-        +------------------------------+
-        |  Critic/learner (NEW)        |
-        |   - bandit per hook/pillar   |
-        |   - per-channel CAC          |
-        |   - feeds rotation weights   |
-        +--------------+---------------+
-                       |
-                       +--> back to Strategist next cycle
+
+## Data model
+
+```mermaid
+erDiagram
+    products ||--o{ content : has
+    products ||--o{ productRevisions : audited_in
+    products ||--o{ campaigns : runs
+    products ||--o{ banditArms : tunes
+    products ||--o{ brainPatches : proposed_against
+    products ||--o{ accountHealthSnapshots : tracks
+    products ||--o| instagramAccounts : owns
+    products ||--o{ redditAccounts : owns
+    products ||--o{ twitterAccounts : owns
+    products ||--o{ tiktokAccounts : owns
+
+    campaigns ||--o{ content : produces
+    campaigns }o--|| channels : enrolls
+
+    content ||--o| shortLinks : wraps_url
+    shortLinks ||--o{ conversions : attributes
+    content ||--o{ contentMetrics : measured_by
+
+    channels ||--o{ accountHealthSnapshots : scopes
+
+    products {
+        int id
+        text name
+        text description
+        text brief
+        text briefFileName
+        text briefImportStatus
+        text briefImportError
+        json brain "ProductBrain: profile + strategy + icp + jtbd + sensitivity + kpis + locales + channelHints"
+        text landingUrl
+        text attributionWebhookSecret
+    }
+
+    brainPatches {
+        int id
+        int productId
+        text path
+        text oldValue
+        text proposedValue
+        text reason
+        text source "critic | manual"
+        text status "pending | approved | rejected"
+        timestamp proposedAt
+    }
+```
+
+## Onboarding sequence
+
+```mermaid
+sequenceDiagram
+    actor H as Human
+    participant API as POST /api/products
+    participant DB
+    participant LLM as extractBrain
+    participant REV as productRevisions
+
+    H->>API: brief.md + name + landingUrl
+    API->>DB: insert product, briefImportStatus=pending, secret generated
+    API-->>H: 201 created
+    par async
+        API->>LLM: extractBrain(brief)
+        LLM->>LLM: parse into ProductBrain shape
+        LLM->>DB: update product.brain, briefImportStatus=done
+        LLM->>REV: row (field=brain, source=extraction)
+    end
+    H->>API: GET /products/:id (poll until done)
+    H->>API: field edit (e.g. brain.icp[0].topPains[1])
+    API->>DB: patch brain at path
+    API->>REV: row (field=brain.icp[0].topPains, source=manual)
+```
+
+## Runtime cycle
+
+```mermaid
+flowchart TB
+    CRON[weekly cron tick] --> STR[Strategist LLM]
+    STR --> |reads brain + banditArms + last week metrics| OUT[emit Campaign hypothesis]
+    OUT --> ORCH[Campaign orchestrator]
+    ORCH --> |per channel slot| PROD[Producer LLM]
+    PROD --> |caption + media + hashtags| APP[Approval policy]
+    APP --> DEC{trust gate}
+    DEC --> |high trust + sensitivity passed| HEAL[Account Health check]
+    DEC --> |low trust| DISC[Discord queue]
+    DISC --> HUMAN{Human}
+    HUMAN --> |approve| HEAL
+    HUMAN --> |reject| KILL[mark rejected<br/>feed signal to Critic]
+    HEAL --> |cold| WARM[route via Warmer]
+    HEAL --> |warm/trusted| PUB[Publisher]
+    PUB --> SL[shortLinks wrap URLs]
+    PUB --> PLAT[Platform API publish]
+    PLAT --> CM[contentMetrics + conversions ingest]
+    CM --> CRIT[Critic]
+    CRIT --> BAND[update banditArms]
+    BAND -.next tick.-> STR
+```
+
+## Critic loop with brain patches
+
+```mermaid
+sequenceDiagram
+    participant C as Critic weekly
+    participant M as metrics + conversions
+    participant B as banditArms
+    participant BR as ProductBrain
+    participant BP as brainPatches
+    participant D as Discord
+    actor H as Human
+
+    C->>M: read last 7-30d
+    C->>B: update arm posteriors (autonomous)
+    C->>BR: compare declared (e.g. pillar weights) vs observed optimal
+    alt drift > threshold over N weeks
+        C->>BP: emit ProposedBrainPatch path / oldValue / newValue / reason
+        C->>D: post approval card with diff
+        H->>D: accept or reject
+        alt accept
+            D->>BR: apply patch at path
+            D->>BP: status=approved
+        else reject
+            D->>BP: status=rejected
+            Note over BR: drift stays surfaced in dashboard
+        end
+    end
 ```
 
 ## Stages
