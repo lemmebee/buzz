@@ -53,19 +53,14 @@ export function verifyDiscordSignature(
   }
 }
 
-export async function sendPostForApproval(postId: number): Promise<boolean> {
-  const config = await getDiscordConfig();
-  if (!config) return false;
+type ContentRow = typeof schema.content.$inferSelect;
+type ProductRow = typeof schema.products.$inferSelect;
 
-  const post = await db.query.content.findFirst({
-    where: eq(schema.content.id, postId),
-  });
-  if (!post) return false;
-
-  const product = post.productId
-    ? await db.query.products.findFirst({ where: eq(schema.products.id, post.productId) })
-    : null;
-
+function buildDraftPayload(
+  post: ContentRow,
+  product: ProductRow | null | undefined,
+  postId: number,
+): Record<string, unknown> {
   const hashtags: string[] = post.hashtags ? JSON.parse(post.hashtags) : [];
   const hashtagStr = hashtags.length > 0
     ? "\n\n" + hashtags.map((t) => `#${t.replace(/^#+/, "")}`).join(" ")
@@ -79,6 +74,7 @@ export async function sendPostForApproval(postId: number): Promise<boolean> {
       type: 1,
       components: [
         { type: 2, style: 3, label: "Post", custom_id: `approve:${postId}` },
+        { type: 2, style: 1, label: "Edit", custom_id: `edit:${postId}` },
         { type: 2, style: 4, label: "Delete", custom_id: `reject:${postId}` },
       ],
     },
@@ -97,6 +93,24 @@ export async function sendPostForApproval(postId: number): Promise<boolean> {
       payload.embeds = [{ image: { url: post.publicMediaUrl } }];
     }
   }
+
+  return payload;
+}
+
+export async function sendPostForApproval(postId: number): Promise<boolean> {
+  const config = await getDiscordConfig();
+  if (!config) return false;
+
+  const post = await db.query.content.findFirst({
+    where: eq(schema.content.id, postId),
+  });
+  if (!post) return false;
+
+  const product = post.productId
+    ? await db.query.products.findFirst({ where: eq(schema.products.id, post.productId) })
+    : null;
+
+  const payload = buildDraftPayload(post, product, postId);
 
   const res = await discordFetch(config.token, `/channels/${config.channelId}/messages`, {
     method: "POST",
@@ -159,3 +173,126 @@ export async function handleComponentInteraction(interaction: ComponentInteracti
     console.error("[Discord] followup edit failed:", followupRes.status, txt);
   }
 }
+
+export async function buildEditModalResponse(postId: number) {
+  const post = await db.query.content.findFirst({
+    where: eq(schema.content.id, postId),
+  });
+  if (!post) return null;
+
+  const hashtags: string[] = post.hashtags ? JSON.parse(post.hashtags) : [];
+  const hashtagStr = hashtags.length > 0
+    ? "\n\n" + hashtags.map((t) => `#${t.replace(/^#+/, "")}`).join(" ")
+    : "";
+  const full = `${post.content}${hashtagStr}`.slice(0, 4000);
+
+  return {
+    type: 9, // MODAL
+    data: {
+      custom_id: `edit_modal:${postId}`,
+      title: "Edit post",
+      components: [
+        {
+          type: 1,
+          components: [
+            {
+              type: 4, // TEXT_INPUT
+              custom_id: "post_text",
+              style: 2, // paragraph
+              label: "Caption + hashtags",
+              value: full,
+              max_length: 4000,
+              required: true,
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+interface ModalSubmitInteraction {
+  application_id: string;
+  token: string;
+  data: {
+    custom_id: string;
+    components: Array<{
+      components: Array<{ custom_id: string; value: string }>;
+    }>;
+  };
+}
+
+export interface ParsedEditModal {
+  postId: number;
+  text: string;
+}
+
+export function parseEditModalSubmit(
+  interaction: ModalSubmitInteraction,
+): ParsedEditModal | { error: string } {
+  const customId = interaction.data?.custom_id ?? "";
+  const [action, postIdStr] = customId.split(":");
+  if (action !== "edit_modal") return { error: "unexpected modal" };
+
+  const postId = parseInt(postIdStr);
+  if (!postId || Number.isNaN(postId)) return { error: "invalid post id" };
+
+  const rows = interaction.data?.components;
+  if (!Array.isArray(rows)) return { error: "malformed modal payload" };
+
+  let text: string | undefined;
+  for (const row of rows) {
+    if (!Array.isArray(row?.components)) continue;
+    for (const c of row.components) {
+      if (c?.custom_id === "post_text" && typeof c.value === "string") {
+        text = c.value;
+        break;
+      }
+    }
+    if (text !== undefined) break;
+  }
+
+  if (text === undefined) return { error: "post_text missing" };
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return { error: "caption cannot be empty" };
+  if (trimmed.length > 4000) return { error: "caption too long" };
+
+  return { postId, text };
+}
+
+export async function handleModalSubmit(
+  interaction: ModalSubmitInteraction,
+  parsed: ParsedEditModal,
+) {
+  const { postId, text } = parsed;
+
+  await db
+    .update(schema.content)
+    .set({ content: text, hashtags: JSON.stringify([]) })
+    .where(eq(schema.content.id, postId));
+
+  const post = await db.query.content.findFirst({
+    where: eq(schema.content.id, postId),
+  });
+  if (!post) return;
+
+  const product = post.productId
+    ? await db.query.products.findFirst({ where: eq(schema.products.id, post.productId) })
+    : null;
+
+  const payload = buildDraftPayload(post, product, postId);
+
+  const followupRes = await fetch(
+    `${DISCORD_API}/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!followupRes.ok) {
+    const txt = await followupRes.text();
+    console.error("[Discord] modal edit followup failed:", followupRes.status, txt);
+  }
+}
+
