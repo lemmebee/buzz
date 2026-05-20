@@ -5,6 +5,7 @@ import {
   handleComponentInteraction,
   buildEditModalResponse,
   handleModalSubmit,
+  parseEditModalSubmit,
 } from "@/lib/discord";
 
 export const runtime = "nodejs";
@@ -58,7 +59,14 @@ export async function POST(req: NextRequest) {
 
   // MODAL_SUBMIT
   if (interaction.type === 5) {
-    handleModalSubmit(interaction).catch((err) =>
+    const parsed = parseEditModalSubmit(interaction);
+    if ("error" in parsed) {
+      return NextResponse.json({
+        type: 4,
+        data: { content: parsed.error, flags: 64 },
+      });
+    }
+    handleModalSubmit(interaction, parsed).catch((err) =>
       console.error("[Discord] modal handler error:", err),
     );
     return NextResponse.json({ type: 6 });

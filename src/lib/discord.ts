@@ -222,18 +222,53 @@ interface ModalSubmitInteraction {
   };
 }
 
-export async function handleModalSubmit(interaction: ModalSubmitInteraction) {
-  const [action, postIdStr] = interaction.data.custom_id.split(":");
-  if (action !== "edit_modal") return;
-  const postId = parseInt(postIdStr);
-  if (!postId) return;
+export interface ParsedEditModal {
+  postId: number;
+  text: string;
+}
 
-  const value =
-    interaction.data.components?.[0]?.components?.[0]?.value ?? "";
+export function parseEditModalSubmit(
+  interaction: ModalSubmitInteraction,
+): ParsedEditModal | { error: string } {
+  const customId = interaction.data?.custom_id ?? "";
+  const [action, postIdStr] = customId.split(":");
+  if (action !== "edit_modal") return { error: "unexpected modal" };
+
+  const postId = parseInt(postIdStr);
+  if (!postId || Number.isNaN(postId)) return { error: "invalid post id" };
+
+  const rows = interaction.data?.components;
+  if (!Array.isArray(rows)) return { error: "malformed modal payload" };
+
+  let text: string | undefined;
+  for (const row of rows) {
+    if (!Array.isArray(row?.components)) continue;
+    for (const c of row.components) {
+      if (c?.custom_id === "post_text" && typeof c.value === "string") {
+        text = c.value;
+        break;
+      }
+    }
+    if (text !== undefined) break;
+  }
+
+  if (text === undefined) return { error: "post_text missing" };
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return { error: "caption cannot be empty" };
+  if (trimmed.length > 4000) return { error: "caption too long" };
+
+  return { postId, text };
+}
+
+export async function handleModalSubmit(
+  interaction: ModalSubmitInteraction,
+  parsed: ParsedEditModal,
+) {
+  const { postId, text } = parsed;
 
   await db
     .update(schema.content)
-    .set({ content: value, hashtags: JSON.stringify([]) })
+    .set({ content: text, hashtags: JSON.stringify([]) })
     .where(eq(schema.content.id, postId));
 
   const post = await db.query.content.findFirst({
