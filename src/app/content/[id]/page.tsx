@@ -22,7 +22,6 @@ export default function ContentEditPage() {
 
   // Form state
   const [content, setContent] = useState("");
-  const [hashtags, setHashtags] = useState("");
   const [type, setType] = useState("post");
   const [status, setStatus] = useState("draft");
   const [mediaUrl, setMediaUrl] = useState("");
@@ -49,10 +48,17 @@ export default function ContentEditPage() {
 
     setPost(postData);
     setProducts(productsData);
-    setContent(postData.content);
-    setHashtags(
-      postData.hashtags ? JSON.parse(postData.hashtags).join(", ") : ""
-    );
+    const existingHashtags: string[] = postData.hashtags
+      ? JSON.parse(postData.hashtags)
+      : [];
+    const tagSuffix =
+      existingHashtags.length > 0
+        ? "\n\n" +
+          existingHashtags
+            .map((t: string) => `#${t.replace(/^#+/, "")}`)
+            .join(" ")
+        : "";
+    setContent(`${postData.content}${tagSuffix}`);
     setType(postData.type);
     setStatus(postData.status);
     setMediaUrl(postData.mediaUrl || "");
@@ -67,18 +73,13 @@ export default function ContentEditPage() {
   async function handleSave() {
     setSaving(true);
 
-    const hashtagsArray = hashtags
-      .split(",")
-      .map((t) => t.trim().replace(/^#/, ""))
-      .filter(Boolean);
-
     const saveStatus = scheduledAt ? "scheduled" : status;
     await fetch(`/api/posts/${params.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         content,
-        hashtags: hashtagsArray,
+        hashtags: [],
         type,
         status: saveStatus,
         mediaUrl: mediaUrl || null,
@@ -247,21 +248,6 @@ export default function ContentEditPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
               placeholder="Post content..."
             />
-          </div>
-
-          {/* Hashtags */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Hashtags
-            </label>
-            <input
-              type="text"
-              value={hashtags}
-              onChange={(e) => setHashtags(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
-              placeholder="tag1, tag2, tag3"
-            />
-            <p className="text-xs text-gray-500 mt-1">Comma-separated, # optional</p>
           </div>
 
           {/* Media URL */}

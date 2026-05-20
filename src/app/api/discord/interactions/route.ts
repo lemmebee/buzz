@@ -3,6 +3,8 @@ import {
   getDiscordConfig,
   verifyDiscordSignature,
   handleComponentInteraction,
+  buildEditModalResponse,
+  handleModalSubmit,
 } from "@/lib/discord";
 
 export const runtime = "nodejs";
@@ -34,10 +36,31 @@ export async function POST(req: NextRequest) {
 
   // MESSAGE_COMPONENT (button click)
   if (interaction.type === 3) {
+    const customId: string = interaction.data?.custom_id || "";
+    const [action, postIdStr] = customId.split(":");
+
+    if (action === "edit") {
+      const postId = parseInt(postIdStr);
+      const modal = postId ? await buildEditModalResponse(postId) : null;
+      if (modal) return NextResponse.json(modal);
+      return NextResponse.json({
+        type: 4,
+        data: { content: "Post not found", flags: 64 },
+      });
+    }
+
     handleComponentInteraction(interaction).catch((err) =>
       console.error("[Discord] interaction handler error:", err),
     );
     // DEFERRED_UPDATE_MESSAGE - acks click, allows async followup edit
+    return NextResponse.json({ type: 6 });
+  }
+
+  // MODAL_SUBMIT
+  if (interaction.type === 5) {
+    handleModalSubmit(interaction).catch((err) =>
+      console.error("[Discord] modal handler error:", err),
+    );
     return NextResponse.json({ type: 6 });
   }
 
