@@ -141,21 +141,24 @@ Generation schedules post each draft to a Discord channel with **Post** / **Dele
 
 ### Public URL for button clicks
 
-Discord button presses POST to your app. Localhost is not reachable from Discord, so you need a public HTTPS URL.
+Discord button presses POST to your app. Localhost is not reachable from Discord, so you need a stable public HTTPS URL.
 
-For a quick tunnel:
+Recommended: [Tailscale Funnel](https://tailscale.com/kb/1223/funnel) (free, stable hostname, survives reboots):
 ```bash
-cloudflared tunnel --url http://localhost:3000
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+sudo tailscale set --operator=$USER
+tailscale funnel --bg 3000
 ```
-Copy the printed `https://*.trycloudflare.com` URL.
+Enable HTTPS + MagicDNS in the [Tailscale admin DNS panel](https://login.tailscale.com/admin/dns), and grant `funnel` via `nodeAttrs` in [access controls](https://login.tailscale.com/admin/acls/file). `tailscale funnel status` prints the public URL (e.g. `https://<machine>.<tailnet>.ts.net`).
 
 In the dev portal → **General Information** → set **Interactions Endpoint URL** to:
 ```
-https://<your-tunnel-host>/api/discord/interactions
+https://<your-funnel-host>/api/discord/interactions
 ```
-Save. Discord verifies the URL with a signed PING; save succeeds when Buzz is reachable and the public key is configured.
+Save. Discord verifies the URL with a signed PING; save succeeds when Buzz is reachable and the public key is configured. The hostname is stable, so this is a one-time setup.
 
-For a permanent URL, set up a named Cloudflare tunnel or deploy Buzz behind any HTTPS reverse proxy.
+Alternative: any HTTPS reverse proxy (Cloudflare named tunnel, ngrok paid, custom domain on a VPS).
 
 ## Generation Schedules
 
@@ -178,16 +181,16 @@ Set `GOOGLE_CLOUD_PROJECT_ID` in `.env` to the project that owns your `GOOGLE_AI
 
 ## Running as a systemd service (Linux)
 
-User unit at `~/.config/systemd/user/buzz.service` runs `npm start` (production build). Companion unit `buzz-tunnel.service` runs the Cloudflare tunnel. Manage with:
+User unit at `~/.config/systemd/user/buzz.service` runs `npm start` (production build). Tailscale Funnel exposes it publicly via the `tailscaled` system service. Manage with:
 
 ```bash
-systemctl --user start  buzz.service buzz-tunnel.service
-systemctl --user enable buzz.service buzz-tunnel.service
+systemctl --user start  buzz.service
+systemctl --user enable buzz.service
 journalctl --user -u buzz.service -f
-journalctl --user -u buzz-tunnel.service | grep trycloudflare
+tailscale funnel status
 ```
 
-The quick tunnel URL changes whenever `buzz-tunnel.service` restarts; re-paste it into the Discord dev portal each time, or use a named tunnel for a stable hostname.
+Funnel config persists in tailscaled state across reboots; the public hostname does not rotate.
 
 ## License
 
