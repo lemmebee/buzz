@@ -78,6 +78,20 @@ export interface AudioGenerationOutput {
 
 export type AudioProvider = Provider<AudioGenerationInput, AudioGenerationOutput>;
 
+// Scene rendering (Satori + resvg)
+export interface SceneRenderInput {
+  scene: import("@/lib/compose/scene").Scene;
+  fonts: { name: string; data: Buffer; weight?: number; style?: "normal" | "italic" }[];
+}
+
+export interface SceneRenderOutput {
+  url: string;
+  localPath?: string;
+  svg?: string;
+}
+
+export type SceneRenderer = Provider<SceneRenderInput, SceneRenderOutput>;
+
 // Provider config
 export interface ProviderConfig {
   apiKey?: string;

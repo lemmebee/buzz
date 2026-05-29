@@ -13,6 +13,9 @@ export type {
   VideoGenerationOutput,
   AudioGenerationInput,
   AudioGenerationOutput,
+  SceneRenderInput,
+  SceneRenderOutput,
+  SceneRenderer,
   ProviderConfig,
 } from "./types";
 
