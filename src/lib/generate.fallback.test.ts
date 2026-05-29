@@ -3,6 +3,17 @@ import type { Scene } from "@/lib/compose/scene";
 
 const fakeScene: Scene = { w: 1080, h: 1350, background: { kind: "solid", color: "#111" }, elements: [] };
 
+// A photo scene whose background-image src AND an image element both carry the LLM prompt
+// text "x" as a placeholder (mirrors how displayImage / photoCaption seed brief.imagery.scene).
+const photoSceneFixture: Scene = {
+  w: 1080,
+  h: 1350,
+  background: { kind: "image", src: "x", fit: "cover", treatment: "none" },
+  elements: [
+    { id: "photo", type: "image", slot: "bg", x: 0, y: 0, w: 1080, h: 800, rotation: 0, z: 1, src: "x", fit: "cover" },
+  ],
+};
+
 const findFirst = vi.fn();
 vi.mock("@/lib/db", () => ({
   db: { query: { products: { findFirst: (...a: unknown[]) => findFirst(...a) }, instagramAccounts: { findFirst: vi.fn().mockResolvedValue(null) } } },
@@ -10,11 +21,11 @@ vi.mock("@/lib/db", () => ({
 }));
 
 const textGenerate = vi.fn();
-const imageGenerate = vi.fn();
+const fetchBackgroundImage = vi.fn();
 const sceneGenerate = vi.fn();
 vi.mock("@/lib/providers", () => ({
   createTextProvider: () => ({ name: "t", generate: textGenerate }),
-  createPollinationsImageProvider: () => ({ name: "img", generate: imageGenerate }),
+  fetchBackgroundImage: (...a: unknown[]) => fetchBackgroundImage(...a),
   getSceneRenderer: () => ({ name: "scene", generate: sceneGenerate }),
 }));
 vi.mock("@/lib/settings", () => ({ getTextProvider: vi.fn().mockResolvedValue("gemini") }));
@@ -40,14 +51,37 @@ beforeEach(() => {
 });
 
 describe("generateContent fallbacks", () => {
-  it("falls back to a gradient background when the photo provider fails", async () => {
+  it("patches the real photo slot (bg + image element) with the local supplier path", async () => {
+    archBuilder.mockReturnValueOnce(structuredClone(photoSceneFixture));
+    textGenerate.mockResolvedValue({ text: JSON.stringify({ archetype: "photoCaption", headline: "hi", imagery: { kind: "photo", scene: "x" }, accentIndex: 0, caption: "c", hashtags: [] }) });
+    fetchBackgroundImage.mockResolvedValue({ url: "/api/media/bg.jpg", localPath: "/api/media/bg.jpg" });
+    sceneGenerate.mockResolvedValue({ url: "http://x/out.png", localPath: "/api/media/out.png" });
+
+    const posts = await generateContent({ productId: 1, platform: "instagram", mediaType: "image", targetSurface: "post" });
+    expect(posts).toHaveLength(1);
+    // Supplier was called with the prompt text + the kit treatment.
+    expect(fetchBackgroundImage).toHaveBeenCalledWith("x", { treatment: "none" });
+    const bg = posts[0].scene!.background;
+    expect(bg.kind).toBe("image");
+    expect((bg as { src: string }).src).toBe("/api/media/bg.jpg");
+    // The image element that held the placeholder is patched too; none retains "x".
+    const imgEl = posts[0].scene!.elements.find((e) => e.type === "image") as { src: string };
+    expect(imgEl.src).toBe("/api/media/bg.jpg");
+    expect(posts[0].mediaUrl).toBe("/api/media/out.png");
+  });
+
+  it("falls back to a gradient and scrubs the placeholder when the supplier fails", async () => {
+    archBuilder.mockReturnValueOnce(structuredClone(photoSceneFixture));
     textGenerate.mockResolvedValue({ text: JSON.stringify({ archetype: "displayImage", headline: "hi", imagery: { kind: "photo", scene: "x" }, accentIndex: 0, caption: "c", hashtags: [] }) });
-    imageGenerate.mockRejectedValue(new Error("pollinations 500"));
+    fetchBackgroundImage.mockRejectedValue(new Error("pollinations 500"));
     sceneGenerate.mockResolvedValue({ url: "http://x/out.png", localPath: "/api/media/out.png" });
 
     const posts = await generateContent({ productId: 1, platform: "instagram", mediaType: "image", targetSurface: "post" });
     expect(posts).toHaveLength(1);
     expect(posts[0].scene!.background.kind).toBe("gradient");
+    // No image element may keep the prompt-text placeholder as its src.
+    const imgEl = posts[0].scene!.elements.find((e) => e.type === "image") as { src: string };
+    expect(imgEl.src).toBe("");
     expect(posts[0].mediaUrl).toBe("/api/media/out.png");
   });
 
