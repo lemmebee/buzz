@@ -51,5 +51,8 @@ export { createMsEdgeTtsAudioProvider } from "./audio";
 // Video provider implementations
 export { createFfmpegVideoProvider } from "./video";
 
+// Scene renderer implementations
+export { createSatoriResvgRenderer } from "../compose/render/satoriResvg";
+
 // Factory entry points
-export { createTextProvider, createAudioProvider, createVideoProvider } from "./factory";
+export { createTextProvider, createAudioProvider, createVideoProvider, createSceneRenderer } from "./factory";

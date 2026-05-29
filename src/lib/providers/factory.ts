@@ -1,8 +1,9 @@
-import type { TextProvider, AudioProvider, VideoProvider } from "./types";
+import type { TextProvider, AudioProvider, VideoProvider, SceneRenderer } from "./types";
 import { createHuggingFaceTextProvider } from "./text";
 import { createGeminiTextProvider } from "./gemini";
 import { createMsEdgeTtsAudioProvider } from "./audio";
 import { createFfmpegVideoProvider } from "./video";
+import { createSatoriResvgRenderer } from "@/lib/compose/render/satoriResvg";
 
 export function createTextProvider(providerName?: string): TextProvider {
   const provider = providerName || process.env.TEXT_PROVIDER || "gemini";
@@ -36,5 +37,16 @@ export function createVideoProvider(providerName?: string): VideoProvider {
       return createFfmpegVideoProvider();
     default:
       throw new Error(`Unknown VIDEO_PROVIDER: ${provider}`);
+  }
+}
+
+export function createSceneRenderer(rendererName?: string): SceneRenderer {
+  const renderer = rendererName || process.env.SCENE_RENDERER || "satori";
+  switch (renderer) {
+    case "satori":
+    case "satori/resvg":
+      return createSatoriResvgRenderer();
+    default:
+      throw new Error(`Unknown SCENE_RENDERER: ${renderer}`);
   }
 }
