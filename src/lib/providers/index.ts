@@ -33,6 +33,9 @@ export {
   hasImageProvider,
   hasVideoProvider,
   hasAudioProvider,
+  registerSceneRenderer,
+  getSceneRenderer,
+  hasSceneRenderer,
 } from "./registry";
 
 // Text provider implementations

@@ -1,10 +1,11 @@
-import type { TextProvider, ImageProvider, VideoProvider, AudioProvider } from "./types";
+import type { TextProvider, ImageProvider, VideoProvider, AudioProvider, SceneRenderer } from "./types";
 
 interface ProviderRegistry {
   text: TextProvider | null;
   image: ImageProvider | null;
   video: VideoProvider | null;
   audio: AudioProvider | null;
+  sceneRenderer: SceneRenderer | null;
 }
 
 const registry: ProviderRegistry = {
@@ -12,6 +13,7 @@ const registry: ProviderRegistry = {
   image: null,
   video: null,
   audio: null,
+  sceneRenderer: null,
 };
 
 export function registerTextProvider(provider: TextProvider): void {
@@ -72,4 +74,19 @@ export function hasVideoProvider(): boolean {
 
 export function hasAudioProvider(): boolean {
   return registry.audio !== null;
+}
+
+export function registerSceneRenderer(provider: SceneRenderer): void {
+  registry.sceneRenderer = provider;
+}
+
+export function getSceneRenderer(): SceneRenderer {
+  if (!registry.sceneRenderer) {
+    throw new Error("No scene renderer registered");
+  }
+  return registry.sceneRenderer;
+}
+
+export function hasSceneRenderer(): boolean {
+  return registry.sceneRenderer !== null;
 }
