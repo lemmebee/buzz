@@ -12,8 +12,9 @@ function isScene(v: unknown): v is Scene {
 
 export async function POST(
   req: Request,
-  _ctx: { params: Promise<{ id: string }> },
+  ctx: { params: Promise<{ id: string }> },
 ) {
+  void ctx;
   let body: unknown;
   try {
     body = await req.json();
