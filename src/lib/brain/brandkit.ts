@@ -1,5 +1,7 @@
 import type { ProductProfile } from "@/lib/brain/types";
 import type { schema } from "@/lib/db";
+import * as cheerio from "cheerio";
+import postcss from "postcss";
 
 export interface FontSpec {
   family: string;
@@ -139,6 +141,127 @@ export function getCachedBrandKit(product: schema.Product): BrandKit | null {
     }
   }
   return isBrandKit(parsed) ? parsed : null;
+}
+
+function absoluteUrl(href: string, baseUrl: string): string | null {
+  if (!href) return null;
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Collect every hex color appearing in inline <style> blocks (custom props + rules), deduped + uppercased. */
+export function extractCssHexColors(html: string): string[] {
+  const $ = cheerio.load(html);
+  const css = $("style")
+    .map((_, el) => $(el).html() || "")
+    .get()
+    .join("\n");
+  const out: string[] = [];
+  const seen = new Set<string>();
+  try {
+    const root = postcss.parse(css);
+    root.walkDecls((decl) => {
+      for (const h of parseHexFromText(decl.value)) {
+        if (!seen.has(h)) { seen.add(h); out.push(h); }
+      }
+    });
+  } catch {
+    // postcss parse failure -> fall back to raw regex over the css blob
+  }
+  for (const h of parseHexFromText(css)) {
+    if (!seen.has(h)) { seen.add(h); out.push(h); }
+  }
+  return out;
+}
+
+/** og:image as an absolute URL, or null. */
+export function extractOgImage(html: string, baseUrl: string): string | null {
+  const $ = cheerio.load(html);
+  const og = $('meta[property="og:image"]').attr("content")
+    || $('meta[name="og:image"]').attr("content")
+    || $('meta[name="twitter:image"]').attr("content");
+  return og ? absoluteUrl(og, baseUrl) : null;
+}
+
+/** Ordered logo/mark candidates (best-first): og:image, apple-touch-icon, icon links, inline logo imgs. */
+export function extractLogoCandidates(html: string, baseUrl: string): string[] {
+  const $ = cheerio.load(html);
+  const out: string[] = [];
+  const push = (href?: string | null) => {
+    const abs = href ? absoluteUrl(href, baseUrl) : null;
+    if (abs && !out.includes(abs)) out.push(abs);
+  };
+  push($('meta[property="og:image"]').attr("content"));
+  push($('link[rel="apple-touch-icon"]').attr("href"));
+  $('link[rel~="icon"]').each((_, el) => push($(el).attr("href")));
+  $('img[class*="logo" i], img[alt*="logo" i], img[id*="logo" i]').each((_, el) => push($(el).attr("src")));
+  return out;
+}
+
+export interface ExtractedFonts {
+  display?: string;
+  body?: string;
+  googleFonts: string[];
+  fontFace: string[];
+}
+
+function firstFamily(value: string): string | undefined {
+  const first = value.split(",")[0]?.trim().replace(/^["']|["']$/g, "");
+  if (!first) return undefined;
+  const generic = ["serif", "sans-serif", "monospace", "system-ui", "cursive", "fantasy", "inherit", "initial"];
+  return generic.includes(first.toLowerCase()) ? undefined : first;
+}
+
+/** Parse font-family from heading/body CSS rules + google-fonts <link> + @font-face. */
+export function extractFontFamilies(html: string): ExtractedFonts {
+  const $ = cheerio.load(html);
+  const css = $("style").map((_, el) => $(el).html() || "").get().join("\n");
+
+  let display: string | undefined;
+  let body: string | undefined;
+  const fontFace: string[] = [];
+
+  try {
+    const root = postcss.parse(css);
+    root.walkRules((rule) => {
+      const sel = rule.selector.toLowerCase();
+      const isHeading = /(^|[\s,])(h1|h2|h3|\.display|\.heading|\.title)/.test(sel);
+      const isBody = /(^|[\s,])(body|html|p|\.body)/.test(sel);
+      rule.walkDecls("font-family", (decl) => {
+        const fam = firstFamily(decl.value);
+        if (!fam) return;
+        if (isHeading && !display) display = fam;
+        else if (isBody && !body) body = fam;
+      });
+    });
+    root.walkAtRules("font-face", (at) => {
+      at.walkDecls("font-family", (decl) => {
+        const fam = firstFamily(decl.value);
+        if (fam && !fontFace.includes(fam)) fontFace.push(fam);
+      });
+    });
+  } catch {
+    // ignore CSS parse errors; google-fonts link below still works
+  }
+
+  const googleFonts: string[] = [];
+  $('link[href*="fonts.googleapis.com"]').each((_, el) => {
+    const href = $(el).attr("href") || "";
+    const re = /family=([^&]+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(href)) !== null) {
+      const fam = decodeURIComponent(m[1]).split(":")[0].replace(/\+/g, " ").trim();
+      if (fam && !googleFonts.includes(fam)) googleFonts.push(fam);
+    }
+  });
+
+  if (!display && googleFonts[0]) display = googleFonts[0];
+  if (!body && googleFonts[1]) body = googleFonts[1];
+
+  return { display, body, googleFonts, fontFace };
 }
 
 export { HEX };
