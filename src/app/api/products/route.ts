@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
         planFileContent: created.planFile,
         screenshotPaths,
         textProvider: created.textProvider || undefined,
+        landingUrl: created.landingUrl,
       }).catch(console.error);
     }
 
@@ -101,6 +102,7 @@ export async function POST(req: NextRequest) {
       planFileContent: created.planFile,
       screenshotPaths: [],
       textProvider: created.textProvider || undefined,
+      landingUrl: created.landingUrl,
     }).catch(console.error);
   }
 

@@ -62,6 +62,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       screenshots: allPaths.length > 0 ? JSON.stringify(allPaths) : null,
       textProvider: body.textProvider || null,
     };
+    if (body.landingUrl !== undefined) updateData.landingUrl = body.landingUrl || null;
     if (body.profile !== undefined) updateData.profile = body.profile;
     if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
 
@@ -100,6 +101,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         planFileContent: updated.planFile!,
         screenshotPaths: allPaths,
         textProvider: updated.textProvider || undefined,
+        landingUrl: updated.landingUrl,
       }).catch(console.error);
     }
 
@@ -116,6 +118,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     planFileName: body.planFileName || null,
     textProvider: body.textProvider || null,
   };
+  if (body.landingUrl !== undefined) updateData.landingUrl = body.landingUrl || null;
   if (body.profile !== undefined) updateData.profile = body.profile;
   if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
 
@@ -155,6 +158,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       planFileContent: updated.planFile!,
       screenshotPaths,
       textProvider: updated.textProvider || undefined,
+      landingUrl: updated.landingUrl,
     }).catch(console.error);
   }
 

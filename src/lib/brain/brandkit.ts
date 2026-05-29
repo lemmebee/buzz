@@ -2,6 +2,8 @@ import * as cheerio from "cheerio";
 import postcss from "postcss";
 import { eq } from "drizzle-orm";
 import sharp from "sharp";
+import { readFile } from "node:fs/promises";
+import { join as pathJoin } from "node:path";
 import { db, schema } from "@/lib/db";
 import { normalizeProfile, type ProductProfile } from "@/lib/brain/types";
 import { resolveFont } from "@/lib/compose/fonts";
@@ -91,28 +93,62 @@ function moodWords(profile: ProductProfile): string[] {
 const DEFAULT_DISPLAY: FontSpec = { family: "Sora", class: "display", source: "substitute", weights: [700] };
 const DEFAULT_BODY: FontSpec = { family: "Inter", class: "sans", source: "substitute", weights: [400, 600] };
 
-/** Derive a sane BrandKit purely from the profile when no site is available. */
-export function coldStartBrandKit(profile: ProductProfile): BrandKit {
-  const style = profile.visualIdentity.style || "";
-  const mood = profile.visualIdentity.mood || "";
+/** Validate the LLM-extracted structured palette (all 6 fields present + hex). */
+function validStructuredPalette(p: unknown): p is BrandKit["palette"] {
+  if (!p || typeof p !== "object") return false;
+  const q = p as Record<string, unknown>;
+  const hex = (v: unknown) => typeof v === "string" && HEX.test(v);
+  return (
+    hex(q.bg) && hex(q.surface) && hex(q.ink) && hex(q.muted) && hex(q.onAccent) &&
+    Array.isArray(q.accents) && q.accents.length > 0 && (q.accents as unknown[]).every(hex)
+  );
+}
 
-  const found = parseHexFromText(profile.visualIdentity.colors || "");
-  const accents = found.length > 0 ? found : ["#FF5A36", "#36C2FF"];
+/** Map an extracted {family,class} font hint to a FontSpec (resolveFont substitutes by class if needed). */
+function structuredFontToSpec(f: { family?: string; class?: string } | undefined, fallback: FontSpec): FontSpec {
+  if (!f || !f.class) return { ...fallback };
+  const klass = (["serif", "sans", "display", "mono"].includes(f.class) ? f.class : fallback.class) as FontSpec["class"];
+  return { family: f.family || fallback.family, class: klass, source: "substitute", weights: fallback.weights };
+}
+
+/**
+ * Derive a BrandKit from the profile. Prefers the LLM-extracted structured visual
+ * identity (real palette/fonts/treatment grounded in site + screenshots). Falls back
+ * to prose-parsed accents over a neutral light scaffold only when structure is absent.
+ */
+export function coldStartBrandKit(profile: ProductProfile): BrandKit {
+  const vi = profile.visualIdentity;
+  const style = vi.style || "";
+  const mood = vi.mood || "";
+
+  let palette: BrandKit["palette"];
+  if (validStructuredPalette(vi.palette)) {
+    palette = vi.palette;
+  } else {
+    const found = parseHexFromText(vi.colors || "");
+    // Neutral LIGHT scaffold (not an always-dark theme) when we have no real colors.
+    palette = {
+      bg: "#FAFAF7",
+      surface: "#FFFFFF",
+      ink: "#1A1A1A",
+      muted: "#6B6B6B",
+      accents: found.length > 0 ? found : ["#2563EB"],
+      onAccent: "#FFFFFF",
+    };
+  }
+
+  const type = {
+    display: structuredFontToSpec(vi.fonts?.display, DEFAULT_DISPLAY),
+    body: structuredFontToSpec(vi.fonts?.body, DEFAULT_BODY),
+  };
 
   return {
-    palette: {
-      bg: "#0B0F1A",
-      surface: "#161B2E",
-      ink: "#F5F7FF",
-      muted: "#9AA3B2",
-      accents,
-      onAccent: "#FFFFFF",
-    },
-    type: { display: { ...DEFAULT_DISPLAY }, body: { ...DEFAULT_BODY } },
+    palette,
+    type,
     logo: {},
     icons: { style: iconStyleFromTraits(style, mood) },
     shape: { radius: radiusFromStyle(style), density: densityFromStyle(style) },
-    photo: { treatment: treatmentFromMood(mood) },
+    photo: { treatment: vi.treatment || treatmentFromMood(mood) },
     mood: moodWords(profile),
     source: { from: "derived", at: Date.now() },
   };
@@ -410,13 +446,30 @@ async function attachFontData(kit: BrandKit): Promise<void> {
  * Pipeline: fetch HTML -> CSS hex palette (+ og:image/favicon palette via Vibrant) -> logo -> fonts.
  * Any failure degrades gracefully to coldStartBrandKit. NEVER throws.
  */
+/** Extract dominant colors from a locally-stored screenshot ("/api/media/screenshots/x.png"). */
+async function paletteFromScreenshot(mediaPath: string): Promise<string[]> {
+  try {
+    const rel = mediaPath.replace(/^\/api\/media\//, "");
+    const file = pathJoin(process.cwd(), "public", "media", rel);
+    const buf = await readFile(file);
+    const png = await sharp(buf).resize(240, 240, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+    const { Vibrant } = await import("node-vibrant/node");
+    const swatches = await Vibrant.from(png).getPalette();
+    return Object.values(swatches).filter((s): s is NonNullable<typeof s> => !!s).map((s) => s.hex.toUpperCase());
+  } catch {
+    return [];
+  }
+}
+
 export async function deriveBrandKit(productId: number): Promise<BrandKit> {
   let profile: ProductProfile;
   let landingUrl: string | null = null;
+  let screenshots: string[] = [];
 
   try {
     const product = await db.select().from(schema.products).where(eq(schema.products.id, productId)).get();
     landingUrl = (product?.landingUrl as string | null) ?? null;
+    screenshots = product?.screenshots ? JSON.parse(product.screenshots as string) : [];
     const rawProfile = product?.profile;
     profile = rawProfile
       ? normalizeProfile(typeof rawProfile === "string" ? JSON.parse(rawProfile) : (rawProfile as Record<string, unknown>))
@@ -425,42 +478,96 @@ export async function deriveBrandKit(productId: number): Promise<BrandKit> {
     return coldStartBrandKit(normalizeProfile({}));
   }
 
-  const cold = coldStartBrandKit(profile);
-  if (!landingUrl) return cold;
+  const base = coldStartBrandKit(profile);
 
-  const html = await fetchHtml(landingUrl);
-  if (!html) return cold;
+  // PRIMARY: the extraction already produced a structured palette/fonts grounded in
+  // the site + screenshots. Trust it; just resolve the font files.
+  if (validStructuredPalette(profile.visualIdentity.palette)) {
+    await attachFontData(base);
+    base.source = { from: "profile", at: Date.now(), fontNote: base.source.fontNote };
+    return base;
+  }
 
+  // FALLBACK (legacy profiles, no structured identity): pull real colors from
+  // screenshots and/or the live site, then build a palette.
   try {
-    // 1. palette: CSS hexes first, augmented by og/favicon image colors
-    const cssHexes = extractCssHexColors(html);
-    const logos = extractLogoCandidates(html, landingUrl);
-    const og = extractOgImage(html, landingUrl);
-    const imageColors = og ? await paletteFromImage(og) : [];
-    const palette = buildPalette([...cssHexes, ...imageColors]) ?? cold.palette;
+    const screenshotColors = screenshots.length ? await paletteFromScreenshot(screenshots[0]) : [];
+    let cssHexes: string[] = [];
+    let imageColors: string[] = [];
+    let logos: string[] = [];
+    let siteType: BrandKit["type"] | null = null;
 
-    // 2. fonts
-    const fonts = extractFontFamilies(html);
-    const type = buildFontSpecs(fonts);
+    if (landingUrl) {
+      const html = await fetchHtml(landingUrl);
+      if (html) {
+        cssHexes = extractCssHexColors(html);
+        logos = extractLogoCandidates(html, landingUrl);
+        const og = extractOgImage(html, landingUrl);
+        imageColors = og ? await paletteFromImage(og) : [];
+        siteType = buildFontSpecs(extractFontFamilies(html));
+      }
+    }
 
-    // 3. logo
-    const logoSrc = logos[0];
-
+    const builtPalette = buildPalette([...screenshotColors, ...cssHexes, ...imageColors]);
+    // Only claim a real source if we actually obtained signal; a failed fetch -> "derived".
+    const gotSignal = !!builtPalette || logos.length > 0 || !!siteType;
     const kit: BrandKit = {
-      palette,
-      type,
-      logo: logoSrc ? { src: logoSrc, mark: logos[1] } : cold.logo,
-      icons: cold.icons,
-      shape: cold.shape,
-      photo: cold.photo,
-      mood: cold.mood,
-      source: { from: "landingUrl", at: Date.now() },
+      palette: builtPalette ?? base.palette,
+      type: siteType ?? base.type,
+      logo: logos[0] ? { src: logos[0], mark: logos[1] } : base.logo,
+      icons: base.icons,
+      shape: base.shape,
+      photo: base.photo,
+      mood: base.mood,
+      source: { from: gotSignal ? "landingUrl" : "derived", at: Date.now() },
     };
-
     await attachFontData(kit);
     return kit;
   } catch {
-    return cold;
+    await attachFontData(base);
+    return base;
+  }
+}
+
+/**
+ * Scrape concise visual + content signals from a landing page, for the extraction
+ * LLM to ground profile/strategy/visualIdentity in the real site. Never throws.
+ */
+export async function fetchLandingSignals(url: string): Promise<string | null> {
+  const html = await fetchHtml(url);
+  if (!html) return null;
+  try {
+    const title = (html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] || "").trim();
+    const metaDesc = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["']/i)?.[1] || "").trim();
+    const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']*)["']/i)?.[1] || "").trim();
+    const cssHexes = extractCssHexColors(html).slice(0, 12);
+    const og = extractOgImage(html, url);
+    const imageColors = og ? (await paletteFromImage(og)).slice(0, 6) : [];
+    const fonts = extractFontFamilies(html);
+    // Visible headline-ish text: strip tags, collapse whitespace, take a slice.
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 1200);
+
+    const lines = [
+      title && `- Title: ${title}`,
+      ogTitle && ogTitle !== title && `- OG title: ${ogTitle}`,
+      metaDesc && `- Meta description: ${metaDesc}`,
+      cssHexes.length && `- CSS colors: ${cssHexes.join(", ")}`,
+      imageColors.length && `- Hero/OG image colors: ${imageColors.join(", ")}`,
+      (() => {
+        const fams = [fonts.display, fonts.body, ...fonts.googleFonts].filter(Boolean) as string[];
+        return fams.length ? `- Fonts referenced: ${Array.from(new Set(fams)).slice(0, 6).join(", ")}` : "";
+      })(),
+      text && `- Page copy (excerpt): ${text}`,
+    ].filter(Boolean);
+    return lines.length ? lines.join("\n") : null;
+  } catch {
+    return null;
   }
 }
 

@@ -47,6 +47,7 @@ interface GeneratedPost {
   hashtags: string[];
   mediaUrl?: string | null;
   publicMediaUrl?: string | null;
+  scene?: unknown | null;
   metadata?: {
     hookUsed?: string;
     pillarUsed?: string;
@@ -54,6 +55,7 @@ interface GeneratedPost {
     targetValue?: string;
     toneConstraints?: string[];
     visualDirection?: string;
+    archetypeUsed?: string | null;
   };
 }
 
@@ -64,6 +66,7 @@ interface ComposedPost {
   hashtags: string[];
   mediaUrl: string | null;
   publicMediaUrl: string | null;
+  scene: unknown | null;
   metadata: GeneratedPost["metadata"];
 }
 
@@ -326,9 +329,11 @@ export default function GeneratePage() {
             hashtags: post.hashtags,
             mediaUrl: post.mediaUrl,
             publicMediaUrl: post.publicMediaUrl,
+            scene: post.scene ?? null,
             status: "draft",
             hookUsed: post.metadata?.hookUsed,
             pillarUsed: post.metadata?.pillarUsed,
+            archetypeUsed: post.metadata?.archetypeUsed,
             targetType: post.metadata?.targetType,
             targetValue: post.metadata?.targetValue,
             toneConstraints: post.metadata?.toneConstraints,
@@ -384,9 +389,11 @@ export default function GeneratePage() {
       hashtags: textPost.hashtags,
       mediaUrl: imagePost?.mediaUrl ?? null,
       publicMediaUrl: imagePost?.publicMediaUrl ?? null,
+      scene: imagePost?.scene ?? textPost.scene ?? null,
       metadata: {
         hookUsed: textPost.metadata?.hookUsed,
         pillarUsed: textPost.metadata?.pillarUsed,
+        archetypeUsed: imagePost?.metadata?.archetypeUsed ?? textPost.metadata?.archetypeUsed,
         targetType: textPost.metadata?.targetType,
         targetValue: textPost.metadata?.targetValue,
         toneConstraints: textPost.metadata?.toneConstraints,
@@ -422,9 +429,11 @@ export default function GeneratePage() {
             hashtags: post.hashtags,
             mediaUrl: post.mediaUrl,
             publicMediaUrl: post.publicMediaUrl,
+            scene: post.scene ?? null,
             status: "draft",
             hookUsed: post.metadata?.hookUsed,
             pillarUsed: post.metadata?.pillarUsed,
+            archetypeUsed: post.metadata?.archetypeUsed,
             targetType: post.metadata?.targetType,
             targetValue: post.metadata?.targetValue,
             toneConstraints: post.metadata?.toneConstraints,

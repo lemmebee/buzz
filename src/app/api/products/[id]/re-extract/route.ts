@@ -21,8 +21,14 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
 
-  if (!product.planFile) {
-    return NextResponse.json({ error: "No plan file stored — upload one first" }, { status: 400 });
+  const screenshotPaths: string[] = product.screenshots ? JSON.parse(product.screenshots) : [];
+
+  // Need SOME source of truth: a plan file, screenshots, or a landing URL.
+  if (!product.planFile && screenshotPaths.length === 0 && !product.landingUrl) {
+    return NextResponse.json(
+      { error: "Nothing to extract from — add a plan file, screenshots, or a landing URL first" },
+      { status: 400 }
+    );
   }
 
   // Set pending status
@@ -30,16 +36,15 @@ export async function POST(req: NextRequest, { params }: Params) {
     .set({ extractionStatus: "pending" })
     .where(eq(schema.products.id, productId));
 
-  const screenshotPaths: string[] = product.screenshots ? JSON.parse(product.screenshots) : [];
-
   // Fire and forget
   extractProfileAndStrategy({
     productId,
     name: product.name,
     description: product.description,
-    planFileContent: product.planFile,
+    planFileContent: product.planFile || product.description,
     screenshotPaths,
     textProvider: product.textProvider || undefined,
+    landingUrl: product.landingUrl,
   }).catch(console.error);
 
   return NextResponse.json({ status: "extracting" });

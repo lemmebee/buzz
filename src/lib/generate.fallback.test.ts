@@ -36,7 +36,8 @@ const kit = {
 };
 vi.mock("@/lib/brain/brandkit", () => ({ getCachedBrandKit: () => kit, deriveBrandKit: vi.fn() }));
 const archBuilder = vi.fn().mockReturnValue(structuredClone(fakeScene));
-vi.mock("@/lib/compose/archetypes", () => ({ ARCHETYPES: new Proxy({}, { get: () => archBuilder }) }));
+vi.mock("@/lib/compose/archetypes", () => ({ ARCHETYPES: new Proxy({}, { get: () => archBuilder }), selectArchetype: () => "displayImage" }));
+vi.mock("@/lib/brain/rotation", () => ({ getUsageStats: vi.fn().mockResolvedValue({ hooks: {}, pillars: {}, pains: {}, desires: {}, objections: {}, archetypes: {} }) }));
 vi.mock("@/lib/compose/fonts", () => ({ resolveFont: vi.fn().mockResolvedValue({ family: "Inter", class: "sans", filePath: "/f.ttf", data: Buffer.from("x"), weight: 400, source: "fontsource" }) }));
 
 import { generateContent } from "./generate";

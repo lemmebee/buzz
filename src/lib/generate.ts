@@ -1,14 +1,16 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { buildContentGenerationPrompt } from "@/lib/brain/prompts";
-import type { Platform, ContentPurpose, ContentTargeting, GenerationMetadata, MediaType } from "@/lib/brain/types";
+import type { Platform, ContentPurpose, ContentTargeting, GenerationMetadata, MediaType, HookType } from "@/lib/brain/types";
+import { normalizeStrategy } from "@/lib/brain/types";
 import { createTextProvider, getSceneRenderer, createSceneRenderer, fetchBackgroundImage } from "@/lib/providers";
 import type { SceneRenderer } from "@/lib/providers";
 import { getTextProvider } from "@/lib/settings";
 import { getDefaults, type ContentConfig } from "@/lib/content/defaults";
 import { briefSchema } from "@/lib/brain/briefSchema";
 import { getCachedBrandKit, deriveBrandKit } from "@/lib/brain/brandkit";
-import { ARCHETYPES, type Brief } from "@/lib/compose/archetypes";
+import { ARCHETYPES, selectArchetype, type Brief, type ArchetypeId } from "@/lib/compose/archetypes";
+import { getUsageStats } from "@/lib/brain/rotation";
 import { resolveFont } from "@/lib/compose/fonts";
 import type { Scene, Background } from "@/lib/compose/scene";
 
@@ -87,6 +89,28 @@ function scrubPhotoPlaceholder(scene: Scene, placeholder: string, gradient: Back
   }
 }
 
+/** Per-archetype copy contract injected into the prompt so the LLM writes copy that fits the chosen layout. */
+const ARCHETYPE_CONTRACT: Record<ArchetypeId, string> = {
+  editorial: 'a punchy headline (3-7 words) + a one-line subhead. imagery.kind="gradient" or "solid".',
+  displayImage: 'a short bold headline (2-5 words) + a one-line subhead, designed to sit over a photo. imagery.kind="photo" with a vivid, on-brand scene description in imagery.scene.',
+  photoCaption: 'a headline + a short caption line. imagery.kind="photo" with a scene description in imagery.scene.',
+  iconCard: 'a single-benefit headline + one supporting line. imagery.kind="solid".',
+  quote: 'a real-sounding customer testimonial as the headline + an attribution (e.g. "- Sara K") as subhead. imagery.kind="solid".',
+  stat: 'a single metric as the headline (e.g. "12,000+" or "3x") + what it measures as the subhead. imagery.kind="solid" or "gradient".',
+  steps: 'a headline + body = exactly 3 short steps separated by newlines. imagery.kind="solid".',
+  feature: 'a headline + a short subhead + body = 3 short feature lines separated by newlines. imagery.kind="solid".',
+  announce: 'an announcement headline + a one-line subhead + a CTA-style caption. imagery.kind="gradient" or "solid".',
+  article: 'a headline + a 1-2 sentence explanatory body. imagery.kind="solid".',
+};
+
+/** Find the categorized type of the chosen hook so layout selection can map by intent. */
+function hookTypeFor(rawStrategy: Record<string, unknown>, hookUsed: string | null): HookType {
+  if (!hookUsed) return "curiosity";
+  const hooks = normalizeStrategy(rawStrategy).hooks;
+  const match = hooks.find((h) => (typeof h === "string" ? h : h.text) === hookUsed);
+  return !match || typeof match === "string" ? "curiosity" : (match.type ?? "curiosity");
+}
+
 export function sanitizeCaption(text: string): string {
   let s = text;
   s = s.replace(/—/g, ",");
@@ -134,10 +158,19 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
     rawProfile, rawStrategy, images.length, platform, contentType, targeting, accountHandle, product.name
   );
 
+  // SYSTEM picks the layout (rule-map by hook intent + least-used rotation), not the LLM.
+  // This guarantees layout variety across a product's posts. The LLM then writes copy
+  // that fits the chosen layout's contract.
+  const usage = await getUsageStats(productId);
+  const hookType = hookTypeFor(rawStrategy, metadata.hookUsed);
+  const chosenArchetype = selectArchetype(hookType, usage.archetypes);
+  metadata.archetypeUsed = chosenArchetype;
+
+  const layoutDirective = `\n\nLAYOUT: compose every post for the "${chosenArchetype}" layout. It needs ${ARCHETYPE_CONTRACT[chosenArchetype]} Set "archetype" to "${chosenArchetype}" in your JSON.`;
   const styleReminder = `\n\nREMINDER: Write like a real human. NEVER use em dashes (—), NEVER use AI cliché words (elevate, unlock, unleash, seamlessly, revolutionize, empower, leverage, game-changer, cutting-edge, next-level). Use casual, imperfect language. Be specific, not generic.`;
   const userPrompt = generateCount > 1
-    ? `Generate ${generateCount} unique variations. Return valid JSON array: [{"caption": "...", "hashtags": [...], "imagePrompt": {...}}, ...]${styleReminder}`
-    : `Generate the content now. Return valid JSON only.${styleReminder}`;
+    ? `Generate ${generateCount} unique variations. Return valid JSON array: [{"caption": "...", "hashtags": [...], "imagePrompt": {...}}, ...]${layoutDirective}${styleReminder}`
+    : `Generate the content now. Return valid JSON only.${layoutDirective}${styleReminder}`;
 
   const textResult = await textProvider.generate({
     systemPrompt,
@@ -178,6 +211,8 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
   const posts: GeneratedPost[] = [];
 
   for (const brief of briefs) {
+    // System owns the layout: override whatever the model returned.
+    brief.archetype = chosenArchetype;
     const scene = ARCHETYPES[brief.archetype](kit, brief);
 
     // Photo imagery: archetypes seed the photo slot with the LLM prompt text

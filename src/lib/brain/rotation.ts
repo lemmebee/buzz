@@ -7,6 +7,7 @@ export interface UsageStats {
   pains: Record<string, number>;
   desires: Record<string, number>;
   objections: Record<string, number>;
+  archetypes: Record<string, number>;
 }
 
 export async function getUsageStats(productId: number): Promise<UsageStats> {
@@ -20,11 +21,15 @@ export async function getUsageStats(productId: number): Promise<UsageStats> {
     pains: {},
     desires: {},
     objections: {},
+    archetypes: {},
   };
 
   for (const post of posts) {
     if (post.hookUsed) {
       stats.hooks[post.hookUsed] = (stats.hooks[post.hookUsed] || 0) + 1;
+    }
+    if (post.archetypeUsed) {
+      stats.archetypes[post.archetypeUsed] = (stats.archetypes[post.archetypeUsed] || 0) + 1;
     }
     if (post.pillarUsed) {
       stats.pillars[post.pillarUsed] = (stats.pillars[post.pillarUsed] || 0) + 1;

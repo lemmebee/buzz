@@ -52,6 +52,7 @@ export interface GenerationMetadata {
   targetValue: string | null;
   toneConstraints: string[];
   visualDirection: string;
+  archetypeUsed?: string | null;
 }
 
 // --- New profile types ---
@@ -72,6 +73,20 @@ export interface CustomerSegment {
   messagingAngle: string;
 }
 
+export interface StructuredPalette {
+  bg: string;
+  surface: string;
+  ink: string;
+  muted: string;
+  accents: string[];
+  onAccent: string;
+}
+
+export interface StructuredFont {
+  family: string;
+  class: "serif" | "sans" | "display" | "mono";
+}
+
 export interface ProductProfile {
   name: string;
   tagline: string;
@@ -88,6 +103,11 @@ export interface ProductProfile {
     style: string;
     colors: string;
     mood: string;
+    // Structured identity (from extraction, grounded in site + screenshots).
+    // Optional for back-compat with profiles extracted before this existed.
+    palette?: StructuredPalette;
+    fonts?: { display: StructuredFont; body: StructuredFont };
+    treatment?: "none" | "warm" | "duotone";
   };
   differentiators: string[];
   // New fields
@@ -225,11 +245,18 @@ export function normalizeProfile(raw: Record<string, unknown>): ProductProfile {
       psychographics: (p.audience as { psychographics?: string })?.psychographics || "",
     },
     tone: (p.tone as string) || "",
-    visualIdentity: {
-      style: (p.visualIdentity as { style?: string })?.style || "",
-      colors: (p.visualIdentity as { colors?: string })?.colors || "",
-      mood: (p.visualIdentity as { mood?: string })?.mood || "",
-    },
+    visualIdentity: (() => {
+      const vi = (p.visualIdentity || {}) as Record<string, unknown>;
+      const out: ProductProfile["visualIdentity"] = {
+        style: (vi.style as string) || "",
+        colors: (vi.colors as string) || "",
+        mood: (vi.mood as string) || "",
+      };
+      if (vi.palette && typeof vi.palette === "object") out.palette = vi.palette as StructuredPalette;
+      if (vi.fonts && typeof vi.fonts === "object") out.fonts = vi.fonts as { display: StructuredFont; body: StructuredFont };
+      if (vi.treatment === "warm" || vi.treatment === "duotone" || vi.treatment === "none") out.treatment = vi.treatment;
+      return out;
+    })(),
     differentiators: (p.differentiators as string[]) || [],
     pricePositioning: p.pricePositioning || undefined,
     brandPersonality: p.brandPersonality || undefined,

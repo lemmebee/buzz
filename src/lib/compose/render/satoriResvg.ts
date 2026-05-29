@@ -52,7 +52,12 @@ export function createSatoriResvgRenderer(): SceneRenderer {
       writeFileSync(join(mediaDir, filename), png);
 
       const apiPath = `/api/media/${filename}`;
-      return { url: apiPath, localPath: apiPath, svg };
+      // Instagram's Graph API needs a publicly reachable ABSOLUTE url. PUBLIC_BASE_URL
+      // should point at the public host (e.g. the Tailscale Funnel). When unset, url stays
+      // relative (publish surfaces a clear "missing public media URL" error).
+      const base = process.env.PUBLIC_BASE_URL?.replace(/\/$/, "");
+      const url = base ? `${base}${apiPath}` : apiPath;
+      return { url, localPath: apiPath, svg };
     },
   };
 }

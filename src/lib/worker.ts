@@ -59,6 +59,7 @@ export async function runScheduledGeneration() {
           status: "draft",
           hookUsed: post.metadata.hookUsed,
           pillarUsed: post.metadata.pillarUsed,
+          archetypeUsed: post.metadata.archetypeUsed ?? null,
           targetType: post.metadata.targetType,
           targetValue: post.metadata.targetValue,
           toneConstraints: post.metadata.toneConstraints ? JSON.stringify(post.metadata.toneConstraints) : null,

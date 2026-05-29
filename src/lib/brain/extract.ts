@@ -5,7 +5,7 @@ import { createTextProvider } from "@/lib/providers";
 import { prepareImages } from "@/lib/images";
 import { snapshotChangedFields } from "@/lib/revisions";
 import { classifyProviderError } from "@/lib/providers/errors";
-import { deriveBrandKit } from "@/lib/brain/brandkit";
+import { deriveBrandKit, fetchLandingSignals } from "@/lib/brain/brandkit";
 
 interface ExtractionParams {
   productId: number;
@@ -14,6 +14,7 @@ interface ExtractionParams {
   planFileContent: string;
   screenshotPaths: string[];
   textProvider?: string;
+  landingUrl?: string | null;
 }
 
 /**
@@ -27,6 +28,7 @@ export async function extractProfileAndStrategy({
   planFileContent,
   screenshotPaths,
   textProvider,
+  landingUrl,
 }: ExtractionParams): Promise<void> {
   // Set status to extracting
   await db.update(schema.products)
@@ -35,7 +37,15 @@ export async function extractProfileAndStrategy({
 
   try {
     const provider = createTextProvider(textProvider);
-    const systemPrompt = buildProfileAndStrategyPrompt({ name, description, planFileContent });
+    // Scrape the landing page (if any) so the model grounds identity + strategy in the real site.
+    const landingSignals = landingUrl ? await fetchLandingSignals(landingUrl) : null;
+    const systemPrompt = buildProfileAndStrategyPrompt({
+      name,
+      description,
+      planFileContent,
+      landingUrl: landingUrl || undefined,
+      landingSignals: landingSignals || undefined,
+    });
 
     // Load, resize, compress, and limit screenshots
     const prepared = await prepareImages(screenshotPaths);

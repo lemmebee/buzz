@@ -55,9 +55,22 @@ interface ExtractionInput {
   name: string;
   description: string;
   planFileContent: string;
+  landingUrl?: string;
+  /** Concise signals scraped from the landing page (title, meta, extracted hex colors, og image). */
+  landingSignals?: string;
 }
 
-export function buildProfileAndStrategyPrompt({ name, description, planFileContent }: ExtractionInput): string {
+export function buildProfileAndStrategyPrompt({ name, description, planFileContent, landingUrl, landingSignals }: ExtractionInput): string {
+  const landingBlock = landingUrl
+    ? `
+
+## LANDING PAGE (${landingUrl})
+
+The product has a live landing page. Treat it as PRIMARY evidence alongside any screenshots — it reveals the real palette, typography, positioning, and voice. Signals extracted from the page:
+${landingSignals || "(could not fetch page content; rely on screenshots + brief)"}
+
+Use the page's actual colors and type for visualIdentity. Use its headlines/copy for tone, hooks, and value prop.`
+    : "";
   return `You are an expert marketing strategist extracting a deep product profile and content strategy from a marketing brief.
 
 ## PHASE 1 — THINK (internal analysis, do NOT output this)
@@ -99,6 +112,7 @@ Description: ${description}
 
 Marketing Brief:
 ${planFileContent}
+${landingBlock}
 
 ## SCREENSHOT ANALYSIS (if screenshots are provided)
 
@@ -162,8 +176,21 @@ Return ONLY valid JSON with this exact structure:
     "tone": "string — brand voice in a phrase",
     "visualIdentity": {
       "style": "string — design language",
-      "colors": "string — palette description",
-      "mood": "string — emotional feel"
+      "colors": "string — palette description (prose)",
+      "mood": "string — emotional feel",
+      "palette": {
+        "bg": "#hex — dominant background (the real brand background from site/screenshots, e.g. cream/dark/white — NOT a generic guess)",
+        "surface": "#hex — card/panel color on top of bg",
+        "ink": "#hex — primary text color (high contrast on bg)",
+        "muted": "#hex — secondary/subtle text color",
+        "accents": ["#hex — 1-3 real brand/CTA accent colors, most important first"],
+        "onAccent": "#hex — text color that sits on the accent (usually white or bg)"
+      },
+      "fonts": {
+        "display": { "family": "string — the real headline font if identifiable, else a fitting one", "class": "serif|sans|display|mono" },
+        "body": { "family": "string — body font", "class": "serif|sans|display|mono" }
+      },
+      "treatment": "none|warm|duotone — photo treatment that matches the brand mood"
     },
     "differentiators": ["string — 3-5 things that make it genuinely unique"],
     "pricePositioning": "premium|mid-market|budget|freemium",

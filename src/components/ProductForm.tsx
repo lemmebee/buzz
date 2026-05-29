@@ -18,6 +18,7 @@ export function ProductForm({ product }: ProductFormProps) {
 
   const [name, setName] = useState(product?.name || "");
   const [description, setDescription] = useState(product?.description || "");
+  const [landingUrl, setLandingUrl] = useState(product?.landingUrl || "");
   const [planFile, setPlanFile] = useState(product?.planFile || "");
   const [planFileName, setPlanFileName] = useState(product?.planFileName || "");
   const [textProvider, setTextProvider] = useState(product?.textProvider || "gemini");
@@ -136,6 +137,7 @@ export function ProductForm({ product }: ProductFormProps) {
     const data = {
       name,
       description,
+      landingUrl: landingUrl.trim() || null,
       planFile: planFile || null,
       planFileName: planFileName || null,
       textProvider: textProvider || null,
@@ -205,6 +207,22 @@ export function ProductForm({ product }: ProductFormProps) {
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Landing URL
+        </label>
+        <input
+          type="url"
+          value={landingUrl}
+          onChange={(e) => setLandingUrl(e.target.value)}
+          placeholder="https://yourproduct.com"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Used during extraction (with screenshots) to ground the product profile, strategy, and brand identity in the real site.
+        </p>
       </div>
 
       <div>

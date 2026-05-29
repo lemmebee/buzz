@@ -43,6 +43,7 @@ export const content = sqliteTable("content", {
   instagramId: text("instagram_id"),
   hookUsed: text("hook_used"),
   pillarUsed: text("pillar_used"),
+  archetypeUsed: text("archetype_used"), // which compose archetype this post used (rotation history)
   targetType: text("target_type"), // pain | desire | objection
   targetValue: text("target_value"),
   toneConstraints: text("tone_constraints"), // JSON array

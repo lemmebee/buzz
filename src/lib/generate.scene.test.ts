@@ -32,6 +32,12 @@ vi.mock("@/lib/brain/brandkit", () => ({
 const archBuilder = vi.fn().mockReturnValue(fakeScene);
 vi.mock("@/lib/compose/archetypes", () => ({
   ARCHETYPES: new Proxy({}, { get: () => archBuilder }),
+  // System now picks the archetype; return a fixed one for deterministic tests.
+  selectArchetype: () => "stat",
+}));
+
+vi.mock("@/lib/brain/rotation", () => ({
+  getUsageStats: vi.fn().mockResolvedValue({ hooks: {}, pillars: {}, pains: {}, desires: {}, objections: {}, archetypes: {} }),
 }));
 
 vi.mock("@/lib/compose/fonts", () => ({
