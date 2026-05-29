@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ProductForm } from "@/components/ProductForm";
+import { BrandKitOverride } from "@/components/BrandKitOverride";
 import { Product } from "../../../../drizzle/schema";
+import type { BrandKit } from "@/lib/brain/brandkit";
 
 export default function EditProductPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -57,8 +59,15 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         <ProductForm product={product} />
+        {product.brandKit ? (
+          <BrandKitOverride
+            productId={product.id}
+            palette={(product.brandKit as BrandKit).palette}
+            logoSrc={(product.brandKit as BrandKit).logo?.src}
+          />
+        ) : null}
       </main>
     </div>
   );
