@@ -45,6 +45,10 @@ export { createGeminiTextProvider } from "./gemini";
 // Image provider implementations
 export { createPollinationsImageProvider } from "./image";
 
+// Imagery supplier (Pollinations bg + sharp cover-resize + tint)
+export { fetchBackgroundImage } from "./imagery";
+export type { ImageryTreatment, FetchBackgroundOptions, BackgroundImageResult } from "./imagery";
+
 // Audio provider implementations
 export { createMsEdgeTtsAudioProvider } from "./audio";
 
