@@ -25,3 +25,5 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeBuilder> = {
   announce,
   article,
 };
+
+export { selectArchetype } from "./select";
