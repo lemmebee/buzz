@@ -72,6 +72,15 @@ export const productRevisions = sqliteTable("product_revisions", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+export const contentRevisions = sqliteTable("content_revisions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  contentId: integer("content_id").notNull().references(() => content.id, { onDelete: "cascade" }),
+  field: text("field").notNull(), // scene | mediaUrl
+  content: text("content").notNull(), // prior JSON / value
+  source: text("source").notNull(), // manual | generation
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 export const generationSchedules = sqliteTable("generation_schedules", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
@@ -101,5 +110,7 @@ export type NewContentItem = typeof content.$inferInsert;
 export type InstagramAccount = typeof instagramAccounts.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type ProductRevision = typeof productRevisions.$inferSelect;
+export type ContentRevision = typeof contentRevisions.$inferSelect;
+export type NewContentRevision = typeof contentRevisions.$inferInsert;
 export type GenerationSchedule = typeof generationSchedules.$inferSelect;
 export type NewGenerationSchedule = typeof generationSchedules.$inferInsert;
