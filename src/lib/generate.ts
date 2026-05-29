@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { buildContentGenerationPrompt } from "@/lib/brain/prompts";
 import type { Platform, ContentPurpose, ContentTargeting, GenerationMetadata, MediaType } from "@/lib/brain/types";
-import { createTextProvider, createPollinationsImageProvider, getSceneRenderer, createSceneRenderer } from "@/lib/providers";
+import { createTextProvider, getSceneRenderer, createSceneRenderer, fetchBackgroundImage } from "@/lib/providers";
 import type { SceneRenderer } from "@/lib/providers";
 import { getTextProvider } from "@/lib/settings";
 import { getDefaults, type ContentConfig } from "@/lib/content/defaults";
@@ -11,7 +11,6 @@ import { getCachedBrandKit, deriveBrandKit } from "@/lib/brain/brandkit";
 import { ARCHETYPES, type Brief } from "@/lib/compose/archetypes";
 import { resolveFont } from "@/lib/compose/fonts";
 import type { Scene, Background } from "@/lib/compose/scene";
-import { SCENE_W, SCENE_H } from "@/lib/compose/scene";
 
 export interface GenerateContentInput {
   productId: number;
@@ -48,6 +47,43 @@ function resolveSceneRenderer(): SceneRenderer {
     return getSceneRenderer();
   } catch {
     return createSceneRenderer();
+  }
+}
+
+/**
+ * Swap the photo placeholder for a real local image. The background-image case and the
+ * image-element case (e.g. photoCaption) both seed `src` with the LLM prompt text; replace
+ * exactly those occurrences so unrelated images (logos, brand art) are left untouched.
+ */
+function patchPhotoSlot(
+  scene: Scene,
+  placeholder: string,
+  localPath: string,
+  treatment: "none" | "warm" | "duotone"
+): void {
+  if (scene.background.kind === "image" && scene.background.src === placeholder) {
+    scene.background = { kind: "image", src: localPath, fit: scene.background.fit, treatment };
+  }
+  for (const el of scene.elements) {
+    if (el.type === "image" && el.src === placeholder) {
+      el.src = localPath;
+    }
+  }
+}
+
+/**
+ * Imagery failed: replace the photo background with a gradient and scrub any image element
+ * still carrying the prompt-text placeholder (drop its src so the empty-src guard skips it).
+ * Guarantees no post ships with prompt text as an image src.
+ */
+function scrubPhotoPlaceholder(scene: Scene, placeholder: string, gradient: Background): void {
+  if (scene.background.kind === "image" && scene.background.src === placeholder) {
+    scene.background = gradient;
+  }
+  for (const el of scene.elements) {
+    if (el.type === "image" && el.src === placeholder) {
+      el.src = "";
+    }
   }
 }
 
@@ -144,16 +180,29 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
   for (const brief of briefs) {
     const scene = ARCHETYPES[brief.archetype](kit, brief);
 
-    // Photo background: on any failure, degrade to a brand gradient so the post still composes.
+    // Photo imagery: archetypes seed the photo slot with the LLM prompt text
+    // (brief.imagery.scene) as a placeholder src. Fetch a real local image and swap it
+    // wherever the chosen archetype placed the photo (background-image OR an image element
+    // carrying the placeholder). On any failure, degrade to a brand gradient AND scrub the
+    // placeholder so no post ever ships with prompt text as an image src.
     if (brief.imagery.kind === "photo" && brief.imagery.scene) {
+      const placeholder = brief.imagery.scene;
       try {
-        const imageProvider = createPollinationsImageProvider();
-        const bg = await imageProvider.generate({ prompt: brief.imagery.scene, width: SCENE_W, height: SCENE_H });
-        const background: Background = { kind: "image", src: bg.url, fit: "cover", treatment: kit.photo.treatment };
-        scene.background = background;
+        const { localPath } = await fetchBackgroundImage(placeholder, {
+          treatment: kit.photo.treatment,
+        });
+        // fetchBackgroundImage bakes the treatment into the pixels; pass "none" so the
+        // satori overlay layer isn't applied a second time on top.
+        patchPhotoSlot(scene, placeholder, localPath, "none");
       } catch (err) {
         console.error("[generate] imagery failed, falling back to gradient:", err);
-        scene.background = { kind: "gradient", from: kit.palette.bg, to: kit.palette.surface, angle: 145 };
+        const gradient: Background = {
+          kind: "gradient",
+          from: kit.palette.bg,
+          to: kit.palette.surface,
+          angle: 145,
+        };
+        scrubPhotoPlaceholder(scene, placeholder, gradient);
       }
     }
 
