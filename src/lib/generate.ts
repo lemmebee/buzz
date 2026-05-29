@@ -144,30 +144,35 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
   for (const brief of briefs) {
     const scene = ARCHETYPES[brief.archetype](kit, brief);
 
-    // For photo imagery, generate a background still and set it on the scene.
+    // Photo background: on any failure, degrade to a brand gradient so the post still composes.
     if (brief.imagery.kind === "photo" && brief.imagery.scene) {
-      const imageProvider = createPollinationsImageProvider();
-      const bg = await imageProvider.generate({
-        prompt: brief.imagery.scene,
-        width: SCENE_W,
-        height: SCENE_H,
-      });
-      const background: Background = {
-        kind: "image",
-        src: bg.url,
-        fit: "cover",
-        treatment: kit.photo.treatment,
-      };
-      scene.background = background;
+      try {
+        const imageProvider = createPollinationsImageProvider();
+        const bg = await imageProvider.generate({ prompt: brief.imagery.scene, width: SCENE_W, height: SCENE_H });
+        const background: Background = { kind: "image", src: bg.url, fit: "cover", treatment: kit.photo.treatment };
+        scene.background = background;
+      } catch (err) {
+        console.error("[generate] imagery failed, falling back to gradient:", err);
+        scene.background = { kind: "gradient", from: kit.palette.bg, to: kit.palette.surface, angle: 145 };
+      }
     }
 
-    const rendered = await renderer.generate({ scene, fonts });
+    // Render: on failure, keep the (editable) scene but write no broken PNG.
+    let mediaUrl: string | null = null;
+    let publicMediaUrl: string | null = null;
+    try {
+      const rendered = await renderer.generate({ scene, fonts });
+      mediaUrl = rendered.localPath || rendered.url;
+      publicMediaUrl = rendered.url;
+    } catch (err) {
+      console.error("[generate] render failed, persisting scene without PNG:", err);
+    }
 
     posts.push({
       content: sanitizeCaption(brief.caption),
       hashtags: (brief.hashtags || []).map((t) => t.replace(/^#+/, "")),
-      mediaUrl: rendered.localPath || rendered.url,
-      publicMediaUrl: rendered.url,
+      mediaUrl,
+      publicMediaUrl,
       config,
       scene,
       metadata,
