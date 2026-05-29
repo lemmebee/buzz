@@ -14,6 +14,8 @@ export const products = sqliteTable("products", {
   channelHints: text("channel_hints", { mode: "json" }), // JSON string[] of preferred channel keys
   landingUrl: text("landing_url"), // public URL where attribution snippet lives
   attributionWebhookSecret: text("attribution_webhook_secret"), // HMAC secret for /api/conversions
+  brandKit: text("brand_kit", { mode: "json" }), // cached BrandKit JSON (see brain/brandkit.ts)
+  brandKitUpdatedAt: integer("brand_kit_updated_at", { mode: "timestamp" }),
   textProvider: text("text_provider"), // gemini | huggingface
   extractionStatus: text("extraction_status"), // pending | extracting | done | failed
   extractionError: text("extraction_error"), // human-readable reason when failed
@@ -45,6 +47,7 @@ export const content = sqliteTable("content", {
   targetValue: text("target_value"),
   toneConstraints: text("tone_constraints"), // JSON array
   visualDirection: text("visual_direction"),
+  scene: text("scene", { mode: "json" }), // Scene JSON for composed renders (see compose/scene.ts)
   generationParams: text("generation_params"), // full JSON for debugging
   discordMessageId: text("discord_message_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
