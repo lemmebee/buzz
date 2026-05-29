@@ -1,4 +1,5 @@
 import type { ProductProfile } from "@/lib/brain/types";
+import type { schema } from "@/lib/db";
 
 export interface FontSpec {
   family: string;
@@ -110,6 +111,34 @@ export function coldStartBrandKit(profile: ProductProfile): BrandKit {
     mood: moodWords(profile),
     source: { from: "derived", at: Date.now() },
   };
+}
+
+function isBrandKit(v: unknown): v is BrandKit {
+  if (!v || typeof v !== "object") return false;
+  const k = v as Partial<BrandKit>;
+  return (
+    !!k.palette &&
+    typeof k.palette === "object" &&
+    typeof (k.palette as BrandKit["palette"]).bg === "string" &&
+    Array.isArray((k.palette as BrandKit["palette"]).accents) &&
+    !!k.type &&
+    !!k.source
+  );
+}
+
+/** Read + validate the cached BrandKit off a product row. Tolerates json-mode (object) or text (string). */
+export function getCachedBrandKit(product: schema.Product): BrandKit | null {
+  const raw = (product as { brandKit?: unknown }).brandKit;
+  if (raw == null) return null;
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return isBrandKit(parsed) ? parsed : null;
 }
 
 export { HEX };
