@@ -5,6 +5,7 @@ import { createTextProvider } from "@/lib/providers";
 import { prepareImages } from "@/lib/images";
 import { snapshotChangedFields } from "@/lib/revisions";
 import { classifyProviderError } from "@/lib/providers/errors";
+import { deriveBrandKit } from "@/lib/brain/brandkit";
 
 interface ExtractionParams {
   productId: number;
@@ -81,6 +82,17 @@ export async function extractProfileAndStrategy({
       .where(eq(schema.products.id, productId));
 
     console.log(`Extracted profile + strategy for product ${productId}`);
+
+    // Derive + persist brand kit (best-effort; never fails the extraction)
+    try {
+      const brandKit = await deriveBrandKit(productId);
+      await db.update(schema.products)
+        .set({ brandKit, brandKitUpdatedAt: new Date() })
+        .where(eq(schema.products.id, productId));
+      console.log(`Derived brand kit for product ${productId} (source: ${brandKit.source.from})`);
+    } catch (bkError) {
+      console.error(`Brand kit derivation failed for product ${productId}:`, bkError);
+    }
   } catch (error) {
     console.error(`Extraction failed for product ${productId}:`, error);
     await db.update(schema.products)
