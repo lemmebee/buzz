@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
-import { getSceneRenderer } from "@/lib/providers";
+// Factory, not getSceneRenderer(): route handlers run in a separate webpack runtime
+// from instrumentation.ts, so the boot-time registry is empty here.
+import { createSceneRenderer } from "@/lib/providers";
 import { resolveFont } from "@/lib/compose/fonts";
 import { getCachedBrandKit } from "@/lib/brain/brandkit";
 import { snapshotContentScene } from "@/lib/contentRevisions";
@@ -114,7 +116,7 @@ export async function POST(
     }),
   );
 
-  const rendered = await getSceneRenderer().generate({ scene, fonts });
+  const rendered = await createSceneRenderer().generate({ scene, fonts });
 
   // Snapshot the prior scene before overwriting (mode:"json" -> stringify the prior object).
   await snapshotContentScene(

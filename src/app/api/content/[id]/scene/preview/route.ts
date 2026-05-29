@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { getSceneRenderer } from "@/lib/providers";
+// Use the factory, not getSceneRenderer(): Next bundles route handlers in a separate
+// webpack runtime from instrumentation.ts, so the boot-time registry is empty here.
+import { createSceneRenderer } from "@/lib/providers";
 import { resolveFont } from "@/lib/compose/fonts";
 import type { Scene } from "@/lib/compose/scene";
 import { SCENE_W, SCENE_H } from "@/lib/compose/scene";
@@ -42,7 +44,7 @@ export async function POST(
     }),
   );
 
-  const out = await getSceneRenderer().generate({ scene, fonts });
+  const out = await createSceneRenderer().generate({ scene, fonts });
   if (!out.svg) {
     return NextResponse.json({ error: "Renderer produced no SVG" }, { status: 500 });
   }

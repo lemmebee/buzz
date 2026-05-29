@@ -4,7 +4,7 @@ vi.mock("@/lib/providers", async (orig) => {
   const actual = await orig<typeof import("@/lib/providers")>();
   return {
     ...actual,
-    getSceneRenderer: () => ({
+    createSceneRenderer: () => ({
       name: "stub",
       async generate() {
         return { url: "/x.png", svg: "<svg xmlns='http://www.w3.org/2000/svg'></svg>" };

@@ -1,11 +1,8 @@
 import { readFile, mkdir, access, writeFile } from "node:fs/promises";
 import { constants as FS } from "node:fs";
 import { resolve, join } from "node:path";
-import { createRequire } from "node:module";
 // @woff2/woff2-rs exposes `decode(Buffer): Buffer` (NOT `decompress`).
 import { decode as woff2Decode } from "@woff2/woff2-rs";
-
-const require = createRequire(import.meta.url);
 
 export interface ResolvedFont {
   family: string;
@@ -55,12 +52,14 @@ function pickWeight(available: number[], want: number): number {
 }
 
 /**
- * Resolve the @fontsource package root via its package.json so we don't
- * depend on cwd or hoisting layout.
+ * Resolve the @fontsource package root by direct filesystem path.
+ * We deliberately avoid require.resolve(): webpack rewrites dynamic
+ * require.resolve into an empty context that throws at runtime in Next
+ * server bundles. A plain cwd-relative node_modules path is webpack-safe
+ * and correct for this repo's flat install layout.
  */
 function fontsourcePkgDir(pkg: string): string {
-  const pj = require.resolve(`${pkg}/package.json`);
-  return pj.slice(0, pj.length - "/package.json".length);
+  return join(process.cwd(), "node_modules", pkg);
 }
 
 /**

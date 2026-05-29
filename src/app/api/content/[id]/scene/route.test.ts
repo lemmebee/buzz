@@ -7,7 +7,7 @@ vi.mock("@/lib/providers", async (orig) => {
   const actual = await orig<typeof import("@/lib/providers")>();
   return {
     ...actual,
-    getSceneRenderer: () => ({
+    createSceneRenderer: () => ({
       name: "stub",
       async generate() {
         return { url: "/api/media/scene-stub.png", localPath: "/api/media/scene-stub.png" };
