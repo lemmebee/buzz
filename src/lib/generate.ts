@@ -1,12 +1,17 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { buildContentGenerationPrompt } from "@/lib/brain/prompts";
-import { buildFluxPrompt } from "@/lib/brain/imagePromptBuilder";
-import type { Platform, ContentPurpose, ContentTargeting, ImagePrompt, GenerationMetadata, MediaType } from "@/lib/brain/types";
-import { normalizeProfile, normalizeStrategy } from "@/lib/brain/types";
-import { createTextProvider, createPollinationsImageProvider } from "@/lib/providers";
+import type { Platform, ContentPurpose, ContentTargeting, GenerationMetadata, MediaType } from "@/lib/brain/types";
+import { createTextProvider, createPollinationsImageProvider, getSceneRenderer, createSceneRenderer } from "@/lib/providers";
+import type { SceneRenderer } from "@/lib/providers";
 import { getTextProvider } from "@/lib/settings";
 import { getDefaults, type ContentConfig } from "@/lib/content/defaults";
+import { briefSchema } from "@/lib/brain/briefSchema";
+import { getCachedBrandKit, deriveBrandKit } from "@/lib/brain/brandkit";
+import { ARCHETYPES, type Brief } from "@/lib/compose/archetypes";
+import { resolveFont } from "@/lib/compose/fonts";
+import type { Scene, Background } from "@/lib/compose/scene";
+import { SCENE_W, SCENE_H } from "@/lib/compose/scene";
 
 export interface GenerateContentInput {
   productId: number;
@@ -29,7 +34,21 @@ export interface GeneratedPost {
   audioUrl?: string | null;
   captionsUrl?: string | null;
   config?: ContentConfig;
+  scene?: Scene | null;
   metadata: GenerationMetadata;
+}
+
+/**
+ * Resolve the scene renderer. Prefers a renderer registered at app bootstrap
+ * (see src/instrumentation.ts); falls back to constructing one directly so the
+ * pipeline still works in non-Next runtimes (CLI scripts, one-off jobs).
+ */
+function resolveSceneRenderer(): SceneRenderer {
+  try {
+    return getSceneRenderer();
+  } catch {
+    return createSceneRenderer();
+  }
 }
 
 export function sanitizeCaption(text: string): string {
@@ -65,8 +84,6 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
 
   const rawProfile = JSON.parse(product.profile);
   const rawStrategy = JSON.parse(product.marketingStrategy);
-  const profile = normalizeProfile(rawProfile);
-  const marketingStrategy = normalizeStrategy(rawStrategy);
 
   let accountHandle: string | undefined;
   if (product.instagramAccountId) {
@@ -96,52 +113,63 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
 
   const cleanedText = textResult.text.replace(/```(?:json)?\s*/gi, "").trim();
 
-  let generatedItems: Array<{ caption: string; hashtags?: string[]; imagePrompt?: ImagePrompt }>;
+  let briefs: Brief[];
   if (generateCount > 1) {
     const arrayMatch = cleanedText.match(/\[[\s\S]*\]/);
     if (!arrayMatch) throw new Error("Failed to parse array response");
-    generatedItems = JSON.parse(arrayMatch[0]);
+    briefs = (JSON.parse(arrayMatch[0]) as unknown[]).map((b) => briefSchema.parse(b));
   } else {
     const objMatch = cleanedText.match(/\{[\s\S]*\}/);
     if (!objMatch) throw new Error("Failed to parse response");
-    generatedItems = [JSON.parse(objMatch[0])];
+    briefs = [briefSchema.parse(JSON.parse(objMatch[0]))];
   }
 
+  const kit = getCachedBrandKit(product) || (await deriveBrandKit(productId));
+
+  // Resolve the two brand fonts once; reused across every brief in this batch.
+  const displaySpec = kit.type.display;
+  const bodySpec = kit.type.body;
+  const [displayFont, bodyFont] = await Promise.all([
+    resolveFont(displaySpec.family, displaySpec.class, displaySpec.weights[0]),
+    resolveFont(bodySpec.family, bodySpec.class, bodySpec.weights[0]),
+  ]);
+  const fonts = [
+    { name: displayFont.family, data: displayFont.data, weight: displayFont.weight },
+    { name: bodyFont.family, data: bodyFont.data, weight: bodyFont.weight },
+  ];
+
+  const renderer = resolveSceneRenderer();
   const posts: GeneratedPost[] = [];
-  const ENABLE_IMAGE_GENERATION = true;
-  const visualIdentity = profile.visualIdentity;
-  const visualDirection = marketingStrategy.visualDirection;
 
-  for (const generated of generatedItems) {
-    let mediaUrl: string | null = null;
-    let publicMediaUrl: string | null = null;
-    if (ENABLE_IMAGE_GENERATION && generated.imagePrompt?.scene) {
+  for (const brief of briefs) {
+    const scene = ARCHETYPES[brief.archetype](kit, brief);
+
+    // For photo imagery, generate a background still and set it on the scene.
+    if (brief.imagery.kind === "photo" && brief.imagery.scene) {
       const imageProvider = createPollinationsImageProvider();
-      const aspectRatio = generated.imagePrompt.aspectRatio || "1:1 square";
-      const isVertical = aspectRatio.includes("9:16");
-
-      const fluxPrompt = buildFluxPrompt({
-        imagePrompt: generated.imagePrompt,
-        visualIdentity,
-        visualDirection,
+      const bg = await imageProvider.generate({
+        prompt: brief.imagery.scene,
+        width: SCENE_W,
+        height: SCENE_H,
       });
-      console.log("[Flux prompt]", fluxPrompt);
-
-      const imageResult = await imageProvider.generate({
-        prompt: fluxPrompt,
-        width: isVertical ? 768 : 1024,
-        height: isVertical ? 1365 : 1024,
-      });
-      mediaUrl = imageResult.localPath || imageResult.url;
-      publicMediaUrl = imageResult.url;
+      const background: Background = {
+        kind: "image",
+        src: bg.url,
+        fit: "cover",
+        treatment: kit.photo.treatment,
+      };
+      scene.background = background;
     }
 
+    const rendered = await renderer.generate({ scene, fonts });
+
     posts.push({
-      content: sanitizeCaption(generated.caption),
-      hashtags: (generated.hashtags || []).map((t) => t.replace(/^#+/, "")),
-      mediaUrl,
-      publicMediaUrl,
+      content: sanitizeCaption(brief.caption),
+      hashtags: (brief.hashtags || []).map((t) => t.replace(/^#+/, "")),
+      mediaUrl: rendered.localPath || rendered.url,
+      publicMediaUrl: rendered.url,
       config,
+      scene,
       metadata,
     });
   }

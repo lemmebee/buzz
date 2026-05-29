@@ -1,5 +1,10 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Register the scene renderer used by the image generation pipeline
+    // (generate.ts -> getSceneRenderer()). Must run before any generation.
+    const { registerSceneRenderer, createSatoriResvgRenderer } = await import("@/lib/providers");
+    registerSceneRenderer(createSatoriResvgRenderer());
+
     const { processScheduledPosts } = await import("@/lib/scheduler");
     const { startWorker } = await import("@/lib/worker");
 
