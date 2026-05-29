@@ -448,7 +448,7 @@ ON-IMAGE COPY rules (this is text rendered ON the image, separate from the capti
 - Keep on-image copy SHORT. The caption carries the long copy, not the image.
 
 IMAGERY:
-- kind "photo": a generated still life / environment (no people, no text, no devices). Provide "scene" as a 20-60 word natural-language paragraph leading with the main visual element, weaving brand colors (${brandColors || "infer from product"}) and mood (${brandMood || "infer from product"}). Include a camera spec (e.g. "shot on 50mm f/2.0"). No quality tags like "8k".
+- kind "photo": a generated still life / environment (no people, no text, no devices). Provide "scene" as a 20-60 word natural-language paragraph leading with the main visual element, weaving brand colors (${brandColors || "infer from product"}) and mood (${brandMood || "infer from product"}). Include a camera spec (e.g. "shot on 50mm f/2.0"). No quality tags like "8k". HARD RULE: kind "photo" is ONLY allowed for the "displayImage" and "photoCaption" archetypes - they have a scrim / photo zone built for legible text over a photo. For EVERY other archetype (editorial, iconCard, quote, stat, steps, feature, announce, article) you MUST use "gradient" or "solid", never "photo".
 - kind "gradient": a brand-color gradient background. Omit "scene".
 - kind "solid": a flat brand-color background. Omit "scene".
 
