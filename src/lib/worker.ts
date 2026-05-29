@@ -22,7 +22,7 @@ function isDue(schedule: typeof schema.generationSchedules.$inferSelect): boolea
   return true;
 }
 
-async function runScheduledGeneration() {
+export async function runScheduledGeneration() {
   const schedules = await db.select()
     .from(schema.generationSchedules)
     .where(eq(schema.generationSchedules.enabled, true));
@@ -55,6 +55,7 @@ async function runScheduledGeneration() {
           audioUrl: post.audioUrl || null,
           captionsUrl: post.captionsUrl || null,
           config: post.config ? JSON.stringify(post.config) : null,
+          scene: post.scene ? JSON.stringify(post.scene) : null,
           status: "draft",
           hookUsed: post.metadata.hookUsed,
           pillarUsed: post.metadata.pillarUsed,
