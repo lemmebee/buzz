@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { rm } from "node:fs/promises";
+import { rm, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { resolveFont, FONTS_CACHE_DIR } from "../fonts";
+import { resolveFont, FONTS_CACHE_DIR, decompressWoff2ToTtf } from "../fonts";
 
 describe("resolveFont", () => {
   beforeAll(async () => {
@@ -51,5 +51,23 @@ describe("resolveFont", () => {
     const f = await resolveFont("Inter", "sans", 123);
     expect(f.source).toBe("fontsource");
     expect(f.data.length).toBeGreaterThan(1000);
+  });
+});
+
+describe("decompressWoff2ToTtf", () => {
+  it("decompresses a real woff2 buffer into a TTF (sfnt) buffer", async () => {
+    // use the installed fontsource woff2 as a known-good sample
+    const woff2 = await readFile(
+      resolve("node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2"),
+    );
+    expect(woff2.toString("ascii", 0, 4)).toBe("wOF2");
+
+    const ttf = decompressWoff2ToTtf(woff2);
+    // sfnt: TrueType 0x00010000 or OpenType 'OTTO'
+    const isTtf = ttf.readUInt32BE(0) === 0x00010000;
+    const isOtto = ttf.toString("ascii", 0, 4) === "OTTO";
+    expect(isTtf || isOtto).toBe(true);
+    expect(ttf.toString("ascii", 0, 4)).not.toBe("wOF2");
+    expect(ttf.length).toBeGreaterThan(woff2.length); // decompressed is larger
   });
 });

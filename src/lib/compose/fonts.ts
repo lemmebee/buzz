@@ -2,6 +2,8 @@ import { readFile, mkdir, access, writeFile } from "node:fs/promises";
 import { constants as FS } from "node:fs";
 import { resolve, join } from "node:path";
 import { createRequire } from "node:module";
+// @woff2/woff2-rs exposes `decode(Buffer): Buffer` (NOT `decompress`).
+import { decode as woff2Decode } from "@woff2/woff2-rs";
 
 const require = createRequire(import.meta.url);
 
@@ -112,11 +114,22 @@ async function resolveFontsource(
 }
 
 /**
+ * Decompress a WOFF2 buffer into a satori-feedable TTF/OTF (sfnt) buffer.
+ * @woff2/woff2-rs's `decode` returns a Buffer; we validate the input magic.
+ */
+export function decompressWoff2ToTtf(woff2: Buffer): Buffer {
+  if (woff2.toString("ascii", 0, 4) !== "wOF2") {
+    throw new Error("decompressWoff2ToTtf: input is not a WOFF2 buffer");
+  }
+  return Buffer.from(woff2Decode(woff2));
+}
+
+/**
  * Resolve a font face to a satori-feedable buffer.
  *
  * Strategy:
  *  1. If `familyName` maps to an installed @fontsource package, read its WOFF.
- *  2. Else (future) decompress a known woff2 URL via @woff2/woff2-rs -> TTF.
+ *  2. Else if a `woff2Url` is given, fetch + decompress via @woff2/woff2-rs -> TTF.
  *  3. Else substitute a bundled OFL font by class.
  * Resolved buffers are cached on disk under FONTS_CACHE_DIR.
  */
@@ -124,10 +137,24 @@ export async function resolveFont(
   familyName: string,
   klass: "serif" | "sans" | "display" | "mono",
   weight = 400,
+  woff2Url?: string,
 ): Promise<ResolvedFont> {
   const direct = FONTSOURCE[normKey(familyName)];
   if (direct) {
     return resolveFontsource(direct, klass, weight, "fontsource");
+  }
+
+  if (woff2Url) {
+    const key = cacheKey(familyName, weight, "google");
+    const cached = await readCache(key);
+    if (cached) {
+      return { family: familyName, class: klass, filePath: cached.filePath, data: cached.data, weight, source: "google" };
+    }
+    const res = await fetch(woff2Url);
+    if (!res.ok) throw new Error(`resolveFont: woff2 fetch ${res.status} for ${woff2Url}`);
+    const ttf = decompressWoff2ToTtf(Buffer.from(await res.arrayBuffer()));
+    const filePath = await writeCache(key, ttf);
+    return { family: familyName, class: klass, filePath, data: ttf, weight, source: "google" };
   }
 
   // Unknown family: substitute a bundled OFL font for the class.
