@@ -1,0 +1,86 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`all archetypes - structural contract > snapshots the {count, slots} signature for all 10 archetypes 1`] = `
+{
+  "announce": {
+    "count": 4,
+    "slots": [
+      "cta",
+      "headline",
+      "pill",
+      "subhead",
+    ],
+  },
+  "article": {
+    "count": 6,
+    "slots": [
+      "body",
+      "headline",
+      "logo",
+      "pill",
+      "subhead",
+    ],
+  },
+  "displayImage": {
+    "count": 4,
+    "slots": [
+      "bg",
+      "headline",
+      "pill",
+      "subhead",
+    ],
+  },
+  "editorial": {
+    "count": 4,
+    "slots": [
+      "body",
+      "headline",
+      "subhead",
+    ],
+  },
+  "feature": {
+    "count": 4,
+    "slots": [
+      "headline",
+      "icon",
+      "subhead",
+    ],
+  },
+  "iconCard": {
+    "count": 5,
+    "slots": [
+      "body",
+      "headline",
+      "icon",
+    ],
+  },
+  "photoCaption": {
+    "count": 5,
+    "slots": [
+      "bg",
+      "body",
+      "headline",
+    ],
+  },
+  "quote": {
+    "count": 4,
+    "slots": [
+      "quote",
+      "subhead",
+    ],
+  },
+  "stat": {
+    "count": 2,
+    "slots": [
+      "body",
+      "stat",
+    ],
+  },
+  "steps": {
+    "count": 4,
+    "slots": [
+      "headline",
+    ],
+  },
+}
+`;
