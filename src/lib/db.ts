@@ -4,7 +4,9 @@ import * as schema from "../../drizzle/schema";
 import { existsSync, mkdirSync } from "fs";
 import { dirname } from "path";
 
-const dbPath = "./data/buzz.db";
+// BUZZ_DB_PATH lets tests (and other tooling) point at an isolated DB so they
+// never mutate the real dev database. Defaults to the app DB.
+const dbPath = process.env.BUZZ_DB_PATH || "./data/buzz.db";
 
 // Ensure data directory exists
 const dir = dirname(dbPath);
