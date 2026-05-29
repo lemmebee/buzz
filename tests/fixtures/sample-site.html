@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Acme Widgets</title>
+  <meta property="og:site_name" content="Acme Widgets" />
+  <meta property="og:image" content="https://cdn.example.com/og-cover.png" />
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --brand-bg: #0B0F1A;
+      --brand-surface: #161B2E;
+      --brand-ink: #F5F7FF;
+      --brand-muted: #9AA3B2;
+      --brand-accent: #FF5A36;
+      --brand-accent-2: #36C2FF;
+    }
+    body { background: var(--brand-bg); color: var(--brand-ink); font-family: "Inter", sans-serif; }
+    h1, h2, .display { font-family: "Sora", sans-serif; font-weight: 700; }
+    .btn { background: var(--brand-accent); color: #FFFFFF; border-radius: 14px; }
+    @font-face {
+      font-family: "Sora";
+      src: url("/fonts/Sora-Bold.woff2") format("woff2");
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <header><img src="/logo.svg" alt="Acme logo" class="logo" /></header>
+  <main>
+    <h1 class="display">Ship widgets faster</h1>
+    <p>The calmest way to build.</p>
+    <a class="btn" href="/signup">Get started</a>
+  </main>
+</body>
+</html>
