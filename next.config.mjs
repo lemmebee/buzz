@@ -10,6 +10,8 @@ const nextConfig = {
       "msedge-tts",
       "better-sqlite3",
       "sharp",
+      "@resvg/resvg-js",
+      "@woff2/woff2-rs",
     ],
   },
   webpack: (config, { isServer }) => {
@@ -21,6 +23,8 @@ const nextConfig = {
         "fluent-ffmpeg",
         "ffmpeg-static",
         "msedge-tts",
+        "@resvg/resvg-js",
+        "@woff2/woff2-rs",
       ];
     }
     return config;
