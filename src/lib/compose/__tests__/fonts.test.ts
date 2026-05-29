@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { rm, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import satori from "satori";
+import type React from "react";
 import { resolveFont, FONTS_CACHE_DIR, decompressWoff2ToTtf } from "../fonts";
 
 describe("resolveFont", () => {
@@ -69,5 +71,26 @@ describe("decompressWoff2ToTtf", () => {
     expect(isTtf || isOtto).toBe(true);
     expect(ttf.toString("ascii", 0, 4)).not.toBe("wOF2");
     expect(ttf.length).toBeGreaterThan(woff2.length); // decompressed is larger
+  });
+});
+
+describe("resolveFont -> satori smoke", () => {
+  it("a resolved font produces glyph paths in satori", async () => {
+    const f = await resolveFont("Inter", "sans", 400);
+    // satori accepts a plain element tree; its .d.ts types the arg as ReactNode.
+    const element = {
+      type: "div",
+      props: {
+        style: { display: "flex", fontFamily: f.family, fontSize: 48 },
+        children: "Buzz",
+      },
+    } as unknown as React.ReactNode;
+    const svg = await satori(element, {
+      width: 200,
+      height: 100,
+      fonts: [{ name: f.family, data: f.data, weight: f.weight as 400, style: "normal" }],
+    });
+    expect(svg.startsWith("<svg")).toBe(true);
+    expect(svg.includes("<path")).toBe(true);
   });
 });
