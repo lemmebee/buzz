@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ContentItem as Post, Product } from "../../../../drizzle/schema";
 import { ImageLightbox } from "@/components/ImageLightbox";
+import type { Scene } from "@/lib/compose/scene";
+import { SceneEditor } from "@/components/editor/SceneEditor";
 
 const statuses = ["draft", "approved", "scheduled", "posted"] as const;
 const types = ["reel", "post", "story"] as const;
@@ -26,6 +28,7 @@ export default function ContentEditPage() {
   const [status, setStatus] = useState("draft");
   const [mediaUrl, setMediaUrl] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [scene, setScene] = useState<Scene | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -67,6 +70,15 @@ export default function ContentEditPage() {
         ? new Date(postData.scheduledAt).toISOString().slice(0, 16)
         : ""
     );
+    try {
+      const sceneRes = await fetch(`/api/content/${params.id}/scene`);
+      if (sceneRes.ok) {
+        const sceneData = await sceneRes.json();
+        setScene(sceneData.scene ?? null);
+      }
+    } catch {
+      setScene(null);
+    }
     setLoading(false);
   }
 
@@ -288,6 +300,22 @@ export default function ContentEditPage() {
               <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
             )}
           </div>
+
+          {/* Layout editor */}
+          {scene && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Layout
+              </label>
+              <SceneEditor
+                contentId={Number(params.id)}
+                initialScene={scene}
+                onSaved={(row) => {
+                  if (row.mediaUrl) setMediaUrl(row.mediaUrl);
+                }}
+              />
+            </div>
+          )}
         </div>
       </main>
     </div>

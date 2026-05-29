@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getSceneRenderer } from "@/lib/providers";
 import { resolveFont } from "@/lib/compose/fonts";
 import type { Scene } from "@/lib/compose/scene";
@@ -11,7 +11,7 @@ function isScene(v: unknown): v is Scene {
 }
 
 export async function POST(
-  req: NextRequest,
+  req: Request,
   _ctx: { params: Promise<{ id: string }> },
 ) {
   let body: unknown;
@@ -34,7 +34,7 @@ export async function POST(
     }
   }
   const fonts = await Promise.all(
-    [...fams.entries()].map(async ([key, weight]) => {
+    Array.from(fams.entries()).map(async ([key, weight]) => {
       const family = key.split("::")[0];
       const rf = await resolveFont(family, "sans", weight);
       return { name: rf.family, data: rf.data, weight: rf.weight, style: "normal" as const };

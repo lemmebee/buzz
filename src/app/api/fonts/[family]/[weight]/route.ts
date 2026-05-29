@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { resolveFont } from "@/lib/compose/fonts";
 
 type FontClass = "serif" | "sans" | "display" | "mono";
 const CLASSES: FontClass[] = ["serif", "sans", "display", "mono"];
 
 export async function GET(
-  req: NextRequest,
+  req: Request,
   { params }: { params: Promise<{ family: string; weight: string }> },
 ) {
   const { family, weight } = await params;

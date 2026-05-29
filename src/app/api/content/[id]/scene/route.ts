@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { getSceneRenderer } from "@/lib/providers";
@@ -20,7 +20,7 @@ function isScene(v: unknown): v is Scene {
 }
 
 export async function GET(
-  _req: NextRequest,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -54,7 +54,7 @@ export async function GET(
 }
 
 export async function POST(
-  req: NextRequest,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -108,7 +108,7 @@ export async function POST(
   }
 
   const fonts = await Promise.all(
-    [...fams.values()].map(async (f) => {
+    Array.from(fams.values()).map(async (f) => {
       const rf = await resolveFont(f.name, f.klass, f.weight);
       return { name: rf.family, data: rf.data, weight: rf.weight, style: "normal" as const };
     }),
