@@ -264,4 +264,99 @@ export function extractFontFamilies(html: string): ExtractedFonts {
   return { display, body, googleFonts, fontFace };
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+/** WCAG relative luminance 0..1. */
+export function relativeLuminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex).map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function saturation(hex: string): number {
+  const [r, g, b] = hexToRgb(hex).map((c) => c / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === 0) return 0;
+  return (max - min) / max;
+}
+
+function bestTextOn(hex: string): string {
+  return relativeLuminance(hex) > 0.4 ? "#0B0F1A" : "#FFFFFF";
+}
+
+function darken(hex: string, amt: number): string {
+  const rgb = hexToRgb(hex).map((c) => Math.max(0, Math.round(c * (1 - amt))));
+  return "#" + rgb.map((c) => c.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+function lighten(hex: string, amt: number): string {
+  const rgb = hexToRgb(hex).map((c) => Math.min(255, Math.round(c + (255 - c) * amt)));
+  return "#" + rgb.map((c) => c.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+/** Map an unordered hex list into a structured palette. Returns null if empty. */
+export function buildPalette(hexes: string[]): BrandKit["palette"] | null {
+  const colors = Array.from(new Set(hexes.map(expandHex))).filter((h) => HEX.test(h));
+  if (colors.length === 0) return null;
+
+  // Single brand color: keep it as the accent and derive a dark neutral scaffold around it.
+  if (colors.length === 1) {
+    const accent = colors[0];
+    const bg = darken(accent, 0.92);
+    return {
+      bg,
+      surface: lighten(bg, 0.08),
+      ink: lighten(accent, 0.85),
+      muted: lighten(bg, 0.45),
+      accents: [accent],
+      onAccent: bestTextOn(accent),
+    };
+  }
+
+  const byLum = [...colors].sort((a, b) => relativeLuminance(a) - relativeLuminance(b));
+  const bg = byLum[0];
+  const ink = byLum[byLum.length - 1] !== bg ? byLum[byLum.length - 1] : lighten(bg, 0.9);
+  const surface = colors.length > 2 ? darken(ink, 0.85) : lighten(bg, 0.08);
+  const muted = lighten(bg, 0.45);
+
+  // accents = most saturated colors that aren't bg/ink, fallback to bg-derived
+  const accents = [...colors]
+    .filter((c) => c !== bg && c !== ink)
+    .sort((a, b) => saturation(b) - saturation(a))
+    .slice(0, 3);
+  if (accents.length === 0) accents.push(saturation(ink) > saturation(bg) ? ink : lighten(bg, 0.6));
+
+  return { bg, surface, ink, muted, accents, onAccent: bestTextOn(accents[0]) };
+}
+
+function fontClass(family: string): FontSpec["class"] {
+  const f = family.toLowerCase();
+  if (/(mono|code|consolas|courier)/.test(f)) return "mono";
+  if (/(serif|georgia|times|playfair|lora|merriweather|garamond)/.test(f)) return "serif";
+  return "sans";
+}
+
+/** Build display+body FontSpecs from extracted families, tagging source (site vs google vs substitute). */
+export function buildFontSpecs(fonts: ExtractedFonts): BrandKit["type"] {
+  const known = new Set([...fonts.googleFonts, ...fonts.fontFace]);
+  const mk = (family: string | undefined, role: "display" | "body"): FontSpec => {
+    if (!family) return role === "display" ? { ...DEFAULT_DISPLAY } : { ...DEFAULT_BODY };
+    const source: FontSpec["source"] = fonts.fontFace.includes(family) || known.has(family) ? "site" : "google";
+    const klass = role === "display" ? "display" : fontClass(family);
+    return {
+      family,
+      class: klass,
+      source: fonts.googleFonts.includes(family) && !fonts.fontFace.includes(family) ? "google" : source,
+      weights: role === "display" ? [700] : [400, 600],
+    };
+  };
+  return { display: mk(fonts.display, "display"), body: mk(fonts.body, "body") };
+}
+
 export { HEX };
