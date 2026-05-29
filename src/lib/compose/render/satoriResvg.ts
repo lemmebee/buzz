@@ -3,6 +3,7 @@ import { join } from "path";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
 import { sceneToSatori } from "@/lib/compose/satoriTree";
+import { inlineSceneImages } from "@/lib/compose/inlineImages";
 import { SCENE_W, SCENE_H } from "@/lib/compose/scene";
 import type {
   SceneRenderer,
@@ -22,7 +23,10 @@ export function createSatoriResvgRenderer(): SceneRenderer {
       const width = input.scene.w || SCENE_W;
       const height = input.scene.h || SCENE_H;
 
-      const tree = sceneToSatori(input.scene);
+      // satori 0.26 can't load /api/media paths or auth-gated URLs; inline every image
+      // src as a data: URI first. Failures drop that image rather than break the render.
+      const scene = await inlineSceneImages(input.scene);
+      const tree = sceneToSatori(scene);
 
       const svg = await satori(tree as Parameters<typeof satori>[0], {
         width,
