@@ -55,7 +55,7 @@ export async function runScheduledGeneration() {
           audioUrl: post.audioUrl || null,
           captionsUrl: post.captionsUrl || null,
           config: post.config ? JSON.stringify(post.config) : null,
-          scene: post.scene ? JSON.stringify(post.scene) : null,
+          scene: post.scene ?? null,
           status: "draft",
           hookUsed: post.metadata.hookUsed,
           pillarUsed: post.metadata.pillarUsed,

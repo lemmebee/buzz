@@ -40,10 +40,10 @@ const basePost = {
 };
 
 describe("runScheduledGeneration scene persistence", () => {
-  it("stringifies scene into the insert when present", async () => {
+  it("passes the raw scene object into the insert when present (column is mode:json)", async () => {
     generateContent.mockResolvedValue([{ ...basePost, scene: fakeScene }]);
     await runScheduledGeneration();
-    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ scene: JSON.stringify(fakeScene) }));
+    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ scene: fakeScene }));
   });
 
   it("inserts null scene when absent", async () => {
