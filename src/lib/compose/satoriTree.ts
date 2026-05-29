@@ -28,7 +28,10 @@ function backgroundLayers(bg: Background): {
       layers: [],
     };
   }
-  // image
+  // image: if no usable src, degrade to no background layer (satori throws on empty img src)
+  if (!bg.src) {
+    return { rootStyle: {}, layers: [] };
+  }
   const layers: SatoriNode[] = [
     {
       type: "img",
@@ -108,6 +111,8 @@ function elementToNode(el: SceneElement): SatoriNode | null {
       };
 
     case "image":
+      // satori throws on an empty img src; skip the element when there is none.
+      if (!el.src) return null;
       return {
         type: "img",
         props: {
@@ -172,6 +177,8 @@ function elementToNode(el: SceneElement): SatoriNode | null {
       };
 
     case "logo":
+      // satori throws on an empty img src; skip the logo when the BrandKit has none.
+      if (!el.src) return null;
       return {
         type: "img",
         props: {
