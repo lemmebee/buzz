@@ -1,7 +1,10 @@
-import type { ProductProfile } from "@/lib/brain/types";
-import type { schema } from "@/lib/db";
 import * as cheerio from "cheerio";
 import postcss from "postcss";
+import { eq } from "drizzle-orm";
+import sharp from "sharp";
+import { db, schema } from "@/lib/db";
+import { normalizeProfile, type ProductProfile } from "@/lib/brain/types";
+import { resolveFont } from "@/lib/compose/fonts";
 
 export interface FontSpec {
   family: string;
@@ -357,6 +360,108 @@ export function buildFontSpecs(fonts: ExtractedFonts): BrandKit["type"] {
     };
   };
   return { display: mk(fonts.display, "display"), body: mk(fonts.body, "body") };
+}
+
+async function fetchHtml(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      redirect: "follow",
+      headers: { "user-agent": "Mozilla/5.0 (compatible; BuzzBot/1.0)" },
+    });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+async function paletteFromImage(imageUrl: string): Promise<string[]> {
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return [];
+    const buf = Buffer.from(await res.arrayBuffer());
+    // normalize to png so Vibrant/sharp can decode svg/webp/ico variants
+    const png = await sharp(buf).resize(200, 200, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+    const { Vibrant } = await import("node-vibrant/node");
+    const swatches = await Vibrant.from(png).getPalette();
+    return Object.values(swatches)
+      .filter((s): s is NonNullable<typeof s> => !!s)
+      .map((s) => s.hex.toUpperCase());
+  } catch {
+    return [];
+  }
+}
+
+async function attachFontData(kit: BrandKit): Promise<void> {
+  for (const spec of [kit.type.display, kit.type.body]) {
+    try {
+      const resolved = await resolveFont(spec.family, spec.class, spec.weights[0]);
+      spec.file = resolved.filePath;
+      spec.source = resolved.source;
+    } catch {
+      // keep the family name; downstream renderer falls back to substitute
+      kit.source.fontNote = `font "${spec.family}" unresolved`;
+    }
+  }
+}
+
+/**
+ * Derive a BrandKit for a product from its landing site.
+ * Pipeline: fetch HTML -> CSS hex palette (+ og:image/favicon palette via Vibrant) -> logo -> fonts.
+ * Any failure degrades gracefully to coldStartBrandKit. NEVER throws.
+ */
+export async function deriveBrandKit(productId: number): Promise<BrandKit> {
+  let profile: ProductProfile;
+  let landingUrl: string | null = null;
+
+  try {
+    const product = await db.select().from(schema.products).where(eq(schema.products.id, productId)).get();
+    landingUrl = (product?.landingUrl as string | null) ?? null;
+    const rawProfile = product?.profile;
+    profile = rawProfile
+      ? normalizeProfile(typeof rawProfile === "string" ? JSON.parse(rawProfile) : (rawProfile as Record<string, unknown>))
+      : normalizeProfile({});
+  } catch {
+    return coldStartBrandKit(normalizeProfile({}));
+  }
+
+  const cold = coldStartBrandKit(profile);
+  if (!landingUrl) return cold;
+
+  const html = await fetchHtml(landingUrl);
+  if (!html) return cold;
+
+  try {
+    // 1. palette: CSS hexes first, augmented by og/favicon image colors
+    const cssHexes = extractCssHexColors(html);
+    const logos = extractLogoCandidates(html, landingUrl);
+    const og = extractOgImage(html, landingUrl);
+    const imageColors = og ? await paletteFromImage(og) : [];
+    const palette = buildPalette([...cssHexes, ...imageColors]) ?? cold.palette;
+
+    // 2. fonts
+    const fonts = extractFontFamilies(html);
+    const type = buildFontSpecs(fonts);
+
+    // 3. logo
+    const logoSrc = logos[0];
+
+    const kit: BrandKit = {
+      palette,
+      type,
+      logo: logoSrc ? { src: logoSrc, mark: logos[1] } : cold.logo,
+      icons: cold.icons,
+      shape: cold.shape,
+      photo: cold.photo,
+      mood: cold.mood,
+      source: { from: "landingUrl", at: Date.now() },
+    };
+
+    await attachFontData(kit);
+    return kit;
+  } catch {
+    return cold;
+  }
 }
 
 export { HEX };
