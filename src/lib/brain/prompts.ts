@@ -260,8 +260,6 @@ export function buildContentGenerationPrompt(
 ): { prompt: string; metadata: GenerationMetadata } {
   const profile = normalizeProfile(rawProfile);
   const strategy = normalizeStrategy(rawStrategy);
-  const aspectRatio =
-    contentType === "post" && platform === "instagram" ? "1:1 square" : "9:16 vertical";
 
   // Determine hook to use (smart selection by content type)
   const hooks = strategy.hooks as CategorizedHook[];
@@ -423,38 +421,52 @@ B) STYLE REFERENCE (moodboard, aesthetic inspo, design reference, color palette,
 
 If you receive a mix, handle each image according to its type. Combine feature content in the caption and style cues in the image prompt.
 
-The image model cannot see these images - your description is the only bridge. Weave extracted colors into "brandColorUsage".`);
+The image model cannot see these images - your description is the only bridge. Weave extracted colors into the imagery scene.`);
   } else {
     sections.push("No images provided. Use the Visual Identity from PRODUCT CONTEXT for color and style cues.");
   }
 
-  // IMAGE GENERATION RULES for Flux-optimized prompts
   sections.push("");
-  sections.push(`IMAGE GENERATION RULES (the image model is Flux — follow these strictly):
-- Write the scene as a natural language paragraph, NOT comma-separated tags
-- Lead with the main visual element in the first sentence
-- Weave brand colors (${brandColors || "infer from product"}) and mood (${brandMood || "infer from product"}) into the scene naturally
-- Include camera lens/aperture for photo-realistic scenes (e.g. "shot on 50mm f/2.0")
-- Do NOT add quality tags like "8k", "uhd", "highly detailed" — Flux ignores them
-- Target 20-60 words for the scene field
-- NEVER include people, human figures, faces, hands, or body parts — Flux renders them poorly
-- NEVER include text, lettering, words, or typography in the scene — Flux cannot render text correctly
-- Focus on products, objects, environments, abstract compositions, and still-life setups instead`);
-  sections.push("");
+  sections.push(`Produce a structured creative BRIEF: pick the visual archetype, write the on-image copy, choose imagery, and write the caption together so they are creatively aligned.
 
-  sections.push(`Produce BOTH a caption and image generation instructions together, so they are creatively aligned.
+ARCHETYPE — pick the one that best fits the hook and content:
+- editorial: magazine-style headline + subhead over a background
+- displayImage: full-bleed image with minimal overlay copy
+- photoCaption: photo with a short caption strip
+- iconCard: a single concept anchored by an icon
+- quote: a pulled quote / testimonial
+- stat: one big number + label
+- steps: a short numbered sequence
+- feature: one feature spotlight with headline + body
+- announce: an announcement / launch card
+- article: long-form headline + body, text-forward
+
+ON-IMAGE COPY rules (this is text rendered ON the image, separate from the caption):
+- headline: 2-7 words, the single punchiest idea. Required.
+- subhead: optional supporting line, <= 12 words.
+- body: optional, only for feature/article/steps; <= 30 words.
+- Keep on-image copy SHORT. The caption carries the long copy, not the image.
+
+IMAGERY:
+- kind "photo": a generated still life / environment (no people, no text, no devices). Provide "scene" as a 20-60 word natural-language paragraph leading with the main visual element, weaving brand colors (${brandColors || "infer from product"}) and mood (${brandMood || "infer from product"}). Include a camera spec (e.g. "shot on 50mm f/2.0"). No quality tags like "8k".
+- kind "gradient": a brand-color gradient background. Omit "scene".
+- kind "solid": a flat brand-color background. Omit "scene".
+
+accentIndex: integer index (0-based) selecting which brand accent color to emphasize.
 
 Return ONLY valid JSON:
 {
+  "archetype": "one of: editorial | displayImage | photoCaption | iconCard | quote | stat | steps | feature | announce | article",
+  "headline": "2-7 word on-image headline",
+  "subhead": "optional supporting line or omit",
+  "body": "optional body copy for feature/article/steps or omit",
+  "imagery": {
+    "kind": "one of: photo | gradient | solid",
+    "scene": "for kind=photo only: 20-60 word scene paragraph, no people/text/devices; omit otherwise"
+  },
+  "accentIndex": 0,
   "caption": "the full caption text without hashtags",
-  "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-  "imagePrompt": {
-    "scene": "Natural language paragraph describing an environment, abstract composition, or still-life that evokes the product's essence. Lead with the main visual element. Include setting, lighting, camera spec, and brand colors woven naturally. No people, no devices, no text. Example: 'A sunlit loft workspace with exposed brick walls and monstera plants, warm amber light pooling across a navy blue velvet surface with scattered gold geometric shapes, shot on 50mm f/2.0 with shallow depth of field.'",
-    "brandColorUsage": "How brand colors appear in the scene (e.g. 'navy in the furniture, amber in the lighting')",
-    "mood": "single word or short phrase — energetic, calm, luxurious, playful, professional, cozy, etc.",
-    "style": "one of: photo-realistic, illustrated, minimal-graphic, cinematic, 3d-render, flat-design",
-    "aspectRatio": "${aspectRatio}"
-  }
+  "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
 }`);
 
   const metadata: GenerationMetadata = {
