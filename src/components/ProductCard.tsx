@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -88,7 +89,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
         setProduct({ ...product, extractionStatus: "extracting" });
       } else {
         const data = await res.json();
-        alert(data.error || "Re-extraction failed");
+        toast.error(data.error || "Re-extraction failed");
       }
     } finally {
       setRetrying(false);
@@ -128,7 +129,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
         if (field === "profile") { setShowProfile(false); setEditModeProfile(false); }
         if (field === "marketingStrategy") { setShowStrategy(false); setEditModeStrategy(false); }
       } else {
-        alert("Error saving");
+        toast.error("Error saving");
       }
     } finally {
       setSaving(false);

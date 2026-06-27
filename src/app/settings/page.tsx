@@ -191,16 +191,7 @@ function SettingsContent() {
 export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/" className="text-text-tertiary hover:text-text-secondary">
-            ←
-          </Link>
-          <h1 className="text-xl font-bold text-text-primary">Settings</h1>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-3xl px-6 py-8">
         <Suspense fallback={<p className="text-text-tertiary">Loading...</p>}>
           <SettingsContent />
         </Suspense>

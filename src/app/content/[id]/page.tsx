@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import { toast } from "sonner";
 import { ContentItem as Post, Product } from "../../../../drizzle/schema";
 import { ImageLightbox } from "@/components/ImageLightbox";
+import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 
 const statuses = ["draft", "approved", "scheduled", "posted"] as const;
 const types = ["reel", "post", "story"] as const;
@@ -17,6 +18,8 @@ export default function ContentEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [posting, setPosting] = useState(false);
+
+  const { confirm, close, isOpen, title, description, onConfirm, variant } = useConfirm();
 
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
@@ -92,31 +95,32 @@ export default function ContentEditPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("Delete this post?")) return;
-    await fetch(`/api/posts/${params.id}`, { method: "DELETE" });
-    router.push("/content");
+    confirm("Delete Post", "Are you sure you want to delete this post?", async () => {
+      await fetch(`/api/posts/${params.id}`, { method: "DELETE" });
+      router.push("/content");
+    }, "destructive");
   }
 
   async function handlePostNow() {
-    if (!confirm("Post to Instagram now?")) return;
+    confirm("Post Now", "Post to Instagram now?", async () => {
+      setPosting(true);
+      const res = await fetch("/api/instagram/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: params.id }),
+      });
 
-    setPosting(true);
-    const res = await fetch("/api/instagram/post", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId: params.id }),
+      const data = await res.json();
+      setPosting(false);
+
+      if (!res.ok) {
+        toast.error(data.error || "Failed to post");
+        return;
+      }
+
+      setStatus("posted");
+      setPost((p) => (p ? { ...p, status: "posted", instagramId: data.instagramId } : p));
     });
-
-    const data = await res.json();
-    setPosting(false);
-
-    if (!res.ok) {
-      alert(data.error || "Failed to post");
-      return;
-    }
-
-    setStatus("posted");
-    setPost((p) => (p ? { ...p, status: "posted", instagramId: data.instagramId } : p));
   }
 
   if (loading) {
@@ -131,18 +135,13 @@ export default function ContentEditPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/content" className="text-text-tertiary hover:text-text-secondary">
-              ←
-            </Link>
-            <h1 className="text-xl font-bold text-text-primary">Edit Content</h1>
-          </div>
+      <main className="mx-auto max-w-3xl px-6 py-8">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-text-primary">Edit Content</h1>
           <div className="flex gap-2">
             <button
               onClick={handleDelete}
-              className="px-4 py-2 text-error text-sm font-medium hover:text-error"
+              className="rounded-md px-4 py-2 text-sm font-medium text-error transition-colors hover:bg-error-bg"
             >
               Delete
             </button>
@@ -150,7 +149,7 @@ export default function ContentEditPage() {
               <button
                 onClick={handlePostNow}
                 disabled={posting}
-                className="px-4 py-2 bg-info text-white text-sm font-medium rounded-lg hover:bg-info disabled:opacity-50"
+                className="rounded-md bg-info px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-info/90 disabled:opacity-50"
               >
                 {posting ? "Posting..." : "Post Now"}
               </button>
@@ -158,15 +157,12 @@ export default function ContentEditPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save"}
             </button>
           </div>
         </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 py-8">
         <div className="bg-surface rounded-lg border border-border p-6 space-y-6">
           {/* Product info */}
           {product && (
@@ -290,6 +286,7 @@ export default function ContentEditPage() {
           </div>
         </div>
       </main>
+      <ConfirmDialog isOpen={isOpen} onClose={close} onConfirm={onConfirm} title={title} description={description} variant={variant} />
     </div>
   );
 }

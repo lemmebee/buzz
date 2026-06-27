@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { toast } from "sonner";
+import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 
 interface Schedule {
   id: number;
@@ -65,6 +66,7 @@ function frequencyLabel(hours: number) {
 }
 
 export default function SchedulesPage() {
+  const { confirm, close, isOpen, title, description, onConfirm, variant } = useConfirm();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,6 +141,7 @@ export default function SchedulesPage() {
       }),
     });
     if (res.ok) {
+      toast.success("Schedule created");
       setShowForm(false);
       fetchData();
     }
@@ -152,12 +155,15 @@ export default function SchedulesPage() {
       body: JSON.stringify({ enabled: !enabled }),
     });
     setSchedules(schedules.map((s) => (s.id === id ? { ...s, enabled: !enabled } : s)));
+    toast.success(enabled ? "Schedule paused" : "Schedule activated");
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this schedule?")) return;
-    await fetch(`/api/schedules/${id}`, { method: "DELETE" });
-    setSchedules(schedules.filter((s) => s.id !== id));
+    confirm("Delete Schedule", "Are you sure you want to delete this schedule?", async () => {
+      await fetch(`/api/schedules/${id}`, { method: "DELETE" });
+      setSchedules(schedules.filter((s) => s.id !== id));
+      toast.success("Schedule deleted");
+    }, "destructive");
   }
 
   async function handleDiscordSetup(e: React.FormEvent) {
@@ -184,24 +190,7 @@ export default function SchedulesPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-tertiary hover:text-text-secondary">
-              ←
-            </Link>
-            <h1 className="text-xl font-bold text-text-primary">Schedules</h1>
-          </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
-          >
-            {showForm ? "Cancel" : "New Schedule"}
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
         {/* Create form */}
         {showForm && (
           <form onSubmit={handleCreate} className="bg-surface rounded-lg border border-border p-6 space-y-4">
@@ -492,6 +481,7 @@ export default function SchedulesPage() {
           </form>
         </div>
       </main>
+      <ConfirmDialog isOpen={isOpen} onClose={close} onConfirm={onConfirm} title={title} description={description} variant={variant} />
     </div>
   );
 }

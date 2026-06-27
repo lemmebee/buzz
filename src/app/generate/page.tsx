@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Product } from "../../../drizzle/schema";
@@ -337,9 +338,10 @@ export default function GeneratePage() {
         });
       }
 
+      toast.success(`${selected.size} post${selected.size > 1 ? "s" : ""} saved to queue`);
       router.push(`/content?product=${productId}`);
     } catch (e) {
-      alert("Failed to save posts");
+      toast.error("Failed to save posts");
       console.error(e);
     } finally {
       setSaving(false);
@@ -432,9 +434,10 @@ export default function GeneratePage() {
           }),
         });
       }
+      toast.success(`${compositionQueue.length} composition${compositionQueue.length > 1 ? "s" : ""} saved to queue`);
       router.push(`/content?product=${productId}`);
     } catch (e) {
-      alert("Failed to save compositions");
+      toast.error("Failed to save compositions");
       console.error(e);
     } finally {
       setSaving(false);
@@ -451,18 +454,7 @@ export default function GeneratePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-tertiary hover:text-text-secondary">
-              ←
-            </Link>
-            <h1 className="text-xl font-bold text-text-primary">Generate Content</h1>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-4xl px-6 py-8">
         {products.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-text-tertiary mb-4">Add a product first</p>

@@ -2,8 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import Link from "next/link";
 import { ContentCard } from "@/components/ContentCard";
+import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 import { ContentItem, Product } from "../../../drizzle/schema";
 
 const statuses = ["all", "draft", "approved", "scheduled", "posted"] as const;
@@ -18,6 +20,7 @@ export default function ContentPage() {
 
 function ContentPageInner() {
   const searchParams = useSearchParams();
+  const { confirm, close, isOpen, title, description, onConfirm, variant } = useConfirm();
   const [posts, setPosts] = useState<ContentItem[]>([]);
   const [products, setProducts] = useState<Record<number, Product>>({});
   const [loading, setLoading] = useState(true);
@@ -51,9 +54,11 @@ function ContentPageInner() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this post?")) return;
-    await fetch(`/api/posts/${id}`, { method: "DELETE" });
-    setPosts(posts.filter((p) => p.id !== id));
+    confirm("Delete Post", "Are you sure you want to delete this post?", async () => {
+      await fetch(`/api/posts/${id}`, { method: "DELETE" });
+      setPosts(posts.filter((p) => p.id !== id));
+      toast.success("Post deleted");
+    }, "destructive");
   }
 
   async function handleStatusChange(id: number, status: string) {
@@ -73,6 +78,8 @@ function ContentPageInner() {
         )
         .filter((p) => filter === "all" || p.status === filter)
     );
+    const labels: Record<string, string> = { approved: "Post approved", draft: "Post moved to drafts", scheduled: "Post scheduled", posted: "Post published" };
+    toast.success(labels[status] || "Status updated");
   }
 
   async function handleSchedule(id: number, scheduledAt: string) {
@@ -95,50 +102,34 @@ function ContentPageInner() {
   }
 
   async function handlePostNow(id: number) {
-    if (!confirm("Post to Instagram now?")) return;
+    confirm("Post Now", "Post to Instagram now?", async () => {
+      const res = await fetch("/api/instagram/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: id }),
+      });
 
-    const res = await fetch("/api/instagram/post", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId: id }),
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Failed to post");
+        return;
+      }
+
+      setPosts(
+        posts
+          .map((p) =>
+            p.id === id ? { ...p, status: "posted", instagramId: data.instagramId } : p
+          )
+          .filter((p) => filter === "all" || p.status === filter)
+      );
+      toast.success("Posted to Instagram");
     });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error || "Failed to post");
-      return;
-    }
-
-    setPosts(
-      posts
-        .map((p) =>
-          p.id === id ? { ...p, status: "posted", instagramId: data.instagramId } : p
-        )
-        .filter((p) => filter === "all" || p.status === filter)
-    );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-tertiary hover:text-text-secondary">
-              ←
-            </Link>
-            <h1 className="text-xl font-bold text-text-primary">Content Queue</h1>
-          </div>
-          <Link
-            href="/generate"
-            className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
-          >
-            Generate Content
-          </Link>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-7xl px-6 py-8">
         {/* Filters */}
         <div className="flex gap-4 mb-6 items-center">
           <div className="flex gap-2">
@@ -195,6 +186,7 @@ function ContentPageInner() {
           </div>
         )}
       </main>
+      <ConfirmDialog isOpen={isOpen} onClose={close} onConfirm={onConfirm} title={title} description={description} variant={variant} />
     </div>
   );
 }

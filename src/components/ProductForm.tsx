@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Product } from "../../drizzle/schema";
 
@@ -106,7 +107,7 @@ export function ProductForm({ product }: ProductFormProps) {
       const res = await fetch(`/api/products/${product.id}/re-extract`, { method: "POST" });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "Re-extraction failed");
+        toast.error(data.error || "Re-extraction failed");
         setExtractionStatus("failed");
         setReExtracting(false);
         return;
@@ -172,9 +173,10 @@ export function ProductForm({ product }: ProductFormProps) {
     }
 
     if (res.ok) {
+      toast.success(product ? "Product updated" : "Product created");
       router.push("/products");
     } else {
-      alert("Error saving product");
+      toast.error("Error saving product");
       setSaving(false);
     }
   }

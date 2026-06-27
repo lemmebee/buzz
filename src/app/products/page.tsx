@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { ProductCard } from "@/components/ProductCard";
+import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 import { Product } from "../../../drizzle/schema";
 
 export default function ProductsPage() {
+  const { confirm, close, isOpen, title, description, onConfirm, variant } = useConfirm();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,10 +24,11 @@ export default function ProductsPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this product?")) return;
-
-    await fetch(`/api/products/${id}`, { method: "DELETE" });
-    setProducts(products.filter((p) => p.id !== id));
+    confirm("Delete Product", "Are you sure you want to delete this product?", async () => {
+      await fetch(`/api/products/${id}`, { method: "DELETE" });
+      setProducts(products.filter((p) => p.id !== id));
+      toast.success("Product deleted");
+    }, "destructive");
   }
 
   function handleUpdate(updated: Product) {
@@ -33,22 +37,7 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-tertiary hover:text-text-secondary">←</Link>
-            <h1 className="text-xl font-bold text-text-primary">Products</h1>
-          </div>
-          <Link
-            href="/products/new"
-            className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
-          >
-            Add Product
-          </Link>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-7xl px-6 py-8">
         {loading ? (
           <p className="text-text-tertiary">Loading...</p>
         ) : products.length === 0 ? (
@@ -74,6 +63,7 @@ export default function ProductsPage() {
           </div>
         )}
       </main>
+      <ConfirmDialog isOpen={isOpen} onClose={close} onConfirm={onConfirm} title={title} description={description} variant={variant} />
     </div>
   );
 }
