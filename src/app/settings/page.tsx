@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { DiscordSetup } from "@/components/DiscordSetup";
 
 interface InstagramAccountWithProducts {
   id: number;
@@ -183,6 +184,11 @@ function SettingsContent() {
             developers.facebook.com
           </a>
         </p>
+      </div>
+
+      {/* Discord Setup */}
+      <div className="mt-6">
+        <DiscordSetup />
       </div>
     </>
   );
