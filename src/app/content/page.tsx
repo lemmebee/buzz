@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ContentCard } from "@/components/ContentCard";
 import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 import { ContentItem, Product } from "../../../drizzle/schema";
-import { Check, Trash2, Calendar, X } from "lucide-react";
+import { Check, Trash2, Calendar, X, Search } from "lucide-react";
 
 const statuses = ["all", "draft", "approved", "scheduled", "posted"] as const;
 
@@ -35,6 +35,7 @@ function ContentPageInner() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkScheduleOpen, setBulkScheduleOpen] = useState(false);
   const [bulkScheduleDate, setBulkScheduleDate] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -220,7 +221,18 @@ function ContentPageInner() {
     toast.success(`${ids.length} post${ids.length > 1 ? "s" : ""} scheduled`);
   }
 
-  const filteredPosts = posts.filter((p) => productFilter === "all" || p.productId === productFilter);
+  const filteredPosts = posts.filter((p) => {
+    // Product filter
+    if (productFilter !== "all" && p.productId !== productFilter) return false;
+    // Search filter
+    if (search.trim()) {
+      const query = search.toLowerCase();
+      const content = p.content?.toLowerCase() || "";
+      const hashtags = p.hashtags?.toLowerCase() || "";
+      if (!content.includes(query) && !hashtags.includes(query)) return false;
+    }
+    return true;
+  });
   const selectedCount = selectedIds.size;
 
   // Status counts
@@ -236,7 +248,7 @@ function ContentPageInner() {
     <div className="min-h-screen bg-background">
       <main className="mx-auto max-w-7xl px-6 py-8">
         {/* Filters */}
-        <div className="flex gap-4 mb-6 items-center">
+        <div className="flex gap-4 mb-6 items-center flex-wrap">
           <div className="flex gap-2">
             {statuses.map((status) => (
               <button
@@ -265,6 +277,16 @@ function ContentPageInner() {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+            <input
+              type="text"
+              placeholder="Search content..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-md border border-border bg-surface py-1.5 pl-9 pr-4 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
         </div>
 
         {/* Bulk Actions Bar */}
@@ -346,10 +368,18 @@ function ContentPageInner() {
           <p className="text-text-tertiary">Loading...</p>
         ) : filteredPosts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-text-tertiary mb-4">No content yet</p>
-            <Link href="/generate" className="text-primary hover:text-primary-hover">
-              Generate your first content
-            </Link>
+            {posts.length === 0 ? (
+              <>
+                <p className="text-text-tertiary mb-4">No content yet</p>
+                <Link href="/generate" className="text-primary hover:text-primary-hover">
+                  Generate your first content
+                </Link>
+              </>
+            ) : (
+              <p className="text-text-tertiary">
+                {search ? `No content matches "${search}"` : "No content matches the current filters"}
+              </p>
+            )}
           </div>
         ) : (
           <>
