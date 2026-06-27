@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { toast } from "sonner";
+import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 
 interface Schedule {
   id: number;
@@ -65,6 +66,7 @@ function frequencyLabel(hours: number) {
 }
 
 export default function SchedulesPage() {
+  const { confirm, close, isOpen, title, description, onConfirm, variant } = useConfirm();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,38 +88,24 @@ export default function SchedulesPage() {
     if (next) setFormConfig({ ...next });
   }, [formMediaType, formTargetSurface]);
 
-  // Discord setup
-  const [dsToken, setDsToken] = useState("");
-  const [dsPublicKey, setDsPublicKey] = useState("");
-  const [dsChannelId, setDsChannelId] = useState("");
-  const [dsStatus, setDsStatus] = useState<string | null>(null);
-  const [dsSaving, setDsSaving] = useState(false);
-  const [dsShowToken, setDsShowToken] = useState(false);
-  const [dsShowKey, setDsShowKey] = useState(false);
-
   useEffect(() => {
     fetchData();
   }, []);
 
   async function fetchData() {
     setLoading(true);
-    const [schedulesRes, productsRes, settingsRes] = await Promise.all([
+    const [schedulesRes, productsRes] = await Promise.all([
       fetch("/api/schedules"),
       fetch("/api/products"),
-      fetch("/api/settings"),
     ]);
     const schedulesData = await schedulesRes.json();
     const productsData = await productsRes.json();
-    const settingsData = await settingsRes.json();
 
     setSchedules(schedulesData);
     setProducts(productsData);
     if (productsData.length > 0 && !formProductId) {
       setFormProductId(productsData[0].id);
     }
-    if (settingsData.DISCORD_BOT_TOKEN) setDsToken(settingsData.DISCORD_BOT_TOKEN);
-    if (settingsData.DISCORD_PUBLIC_KEY) setDsPublicKey(settingsData.DISCORD_PUBLIC_KEY);
-    if (settingsData.DISCORD_CHANNEL_ID) setDsChannelId(settingsData.DISCORD_CHANNEL_ID);
     setLoading(false);
   }
 
@@ -139,6 +127,7 @@ export default function SchedulesPage() {
       }),
     });
     if (res.ok) {
+      toast.success("Schedule created");
       setShowForm(false);
       fetchData();
     }
@@ -152,56 +141,20 @@ export default function SchedulesPage() {
       body: JSON.stringify({ enabled: !enabled }),
     });
     setSchedules(schedules.map((s) => (s.id === id ? { ...s, enabled: !enabled } : s)));
+    toast.success(enabled ? "Schedule paused" : "Schedule activated");
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this schedule?")) return;
-    await fetch(`/api/schedules/${id}`, { method: "DELETE" });
-    setSchedules(schedules.filter((s) => s.id !== id));
-  }
-
-  async function handleDiscordSetup(e: React.FormEvent) {
-    e.preventDefault();
-    setDsSaving(true);
-    setDsStatus(null);
-    const res = await fetch("/api/discord/setup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        botToken: dsToken,
-        publicKey: dsPublicKey,
-        channelId: dsChannelId,
-      }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setDsStatus(`Connected as ${data.botName}`);
-    } else {
-      setDsStatus(`Error: ${data.error}`);
-    }
-    setDsSaving(false);
+    confirm("Delete Schedule", "Are you sure you want to delete this schedule?", async () => {
+      await fetch(`/api/schedules/${id}`, { method: "DELETE" });
+      setSchedules(schedules.filter((s) => s.id !== id));
+      toast.success("Schedule deleted");
+    }, "destructive");
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-tertiary hover:text-text-secondary">
-              ←
-            </Link>
-            <h1 className="text-xl font-bold text-text-primary">Schedules</h1>
-          </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
-          >
-            {showForm ? "Cancel" : "New Schedule"}
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-7xl px-6 py-8 space-y-8">
         {/* Create form */}
         {showForm && (
           <form onSubmit={handleCreate} className="bg-surface rounded-lg border border-border p-6 space-y-4">
@@ -212,7 +165,7 @@ export default function SchedulesPage() {
                 <select
                   value={formProductId}
                   onChange={(e) => setFormProductId(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -224,7 +177,7 @@ export default function SchedulesPage() {
                 <select
                   value={formPlatform}
                   onChange={(e) => setFormPlatform(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {PLATFORMS.map((p) => (
                     <option key={p} value={p}>{p}</option>
@@ -241,7 +194,7 @@ export default function SchedulesPage() {
                       setFormTargetSurface("post");
                     }
                   }}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {MEDIA_TYPES.map((m) => (
                     <option key={m} value={m}>{m}</option>
@@ -253,7 +206,7 @@ export default function SchedulesPage() {
                 <select
                   value={formTargetSurface}
                   onChange={(e) => setFormTargetSurface(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {CONTENT_TYPES
                     .filter((t) => !(t === "reel" && formMediaType === "image"))
@@ -267,7 +220,7 @@ export default function SchedulesPage() {
                 <select
                   value={formConfig.aspectRatio}
                   onChange={(e) => setFormConfig({ ...formConfig, aspectRatio: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {ASPECT_OPTIONS.map((a) => (
                     <option key={a} value={a}>{a}</option>
@@ -286,7 +239,7 @@ export default function SchedulesPage() {
                       onChange={(e) =>
                         setFormConfig({ ...formConfig, durationSec: parseInt(e.target.value) || 15 })
                       }
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                     />
                   </div>
                   <div className="flex items-end">
@@ -308,7 +261,7 @@ export default function SchedulesPage() {
                 <select
                   value={formCount}
                   onChange={(e) => setFormCount(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>{n}</option>
@@ -320,7 +273,7 @@ export default function SchedulesPage() {
                 <select
                   value={formFrequency}
                   onChange={(e) => setFormFrequency(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {FREQUENCY_OPTIONS.map((f) => (
                     <option key={f.value} value={f.value}>{f.label}</option>
@@ -333,7 +286,7 @@ export default function SchedulesPage() {
                   type="time"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 />
               </div>
             </div>
@@ -406,92 +359,8 @@ export default function SchedulesPage() {
             ))}
           </div>
         )}
-
-        {/* Discord setup */}
-        <div className="bg-surface rounded-lg border border-border p-6">
-          <h2 className="font-medium text-text-primary mb-4">Discord Notifications</h2>
-          <p className="text-sm text-text-tertiary mb-4">
-            Connect a Discord bot to receive drafts for approval. Create an app at{" "}
-            <a href="https://discord.com/developers/applications" className="text-primary" target="_blank" rel="noreferrer">
-              discord.com/developers
-            </a>
-            , add a Bot, copy the bot token and the application&apos;s Public Key. Invite the bot to your
-            server with the {" "}<code className="text-xs bg-border px-1 py-0.5 rounded">bot</code> scope and{" "}
-            <code className="text-xs bg-border px-1 py-0.5 rounded">Send Messages</code> permission, then
-            paste a channel ID below (enable Developer Mode in Discord, right-click channel, Copy ID). Set the
-            app&apos;s Interactions Endpoint URL to{" "}
-            <code className="text-xs bg-border px-1 py-0.5 rounded">https://your-domain.com/api/discord/interactions</code>.
-          </p>
-          <form onSubmit={handleDiscordSetup} className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-text-secondary mb-1">Bot Token</label>
-                <div className="relative">
-                  <input
-                    type={dsShowToken ? "text" : "password"}
-                    autoComplete="off"
-                    value={dsToken}
-                    onChange={(e) => setDsToken(e.target.value)}
-                    placeholder="MTIzNDU2..."
-                    className="w-full px-3 py-2 pr-16 border border-border rounded-lg text-sm text-text-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setDsShowToken((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-tertiary hover:text-text-secondary px-2 py-1"
-                  >
-                    {dsShowToken ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-text-secondary mb-1">Channel ID</label>
-                <input
-                  type="text"
-                  value={dsChannelId}
-                  onChange={(e) => setDsChannelId(e.target.value)}
-                  placeholder="123456789012345678"
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-text-secondary mb-1">Public Key (from app General Information)</label>
-              <div className="relative">
-                <input
-                  type={dsShowKey ? "text" : "password"}
-                  autoComplete="off"
-                  value={dsPublicKey}
-                  onChange={(e) => setDsPublicKey(e.target.value)}
-                  placeholder="hex string, 64 chars"
-                  className="w-full px-3 py-2 pr-16 border border-border rounded-lg text-sm text-text-primary font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setDsShowKey((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-tertiary hover:text-text-secondary px-2 py-1"
-                >
-                  {dsShowKey ? "Hide" : "Show"}
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                disabled={dsSaving || !dsToken || !dsChannelId || !dsPublicKey}
-                className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
-              >
-                {dsSaving ? "Connecting..." : "Connect Discord"}
-              </button>
-              {dsStatus && (
-                <span className={`text-sm ${dsStatus.startsWith("Error") ? "text-error" : "text-success"}`}>
-                  {dsStatus}
-                </span>
-              )}
-            </div>
-          </form>
-        </div>
       </main>
+      <ConfirmDialog isOpen={isOpen} onClose={close} onConfirm={onConfirm} title={title} description={description} variant={variant} />
     </div>
   );
 }

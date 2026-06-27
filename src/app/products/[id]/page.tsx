@@ -50,14 +50,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/products" className="text-text-tertiary hover:text-text-secondary">←</Link>
-          <h1 className="text-xl font-bold text-text-primary">Edit {product.name}</h1>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-7xl px-6 py-8">
         <ProductForm product={product} />
       </main>
     </div>

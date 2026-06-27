@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { ContentItem as Post } from "../../drizzle/schema";
 import { ImageLightbox } from "./ImageLightbox";
+import { InstagramPreview } from "./InstagramPreview";
+import { Eye } from "lucide-react";
 
 interface ContentCardProps {
   post: Post;
@@ -40,6 +42,7 @@ export function ContentCard({
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [showInstagramPreview, setShowInstagramPreview] = useState(false);
 
   return (
     <div className="bg-surface rounded-lg border border-border overflow-hidden hover:border-border-strong transition-colors">
@@ -126,6 +129,14 @@ export function ContentCard({
           Edit
         </Link>
 
+        <button
+          onClick={() => setShowInstagramPreview(true)}
+          className="text-xs text-text-secondary hover:text-text-primary flex items-center gap-1"
+        >
+          <Eye className="h-3 w-3" />
+          Preview
+        </button>
+
         {post.status === "draft" && onStatusChange && (
           <button
             onClick={() => onStatusChange(post.id, "approved")}
@@ -205,6 +216,15 @@ export function ContentCard({
           </div>
         )}
       </div>
+
+      {showInstagramPreview && (
+        <InstagramPreview
+          content={post.content}
+          hashtags={hashtags}
+          mediaUrl={post.mediaUrl}
+          onClose={() => setShowInstagramPreview(false)}
+        />
+      )}
     </div>
   );
 }

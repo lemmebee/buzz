@@ -1,126 +1,32 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import Link from "next/link";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Product } from "../../../drizzle/schema";
 import type { TargetType, ContentTargeting } from "@/lib/brain/types";
-import { ImageLightbox } from "@/components/ImageLightbox";
-
-type PlatformType = "instagram" | "twitter";
-type ContentType = "reel" | "post" | "story" | "ad";
-type MediaTypeUi = "image" | "video";
-
-interface FormConfig {
-  durationSec?: number;
-  aspectRatio: string;
-  captions?: boolean;
-}
-
-const CONFIG_DEFAULTS: Record<ContentType, Record<MediaTypeUi, FormConfig>> = {
-  reel: {
-    video: { durationSec: 15, aspectRatio: "9:16", captions: true },
-    image: { aspectRatio: "9:16" }, // unreachable; UI hides this combo
-  },
-  post: {
-    image: { aspectRatio: "1:1" },
-    video: { durationSec: 30, aspectRatio: "1:1", captions: false },
-  },
-  story: {
-    image: { aspectRatio: "9:16" },
-    video: { durationSec: 15, aspectRatio: "9:16", captions: false },
-  },
-  ad: {
-    image: { aspectRatio: "1:1" },
-    video: { durationSec: 15, aspectRatio: "1:1", captions: true },
-  },
-};
-
-const ASPECT_OPTIONS = ["1:1", "9:16", "4:5", "16:9"];
-
-function isVideoUrl(url?: string | null): boolean {
-  return !!url && /\.(mp4|webm|mov)(\?|$)/i.test(url);
-}
-
-interface GeneratedPost {
-  content: string;
-  hashtags: string[];
-  mediaUrl?: string | null;
-  publicMediaUrl?: string | null;
-  metadata?: {
-    hookUsed?: string;
-    pillarUsed?: string;
-    targetType?: string;
-    targetValue?: string;
-    toneConstraints?: string[];
-    visualDirection?: string;
-  };
-}
-
-interface ComposedPost {
-  textSourceIndex: number;
-  imageSourceIndex: number | null;
-  content: string;
-  hashtags: string[];
-  mediaUrl: string | null;
-  publicMediaUrl: string | null;
-  metadata: GeneratedPost["metadata"];
-}
-
-interface Suggestions {
-  suggestedHook: string | null;
-  suggestedPillar: string | null;
-  suggestedPain: string | null;
-  suggestedDesire: string | null;
-  suggestedObjection: string | null;
-  usageStats: {
-    hooks: Record<string, number>;
-    pillars: Record<string, number>;
-    pains: Record<string, number>;
-    desires: Record<string, number>;
-    objections: Record<string, number>;
-  };
-  available: {
-    hooks: string[];
-    pillars: string[];
-    pains: string[];
-    desires: string[];
-    objections: { objection: string; counter: string }[];
-  };
-}
-
-const platformTypes: { value: PlatformType; label: string }[] = [
-  { value: "instagram", label: "Instagram" },
-  { value: "twitter", label: "Twitter/X" },
-];
-
-const contentTypesByPlatform: Record<PlatformType, { value: ContentType; label: string }[]> = {
-  instagram: [
-    { value: "post", label: "Post" },
-    { value: "reel", label: "Reel" },
-    { value: "story", label: "Story" },
-    { value: "ad", label: "Ad" },
-  ],
-  twitter: [
-    { value: "post", label: "Tweet" },
-    { value: "ad", label: "Ad" },
-  ],
-};
-
-const targetTypes: { value: TargetType | ""; label: string }[] = [
-  { value: "", label: "Auto" },
-  { value: "pain", label: "Pain Point" },
-  { value: "desire", label: "Desire" },
-  { value: "objection", label: "Objection" },
-];
+import { Settings2, ChevronDown, ChevronUp } from "lucide-react";
+import { Presets, presets } from "@/components/generate/Presets";
+import { TargetingSection } from "@/components/generate/TargetingSection";
+import { GeneratedResults } from "@/components/generate/GeneratedResults";
+import { GenerationProgress } from "@/components/generate/GenerationProgress";
+import {
+  type PlatformType,
+  type ContentType,
+  type MediaTypeUi,
+  type FormConfig,
+  type GeneratedPost,
+  type Suggestions,
+  CONFIG_DEFAULTS,
+  ASPECT_OPTIONS,
+  contentTypesByPlatform,
+} from "@/components/generate/types";
 
 export default function GeneratePage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Form
   const [productId, setProductId] = useState<number | null>(null);
@@ -130,11 +36,8 @@ export default function GeneratePage() {
   const [config, setConfig] = useState<FormConfig>(CONFIG_DEFAULTS.post.image);
   const [count, setCount] = useState(5);
 
-  useEffect(() => {
-    const surfaceMap = CONFIG_DEFAULTS[contentType];
-    const next = surfaceMap?.[mediaType];
-    if (next) setConfig({ ...next });
-  }, [mediaType, contentType]);
+  // Advanced settings
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Targeting
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
@@ -151,31 +54,12 @@ export default function GeneratePage() {
 
   // Results
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  // Lightbox
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-
-  // Mix & Match
-  const [mixMode, setMixMode] = useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  const [selectedTextIndex, setSelectedTextIndex] = useState<number | null>(null);
-  const [compositionQueue, setCompositionQueue] = useState<ComposedPost[]>([]);
-
-  function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    setScreenshots((prev) => [...prev, ...files]);
-    const newPreviews = files.map((f) => URL.createObjectURL(f));
-    setScreenshotPreviews((prev) => [...prev, ...newPreviews]);
-    if (screenshotInputRef.current) screenshotInputRef.current.value = "";
-  }
-
-  function removeScreenshot(index: number) {
-    URL.revokeObjectURL(screenshotPreviews[index]);
-    setScreenshots((prev) => prev.filter((_, i) => i !== index));
-    setScreenshotPreviews((prev) => prev.filter((_, i) => i !== index));
-  }
+  useEffect(() => {
+    const surfaceMap = CONFIG_DEFAULTS[contentType];
+    const next = surfaceMap?.[mediaType];
+    if (next) setConfig({ ...next });
+  }, [mediaType, contentType]);
 
   const fetchSuggestions = useCallback(async (pid: number) => {
     try {
@@ -205,7 +89,6 @@ export default function GeneratePage() {
   useEffect(() => {
     if (productId) {
       fetchSuggestions(productId);
-      // Reset targeting when product changes
       setSelectedHook("");
       setSelectedPillar("");
       setTargetType("");
@@ -213,44 +96,46 @@ export default function GeneratePage() {
     }
   }, [productId, fetchSuggestions]);
 
+  function applyPreset(preset: typeof presets[0]) {
+    setPlatform(preset.config.platform);
+    setMediaType(preset.config.mediaType);
+    setContentType(preset.config.contentType);
+    setCount(preset.config.count);
+    setConfig({
+      aspectRatio: preset.config.aspectRatio,
+      durationSec: preset.config.durationSec,
+      captions: preset.config.captions,
+    });
+  }
+
   async function handleGenerate() {
     if (!productId) return;
 
     setGenerating(true);
-    setError(null);
     setGeneratedPosts([]);
-    setSelected(new Set());
-    setSelectedImageIndex(null);
-    setSelectedTextIndex(null);
 
-    // Build targeting object - use suggestions when in auto mode
     const targeting: ContentTargeting = {};
 
-    // Hook: use selected if specific mode, otherwise use suggestion
     if (hookMode === "specific" && selectedHook) {
       targeting.hook = selectedHook;
     } else if (suggestions?.suggestedHook) {
       targeting.hook = suggestions.suggestedHook;
     }
 
-    // Pillar: use selected or suggestion
     if (selectedPillar) {
       targeting.pillar = selectedPillar;
     } else if (suggestions?.suggestedPillar) {
       targeting.pillar = suggestions.suggestedPillar;
     }
 
-    // Target type/value: use selected or auto-pick from suggestions
     if (targetType && targetValue) {
       targeting.targetType = targetType;
       targeting.targetValue = targetValue;
     } else if (!targetType && suggestions) {
-      // Auto-rotate through pain/desire/objection based on least used
       const painCount = Object.values(suggestions.usageStats.pains).reduce((a, b) => a + b, 0);
       const desireCount = Object.values(suggestions.usageStats.desires).reduce((a, b) => a + b, 0);
       const objectionCount = Object.values(suggestions.usageStats.objections).reduce((a, b) => a + b, 0);
 
-      // Pick the category with least total usage
       const minCount = Math.min(painCount, desireCount, objectionCount);
       if (minCount === painCount && suggestions.suggestedPain) {
         targeting.targetType = "pain";
@@ -295,12 +180,10 @@ export default function GeneratePage() {
       const data = await res.json();
       const posts = data.posts || [];
       setGeneratedPosts(posts);
-      // Select all by default
-      setSelected(new Set(posts.map((_: unknown, i: number) => i)));
-      // Refresh suggestions after generation
       fetchSuggestions(productId);
+      toast.success(`Generated ${posts.length} posts`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to generate content");
+      toast.error(e instanceof Error ? e.message : "Failed to generate content");
       console.error(e);
     } finally {
       setGenerating(false);
@@ -308,283 +191,162 @@ export default function GeneratePage() {
   }
 
   async function handleSave() {
-    if (selected.size === 0) return;
-
-    setSaving(true);
-
-    try {
-      const postsToSave = generatedPosts.filter((_, i) => selected.has(i));
-
-      for (const post of postsToSave) {
-        await fetch("/api/posts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            productId,
-            type: contentType,
-            content: post.content,
-            hashtags: post.hashtags,
-            mediaUrl: post.mediaUrl,
-            publicMediaUrl: post.publicMediaUrl,
-            status: "draft",
-            hookUsed: post.metadata?.hookUsed,
-            pillarUsed: post.metadata?.pillarUsed,
-            targetType: post.metadata?.targetType,
-            targetValue: post.metadata?.targetValue,
-            toneConstraints: post.metadata?.toneConstraints,
-            visualDirection: post.metadata?.visualDirection,
-          }),
-        });
-      }
-
-      router.push(`/content?product=${productId}`);
-    } catch (e) {
-      alert("Failed to save posts");
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function toggleSelect(index: number) {
-    const newSelected = new Set(selected);
-    if (newSelected.has(index)) {
-      newSelected.delete(index);
-    } else {
-      newSelected.add(index);
-    }
-    setSelected(newSelected);
-  }
-
-  function toggleAll() {
-    if (selected.size === generatedPosts.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(generatedPosts.map((_, i) => i)));
-    }
-  }
-
-  function handleMixClick(index: number, type: "image" | "text") {
-    if (type === "image") {
-      setSelectedImageIndex((prev) => (prev === index ? null : index));
-    } else {
-      setSelectedTextIndex((prev) => (prev === index ? null : index));
-    }
-  }
-
-  function buildComposedPost(): ComposedPost | null {
-    if (selectedTextIndex === null) return null;
-    const textPost = generatedPosts[selectedTextIndex];
-    const imagePost = selectedImageIndex !== null ? generatedPosts[selectedImageIndex] : null;
-
-    return {
-      textSourceIndex: selectedTextIndex,
-      imageSourceIndex: selectedImageIndex,
-      content: textPost.content,
-      hashtags: textPost.hashtags,
-      mediaUrl: imagePost?.mediaUrl ?? null,
-      publicMediaUrl: imagePost?.publicMediaUrl ?? null,
-      metadata: {
-        hookUsed: textPost.metadata?.hookUsed,
-        pillarUsed: textPost.metadata?.pillarUsed,
-        targetType: textPost.metadata?.targetType,
-        targetValue: textPost.metadata?.targetValue,
-        toneConstraints: textPost.metadata?.toneConstraints,
-        visualDirection: imagePost?.metadata?.visualDirection ?? textPost.metadata?.visualDirection,
-      },
-    };
-  }
-
-  function addToQueue() {
-    const composed = buildComposedPost();
-    if (!composed) return;
-    setCompositionQueue((prev) => [...prev, composed]);
-    setSelectedImageIndex(null);
-    setSelectedTextIndex(null);
-  }
-
-  function removeFromQueue(index: number) {
-    setCompositionQueue((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  async function handleSaveCompositions() {
-    if (compositionQueue.length === 0) return;
-    setSaving(true);
-    try {
-      for (const post of compositionQueue) {
-        await fetch("/api/posts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            productId,
-            type: contentType,
-            content: post.content,
-            hashtags: post.hashtags,
-            mediaUrl: post.mediaUrl,
-            publicMediaUrl: post.publicMediaUrl,
-            status: "draft",
-            hookUsed: post.metadata?.hookUsed,
-            pillarUsed: post.metadata?.pillarUsed,
-            targetType: post.metadata?.targetType,
-            targetValue: post.metadata?.targetValue,
-            toneConstraints: post.metadata?.toneConstraints,
-            visualDirection: post.metadata?.visualDirection,
-          }),
-        });
-      }
-      router.push(`/content?product=${productId}`);
-    } catch (e) {
-      alert("Failed to save compositions");
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
+    // This is handled by GeneratedResults component now
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-text-tertiary">Loading...</p>
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-48 bg-border rounded" />
+          <div className="h-32 bg-border rounded-lg" />
+          <div className="h-64 bg-border rounded-lg" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-text-tertiary hover:text-text-secondary">
-              ←
-            </Link>
-            <h1 className="text-xl font-bold text-text-primary">Generate Content</h1>
-          </div>
+    <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-text-primary">Generate Content</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Create AI-powered content for your products
+        </p>
+      </div>
+
+      {products.length === 0 ? (
+        <div className="rounded-lg border border-border bg-surface p-12 text-center">
+          <p className="text-text-secondary mb-4">Add a product first to start generating content</p>
+          <button
+            onClick={() => router.push("/products/new")}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+          >
+            Add Product
+          </button>
         </div>
-      </header>
+      ) : (
+        <div className="space-y-6">
+          <Presets onApply={applyPreset} />
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {products.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-text-tertiary mb-4">Add a product first</p>
-            <Link href="/products/new" className="text-primary hover:text-primary-hover">
-              Add product
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Generation form */}
-            <div className="bg-surface rounded-lg border border-border p-6">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                {/* Product selector */}
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">
-                    Product
-                  </label>
-                  <select
-                    value={productId || ""}
-                    onChange={(e) => setProductId(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                  >
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Platform */}
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">
-                    Platform
-                  </label>
-                  <select
-                    value={platform}
-                    onChange={(e) => {
-                      const p = e.target.value as PlatformType;
-                      setPlatform(p);
-                      // Reset content type to first available for new platform
-                      setContentType(contentTypesByPlatform[p][0].value);
-                    }}
-                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                  >
-                    {platformTypes.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Media type */}
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">
-                    Media Type
-                  </label>
-                  <select
-                    value={mediaType}
-                    onChange={(e) => {
-                      const next = e.target.value as MediaTypeUi;
-                      setMediaType(next);
-                      if (next === "image" && contentType === "reel") {
-                        setContentType("post");
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                  >
-                    <option value="image">Image</option>
-                    <option value="video">Video</option>
-                  </select>
-                </div>
-
-                {/* Content type */}
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">
-                    Content Type
-                  </label>
-                  <select
-                    value={contentType}
-                    onChange={(e) => setContentType(e.target.value as ContentType)}
-                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                  >
-                    {contentTypesByPlatform[platform]
-                      .filter((ct) => !(ct.value === "reel" && mediaType === "image"))
-                      .map((ct) => (
-                        <option key={ct.value} value={ct.value}>
-                          {ct.label}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                {/* Count */}
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">
-                    Count
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={count}
-                    onChange={(e) => setCount(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                  />
-                </div>
+          {/* Main Form */}
+          <div className="rounded-lg border border-border bg-surface p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Product */}
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Product
+                </label>
+                <select
+                  value={productId || ""}
+                  onChange={(e) => setProductId(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
+                >
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Config tweaks */}
-              <div className="mt-4 pt-4 border-t border-border">
-                <h3 className="text-sm font-medium text-text-secondary mb-3">
-                  Config (defaults from {contentType} / {mediaType})
-                </h3>
+              {/* Platform */}
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Platform
+                </label>
+                <select
+                  value={platform}
+                  onChange={(e) => {
+                    const p = e.target.value as PlatformType;
+                    setPlatform(p);
+                    setContentType(contentTypesByPlatform[p][0].value);
+                  }}
+                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
+                >
+                  <option value="instagram">Instagram</option>
+                  <option value="twitter">Twitter/X</option>
+                </select>
+              </div>
+
+              {/* Media Type */}
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Media Type
+                </label>
+                <select
+                  value={mediaType}
+                  onChange={(e) => {
+                    const next = e.target.value as MediaTypeUi;
+                    setMediaType(next);
+                    if (next === "image" && contentType === "reel") {
+                      setContentType("post");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
+                >
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                </select>
+              </div>
+
+              {/* Content Type */}
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Content Type
+                </label>
+                <select
+                  value={contentType}
+                  onChange={(e) => setContentType(e.target.value as ContentType)}
+                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
+                >
+                  {contentTypesByPlatform[platform]
+                    .filter((ct) => !(ct.value === "reel" && mediaType === "image"))
+                    .map((ct) => (
+                      <option key={ct.value} value={ct.value}>
+                        {ct.label}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Count */}
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Count
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={count}
+                  onChange={(e) => setCount(parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
+                />
+              </div>
+            </div>
+
+            {/* Advanced Settings Toggle */}
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="mt-4 flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary"
+            >
+              <Settings2 className="h-4 w-4" />
+              Advanced Settings
+              {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+
+            {/* Advanced Settings */}
+            {showAdvanced && (
+              <div className="mt-4 pt-4 border-t border-border space-y-4">
+                {/* Config */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm text-text-secondary mb-1">Aspect Ratio</label>
+                    <label className="block text-sm text-text-tertiary mb-1">Aspect Ratio</label>
                     <select
                       value={config.aspectRatio}
                       onChange={(e) => setConfig({ ...config, aspectRatio: e.target.value })}
-                      className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                      className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
                     >
                       {ASPECT_OPTIONS.map((a) => (
                         <option key={a} value={a}>{a}</option>
@@ -594,7 +356,7 @@ export default function GeneratePage() {
                   {mediaType === "video" && (
                     <>
                       <div>
-                        <label className="block text-sm text-text-secondary mb-1">Duration (sec)</label>
+                        <label className="block text-sm text-text-tertiary mb-1">Duration (sec)</label>
                         <input
                           type="number"
                           min={5}
@@ -603,7 +365,7 @@ export default function GeneratePage() {
                           onChange={(e) =>
                             setConfig({ ...config, durationSec: parseInt(e.target.value) || 15 })
                           }
-                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
                         />
                       </div>
                       <div className="flex items-end">
@@ -612,6 +374,7 @@ export default function GeneratePage() {
                             type="checkbox"
                             checked={config.captions ?? false}
                             onChange={(e) => setConfig({ ...config, captions: e.target.checked })}
+                            className="rounded"
                           />
                           Burn-in captions
                         </label>
@@ -619,526 +382,97 @@ export default function GeneratePage() {
                     </>
                   )}
                 </div>
-              </div>
 
-              {/* Targeting Controls */}
-              {suggestions && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <h3 className="text-sm font-medium text-text-secondary mb-3">Targeting</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Hook selector */}
-                    <div>
-                      <label className="block text-sm text-text-secondary mb-1">
-                        Hook
-                      </label>
-                      {suggestions.suggestedHook && hookMode === "auto" && (
-                        <div
-                          className="mb-2 text-xs text-success bg-success-bg border border-success-bg px-2 py-1.5 rounded leading-relaxed"
-                          title={suggestions.suggestedHook}
-                        >
-                          <span className="font-medium">Suggested:</span> {suggestions.suggestedHook}
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <select
-                          value={hookMode}
-                          onChange={(e) => setHookMode(e.target.value as "auto" | "specific")}
-                          className="px-2 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                        >
-                          <option value="auto">Auto</option>
-                          <option value="specific">Pick</option>
-                        </select>
-                        {hookMode === "specific" && (
-                          <select
-                            value={selectedHook}
-                            onChange={(e) => setSelectedHook(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                          >
-                            <option value="">Select hook...</option>
-                            {suggestions.available.hooks.map((h) => (
-                              <option key={h} value={h} title={h}>
-                                {h} ({suggestions.usageStats.hooks[h] || 0}x)
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Pillar selector */}
-                    <div>
-                      <label className="block text-sm text-text-secondary mb-1">
-                        Content Pillar
-                      </label>
-                      {suggestions.suggestedPillar && !selectedPillar && (
-                        <div
-                          className="mb-2 text-xs text-success bg-success-bg border border-success-bg px-2 py-1.5 rounded leading-relaxed"
-                          title={suggestions.suggestedPillar}
-                        >
-                          <span className="font-medium">Suggested:</span> {suggestions.suggestedPillar}
-                        </div>
-                      )}
-                      <select
-                        value={selectedPillar}
-                        onChange={(e) => setSelectedPillar(e.target.value)}
-                        className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                      >
-                        <option value="">Auto</option>
-                        {suggestions.available.pillars.map((p) => (
-                          <option key={p} value={p}>
-                            {p} ({suggestions.usageStats.pillars[p] || 0}x)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Target type */}
-                    <div>
-                      <label className="block text-sm text-text-secondary mb-1">
-                        Focus On
-                      </label>
-                      <select
-                        value={targetType}
-                        onChange={(e) => {
-                          setTargetType(e.target.value as TargetType | "");
-                          setTargetValue("");
-                        }}
-                        className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                      >
-                        {targetTypes.map((t) => (
-                          <option key={t.value} value={t.value}>
-                            {t.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Target value */}
-                    {targetType && (
-                      <div>
-                        <label className="block text-sm text-text-secondary mb-1">
-                          {targetType === "pain" ? "Pain Point" : targetType === "desire" ? "Desire" : "Objection"}
-                        </label>
-                        {/* Show suggestion when no value selected */}
-                        {!targetValue && (
-                          (targetType === "pain" && suggestions.suggestedPain) ||
-                          (targetType === "desire" && suggestions.suggestedDesire) ||
-                          (targetType === "objection" && suggestions.suggestedObjection)
-                        ) && (
-                          <div
-                            className="mb-2 text-xs text-success bg-success-bg border border-success-bg px-2 py-1.5 rounded leading-relaxed"
-                            title={
-                              targetType === "pain" ? suggestions.suggestedPain || "" :
-                              targetType === "desire" ? suggestions.suggestedDesire || "" :
-                              suggestions.suggestedObjection || ""
-                            }
-                          >
-                            <span className="font-medium">Suggested:</span>{" "}
-                            {targetType === "pain" && suggestions.suggestedPain}
-                            {targetType === "desire" && suggestions.suggestedDesire}
-                            {targetType === "objection" && suggestions.suggestedObjection}
-                          </div>
-                        )}
-                        <select
-                          value={targetValue}
-                          onChange={(e) => setTargetValue(e.target.value)}
-                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-                        >
-                          <option value="">Select...</option>
-                          {targetType === "pain" &&
-                            suggestions.available.pains.map((p) => (
-                              <option key={p} value={p} title={p}>
-                                {p} ({suggestions.usageStats.pains[p] || 0}x)
-                              </option>
-                            ))}
-                          {targetType === "desire" &&
-                            suggestions.available.desires.map((d) => (
-                              <option key={d} value={d} title={d}>
-                                {d} ({suggestions.usageStats.desires[d] || 0}x)
-                              </option>
-                            ))}
-                          {targetType === "objection" &&
-                            suggestions.available.objections.map((o) => (
-                              <option key={o.objection} value={o.objection} title={o.objection}>
-                                {o.objection} ({suggestions.usageStats.objections[o.objection] || 0}x)
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Screenshot Upload */}
-              <div className="mt-4 pt-4 border-t border-border">
-                <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Reference Screenshots (optional)
-                </label>
-                <input
-                  ref={screenshotInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleScreenshotUpload}
-                  className="block w-full text-sm text-text-tertiary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/[0.08] file:text-primary hover:file:bg-primary/20"
-                />
-                {screenshotPreviews.length > 0 && (
-                  <div className="mt-3 grid grid-cols-4 gap-2">
-                    {screenshotPreviews.map((src, i) => (
-                      <div key={i} className="relative group">
-                        <img
-                          src={src}
-                          alt={`Screenshot ${i + 1}`}
-                          className="w-full aspect-square object-cover rounded-lg border border-border cursor-pointer"
-                          onClick={() => setLightboxSrc(src)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeScreenshot(i)}
-                          className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          x
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                {/* Targeting */}
+                {suggestions && (
+                  <TargetingSection
+                    suggestions={suggestions}
+                    hookMode={hookMode}
+                    setHookMode={setHookMode}
+                    selectedHook={selectedHook}
+                    setSelectedHook={setSelectedHook}
+                    selectedPillar={selectedPillar}
+                    setSelectedPillar={setSelectedPillar}
+                    targetType={targetType}
+                    setTargetType={setTargetType}
+                    targetValue={targetValue}
+                    setTargetValue={setTargetValue}
+                  />
                 )}
-              </div>
 
-              <button
-                onClick={handleGenerate}
-                disabled={generating || !productId}
-                className="mt-4 w-full px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
-              >
-                {generating ? "Generating..." : "Generate"}
-              </button>
-
-              {error && (
-                <div className="mt-3 flex items-start gap-2 p-3 bg-error-bg border border-error-bg rounded-lg">
-                  <span className="text-error text-sm leading-5 flex-shrink-0">!</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-error">{error}</p>
-                  </div>
-                  <button
-                    onClick={() => setError(null)}
-                    className="text-error hover:text-error text-sm flex-shrink-0"
-                  >
-                    x
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Generated content */}
-            {generatedPosts.length > 0 && (
-              <div className="bg-surface rounded-lg border border-border p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-medium text-text-primary">
-                    Generated Content ({generatedPosts.length})
-                  </h2>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setMixMode((v) => !v)}
-                      className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                        mixMode
-                          ? "bg-info text-white"
-                          : "bg-border text-text-secondary hover:bg-border"
-                      }`}
-                    >
-                      Mix & Match
-                    </button>
-                    {!mixMode && (
-                      <>
-                        <button
-                          onClick={toggleAll}
-                          className="text-sm text-text-secondary hover:text-gray-800"
-                        >
-                          {selected.size === generatedPosts.length ? "Deselect All" : "Select All"}
-                        </button>
-                        <button
-                          onClick={handleSave}
-                          disabled={saving || selected.size === 0}
-                          className="px-4 py-1.5 bg-success text-white text-sm font-medium rounded-lg hover:bg-success disabled:opacity-50"
-                        >
-                          {saving ? "Saving..." : `Save ${selected.size} to Queue`}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {generatedPosts.map((post, i) =>
-                    mixMode ? (
-                      <div
-                        key={i}
-                        className="border border-border rounded-lg overflow-hidden"
-                      >
-                        {/* Image area */}
-                        {post.mediaUrl ? (
-                          <div
-                            onClick={() => handleMixClick(i, "image")}
-                            className={`aspect-square bg-border relative cursor-pointer transition-all group ${
-                              selectedImageIndex === i
-                                ? "ring-2 ring-success ring-inset"
-                                : "hover:ring-1 hover:ring-success/50 hover:ring-inset"
-                            }`}
-                          >
-                            {isVideoUrl(post.mediaUrl) ? (
-                              <video
-                                src={post.mediaUrl!}
-                                controls
-                                muted
-                                loop
-                                playsInline
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <img
-                                src={post.mediaUrl!}
-                                alt="Generated"
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLightboxSrc(post.mediaUrl!);
-                              }}
-                              className="absolute top-2 right-2 w-7 h-7 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="View full size"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                <path d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" />
-                                <path d="M9 6.75a.75.75 0 01.75.75v1.5h1.5a.75.75 0 010 1.5h-1.5v1.5a.75.75 0 01-1.5 0v-1.5h-1.5a.75.75 0 010-1.5h1.5v-1.5A.75.75 0 019 6.75z" />
-                              </svg>
-                            </button>
-                            {selectedImageIndex === i && (
-                              <span className="absolute top-2 left-2 px-2 py-0.5 bg-green-500 text-white text-xs font-medium rounded">
-                                Image
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="h-20 bg-background flex items-center justify-center text-xs text-text-muted">
-                            No image
-                          </div>
-                        )}
-                        {/* Text area */}
-                        <div
-                          onClick={() => handleMixClick(i, "text")}
-                          className={`p-3 cursor-pointer transition-all ${
-                            selectedTextIndex === i
-                              ? "ring-2 ring-primary ring-inset bg-primary/[0.08]"
-                              : "hover:bg-background"
-                          }`}
-                        >
-                          {selectedTextIndex === i && (
-                            <span className="inline-block mb-1 px-2 py-0.5 bg-primary text-white text-xs font-medium rounded">
-                              Text
-                            </span>
-                          )}
-                          <p className="text-sm text-text-primary whitespace-pre-wrap line-clamp-4">
-                            {post.content}
-                          </p>
-                          {post.hashtags?.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {post.hashtags.map((tag, j) => (
-                                <span key={j} className="text-xs text-primary">
-                                  #{tag.replace(/^#+/, "")}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        key={i}
-                        onClick={() => toggleSelect(i)}
-                        className={`border rounded-lg cursor-pointer transition-colors overflow-hidden ${
-                          selected.has(i)
-                            ? "border-primary bg-primary/[0.08]"
-                            : "border-border hover:border-border-strong"
-                        }`}
-                      >
-                        {post.mediaUrl && (
-                          <div className="aspect-square bg-border relative group">
-                            {isVideoUrl(post.mediaUrl) ? (
-                              <video
-                                src={post.mediaUrl}
-                                controls
-                                muted
-                                loop
-                                playsInline
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <img
-                                src={post.mediaUrl}
-                                alt="Generated"
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                            <div className="absolute top-2 left-2">
-                              <input
-                                type="checkbox"
-                                checked={selected.has(i)}
-                                onChange={() => toggleSelect(i)}
-                                className="w-5 h-5"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLightboxSrc(post.mediaUrl!);
-                              }}
-                              className="absolute top-2 right-2 w-7 h-7 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="View full size"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                <path d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" />
-                                <path d="M9 6.75a.75.75 0 01.75.75v1.5h1.5a.75.75 0 010 1.5h-1.5v1.5a.75.75 0 01-1.5 0v-1.5h-1.5a.75.75 0 010-1.5h1.5v-1.5A.75.75 0 019 6.75z" />
-                              </svg>
-                            </button>
-                          </div>
-                        )}
-                        <div className="p-3">
-                          {!post.mediaUrl && (
-                            <input
-                              type="checkbox"
-                              checked={selected.has(i)}
-                              onChange={() => toggleSelect(i)}
-                              className="mr-2"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          )}
-                          <p className="text-sm text-text-primary whitespace-pre-wrap">
-                            {post.content}
-                          </p>
-                          {post.hashtags?.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {post.hashtags.map((tag, j) => (
-                                <span key={j} className="text-xs text-primary">
-                                  #{tag.replace(/^#+/, "")}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-
-                {/* Composition preview */}
-                {mixMode && (selectedTextIndex !== null || selectedImageIndex !== null) && (
-                  <div className="mt-4 p-4 border border-info-bg bg-info-bg rounded-lg">
-                    <h3 className="text-sm font-medium text-info mb-3">Composition Preview</h3>
-                    <div className="flex gap-4 items-start">
-                      {/* Image thumbnail */}
-                      <div className="w-32 h-32 flex-shrink-0 bg-border rounded-lg overflow-hidden">
-                        {selectedImageIndex !== null && generatedPosts[selectedImageIndex]?.mediaUrl ? (
+                {/* Screenshots */}
+                <div className="pt-4 border-t border-border">
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Reference Screenshots (optional)
+                  </label>
+                  <input
+                    ref={screenshotInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      setScreenshots((prev) => [...prev, ...files]);
+                      const newPreviews = files.map((f) => URL.createObjectURL(f));
+                      setScreenshotPreviews((prev) => [...prev, ...newPreviews]);
+                      if (screenshotInputRef.current) screenshotInputRef.current.value = "";
+                    }}
+                    className="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary file:text-white hover:file:bg-primary-hover"
+                  />
+                  {screenshotPreviews.length > 0 && (
+                    <div className="mt-3 grid grid-cols-4 gap-2">
+                      {screenshotPreviews.map((src, i) => (
+                        <div key={i} className="relative group">
                           <img
-                            src={generatedPosts[selectedImageIndex].mediaUrl!}
-                            alt="Selected"
-                            className="w-full h-full object-cover cursor-pointer"
-                            onClick={() => setLightboxSrc(generatedPosts[selectedImageIndex].mediaUrl!)}
+                            src={src}
+                            alt={`Screenshot ${i + 1}`}
+                            className="w-full aspect-square object-cover rounded-lg border border-border"
                           />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-text-muted">
-                            No image
-                          </div>
-                        )}
-                      </div>
-                      {/* Text preview */}
-                      <div className="flex-1 min-w-0">
-                        {selectedTextIndex !== null ? (
-                          <>
-                            <p className="text-sm text-text-primary whitespace-pre-wrap line-clamp-4">
-                              {generatedPosts[selectedTextIndex].content}
-                            </p>
-                            {generatedPosts[selectedTextIndex].hashtags?.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {generatedPosts[selectedTextIndex].hashtags.map((tag, j) => (
-                                  <span key={j} className="text-xs text-primary">
-                                    #{tag.replace(/^#+/, "")}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-sm text-text-muted italic">Select a text source</p>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={addToQueue}
-                      disabled={selectedTextIndex === null}
-                      className="mt-3 px-4 py-1.5 bg-info text-white text-sm font-medium rounded-lg hover:bg-info disabled:opacity-50"
-                    >
-                      Add to Queue
-                    </button>
-                  </div>
-                )}
-
-                {/* Composition queue */}
-                {compositionQueue.length > 0 && (
-                  <div className="mt-4 p-4 border border-border bg-background rounded-lg">
-                    <h3 className="text-sm font-medium text-text-primary mb-3">
-                      Composition Queue ({compositionQueue.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {compositionQueue.map((comp, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-3 bg-surface p-2 rounded-lg border border-border"
-                        >
-                          <div className="w-10 h-10 flex-shrink-0 bg-border rounded overflow-hidden">
-                            {comp.mediaUrl ? (
-                              <img
-                                src={comp.mediaUrl}
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[10px] text-text-muted">
-                                --
-                              </div>
-                            )}
-                          </div>
-                          <p className="flex-1 text-sm text-text-secondary truncate">
-                            {comp.content}
-                          </p>
                           <button
-                            onClick={() => removeFromQueue(i)}
-                            className="text-error hover:text-error text-sm flex-shrink-0"
+                            type="button"
+                            onClick={() => {
+                              URL.revokeObjectURL(screenshotPreviews[i]);
+                              setScreenshots((prev) => prev.filter((_, idx) => idx !== i));
+                              setScreenshotPreviews((prev) => prev.filter((_, idx) => idx !== i));
+                            }}
+                            className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            Remove
+                            x
                           </button>
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={handleSaveCompositions}
-                      disabled={saving}
-                      className="mt-3 px-4 py-1.5 bg-success text-white text-sm font-medium rounded-lg hover:bg-success disabled:opacity-50"
-                    >
-                      {saving ? "Saving..." : `Save ${compositionQueue.length} to Queue`}
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
+
+            {/* Generate Button */}
+            <button
+              onClick={handleGenerate}
+              disabled={generating || !productId}
+              className="mt-6 w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50 transition-colors"
+            >
+              {generating ? "Generating..." : "Generate"}
+            </button>
+
+            {/* Progress */}
+            <GenerationProgress isGenerating={generating} />
           </div>
-        )}
-      {lightboxSrc && (
-        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+
+          {/* Results */}
+          {generatedPosts.length > 0 && (
+            <GeneratedResults
+              posts={generatedPosts}
+              productId={productId}
+              contentType={contentType}
+              saving={false}
+              onSave={handleSave}
+            />
+          )}
+        </div>
       )}
-      </main>
     </div>
   );
 }

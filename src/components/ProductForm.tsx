@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Product } from "../../drizzle/schema";
 
@@ -106,7 +107,7 @@ export function ProductForm({ product }: ProductFormProps) {
       const res = await fetch(`/api/products/${product.id}/re-extract`, { method: "POST" });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "Re-extraction failed");
+        toast.error(data.error || "Re-extraction failed");
         setExtractionStatus("failed");
         setReExtracting(false);
         return;
@@ -172,9 +173,10 @@ export function ProductForm({ product }: ProductFormProps) {
     }
 
     if (res.ok) {
+      toast.success(product ? "Product updated" : "Product created");
       router.push("/products");
     } else {
-      alert("Error saving product");
+      toast.error("Error saving product");
       setSaving(false);
     }
   }
@@ -190,7 +192,7 @@ export function ProductForm({ product }: ProductFormProps) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         />
       </div>
 
@@ -203,7 +205,7 @@ export function ProductForm({ product }: ProductFormProps) {
           onChange={(e) => setDescription(e.target.value)}
           required
           rows={3}
-          className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         />
       </div>
 
@@ -228,7 +230,7 @@ export function ProductForm({ product }: ProductFormProps) {
             type="file"
             accept=".md,.txt,.markdown"
             onChange={handleFileUpload}
-            className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary/[0.08] file:text-primary hover:file:bg-primary/20"
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-hover"
           />
         )}
         <p className="text-xs text-text-tertiary mt-1">Upload a markdown file describing the product</p>
@@ -267,7 +269,7 @@ export function ProductForm({ product }: ProductFormProps) {
         <select
           value={textProvider}
           onChange={(e) => setTextProvider(e.target.value)}
-          className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         >
           <option value="gemini">Gemini — gemini-2.5-flash</option>
           <option value="gemini-flash-lite">Gemini — gemini-2.5-flash-lite</option>
@@ -314,7 +316,7 @@ export function ProductForm({ product }: ProductFormProps) {
           accept="image/*"
           multiple
           onChange={handleScreenshotUpload}
-          className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary/[0.08] file:text-primary hover:file:bg-primary/20"
+          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-hover"
         />
         <p className="text-xs text-text-tertiary mt-1">Upload product screenshots for image generation</p>
       </div>

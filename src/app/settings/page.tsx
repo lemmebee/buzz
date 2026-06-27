@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { DiscordSetup } from "@/components/DiscordSetup";
 
 interface InstagramAccountWithProducts {
   id: number;
@@ -91,7 +92,7 @@ function SettingsContent() {
         <select
           value={textProvider}
           onChange={(e) => updateTextProvider(e.target.value)}
-          className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
         >
           {TEXT_PROVIDERS.map((p) => (
             <option key={p.value} value={p.value}>
@@ -184,6 +185,11 @@ function SettingsContent() {
           </a>
         </p>
       </div>
+
+      {/* Discord Setup */}
+      <div className="mt-6">
+        <DiscordSetup />
+      </div>
     </>
   );
 }
@@ -191,16 +197,7 @@ function SettingsContent() {
 export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-surface border-b border-border">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/" className="text-text-tertiary hover:text-text-secondary">
-            ←
-          </Link>
-          <h1 className="text-xl font-bold text-text-primary">Settings</h1>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="mx-auto max-w-3xl px-6 py-8">
         <Suspense fallback={<p className="text-text-tertiary">Loading...</p>}>
           <SettingsContent />
         </Suspense>
