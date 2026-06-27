@@ -21,7 +21,15 @@ export function ProductForm({ product }: ProductFormProps) {
   const [description, setDescription] = useState(product?.description || "");
   const [planFile, setPlanFile] = useState(product?.planFile || "");
   const [planFileName, setPlanFileName] = useState(product?.planFileName || "");
-  const [textProvider, setTextProvider] = useState(product?.textProvider || "gemini");
+  const [textProvider, setTextProvider] = useState(() => {
+    const tp = product?.textProvider || "gemini";
+    return tp.startsWith("antigravity") ? "antigravity" : tp;
+  });
+  const [antigravityModel, setAntigravityModel] = useState(() => {
+    const tp = product?.textProvider || "";
+    return tp.startsWith("antigravity:") ? tp.split(":").slice(1).join(":") : "";
+  });
+  const [antigravityModels, setAntigravityModels] = useState<string[]>([]);
 
   // Screenshots: existing paths from DB + new files to upload
   const [existingScreenshots, setExistingScreenshots] = useState<string[]>(
@@ -139,8 +147,9 @@ export function ProductForm({ product }: ProductFormProps) {
       description,
       planFile: planFile || null,
       planFileName: planFileName || null,
-      textProvider: textProvider || null,
-      // Tell API to replace screenshots with existing (kept) + new uploads
+      textProvider: textProvider === "antigravity"
+        ? (antigravityModel ? `antigravity:${antigravityModel}` : "antigravity")
+        : (textProvider || null),
       replaceScreenshots: true,
     };
 
@@ -268,13 +277,35 @@ export function ProductForm({ product }: ProductFormProps) {
         </label>
         <select
           value={textProvider}
-          onChange={(e) => setTextProvider(e.target.value)}
+          onChange={async (e) => {
+            const val = e.target.value;
+            setTextProvider(val);
+            if (val === "antigravity" && antigravityModels.length === 0) {
+              try {
+                const res = await fetch("/api/settings/antigravity-models");
+                if (res.ok) setAntigravityModels(await res.json());
+              } catch { /* ignore */ }
+            }
+          }}
           className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         >
           <option value="gemini">Gemini — gemini-2.5-flash</option>
           <option value="gemini-flash-lite">Gemini — gemini-2.5-flash-lite</option>
           <option value="huggingface">HuggingFace — GLM-4.5V</option>
+          <option value="antigravity">Antigravity (local CLI)</option>
         </select>
+        {textProvider === "antigravity" && (
+          <select
+            value={antigravityModel}
+            onChange={(e) => setAntigravityModel(e.target.value)}
+            className="w-full mt-2 px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            <option value="">Default model</option>
+            {antigravityModels.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        )}
         <p className="text-xs text-text-tertiary mt-1">LLM provider for profile/strategy extraction</p>
       </div>
 

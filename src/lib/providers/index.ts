@@ -35,6 +35,7 @@ export {
 // Text provider implementations
 export { createHuggingFaceTextProvider } from "./text";
 export { createGeminiTextProvider } from "./gemini";
+export { createAntigravityTextProvider, listAntigravityModels } from "./antigravity";
 
 // Image provider implementations
 export { createPollinationsImageProvider } from "./image";

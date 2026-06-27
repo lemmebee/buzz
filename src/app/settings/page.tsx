@@ -16,6 +16,7 @@ const TEXT_PROVIDERS = [
   { value: "gemini", label: "Gemini — gemini-2.5-flash" },
   { value: "gemini-flash-lite", label: "Gemini — gemini-2.5-flash-lite" },
   { value: "huggingface", label: "HuggingFace — GLM-4.5V" },
+  { value: "antigravity", label: "Antigravity (local CLI)" },
 ];
 
 function SettingsContent() {
@@ -23,6 +24,8 @@ function SettingsContent() {
   const [accounts, setAccounts] = useState<InstagramAccountWithProducts[]>([]);
   const [loading, setLoading] = useState(true);
   const [textProvider, setTextProvider] = useState("gemini");
+  const [antigravityModel, setAntigravityModel] = useState("");
+  const [antigravityModels, setAntigravityModels] = useState<string[]>([]);
   const [providerSaving, setProviderSaving] = useState(false);
 
   const error = searchParams.get("error");
@@ -43,12 +46,56 @@ function SettingsContent() {
   async function fetchSettings() {
     const res = await fetch("/api/settings");
     const data = await res.json();
-    if (data.TEXT_PROVIDER) setTextProvider(data.TEXT_PROVIDER);
+    if (data.TEXT_PROVIDER) {
+      const val = data.TEXT_PROVIDER;
+      if (val.startsWith("antigravity:")) {
+        setTextProvider("antigravity");
+        setAntigravityModel(val.split(":").slice(1).join(":"));
+      } else {
+        setTextProvider(val);
+      }
+    }
+  }
+
+  async function fetchAntigravityModels() {
+    try {
+      const res = await fetch("/api/settings/antigravity-models");
+      if (res.ok) {
+        const models = await res.json();
+        setAntigravityModels(models);
+      }
+    } catch {
+      // silently fail
+    }
   }
 
   async function updateTextProvider(value: string) {
     setTextProvider(value);
     setProviderSaving(true);
+    if (value === "antigravity") {
+      await fetchAntigravityModels();
+      const modelValue = antigravityModel
+        ? `antigravity:${antigravityModel}`
+        : "antigravity";
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "TEXT_PROVIDER", value: modelValue }),
+      });
+    } else {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "TEXT_PROVIDER", value }),
+      });
+    }
+    setProviderSaving(false);
+  }
+
+  async function updateAntigravityModel(model: string) {
+    setAntigravityModel(model);
+    setProviderSaving(true);
+    const value = model ? `antigravity:${model}` : "antigravity";
     await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -100,6 +147,18 @@ function SettingsContent() {
             </option>
           ))}
         </select>
+        {textProvider === "antigravity" && (
+          <select
+            value={antigravityModel}
+            onChange={(e) => updateAntigravityModel(e.target.value)}
+            className="w-full mt-2 bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">Default model</option>
+            {antigravityModels.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        )}
         {providerSaving && (
           <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
         )}
