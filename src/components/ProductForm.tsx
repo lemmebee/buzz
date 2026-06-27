@@ -182,7 +182,7 @@ export function ProductForm({ product }: ProductFormProps) {
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-text-secondary mb-1">
           Name *
         </label>
         <input
@@ -190,12 +190,12 @@ export function ProductForm({ product }: ProductFormProps) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-text-secondary mb-1">
           Description *
         </label>
         <textarea
@@ -203,21 +203,21 @@ export function ProductForm({ product }: ProductFormProps) {
           onChange={(e) => setDescription(e.target.value)}
           required
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-text-secondary mb-1">
           Plan File
         </label>
         {planFileName ? (
-          <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-            <span className="text-sm text-gray-900 flex-1">{planFileName}</span>
+          <div className="flex items-center gap-3 p-3 bg-background border border-border rounded-lg">
+            <span className="text-sm text-text-primary flex-1">{planFileName}</span>
             <button
               type="button"
               onClick={handleRemoveFile}
-              className="text-sm text-red-600 hover:text-red-800"
+              className="text-sm text-error hover:text-error"
             >
               Remove
             </button>
@@ -228,10 +228,10 @@ export function ProductForm({ product }: ProductFormProps) {
             type="file"
             accept=".md,.txt,.markdown"
             onChange={handleFileUpload}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary/[0.08] file:text-primary hover:file:bg-primary/20"
           />
         )}
-        <p className="text-xs text-gray-500 mt-1">Upload a markdown file describing the product</p>
+        <p className="text-xs text-text-tertiary mt-1">Upload a markdown file describing the product</p>
       </div>
 
       {product && planFileName && (
@@ -240,16 +240,16 @@ export function ProductForm({ product }: ProductFormProps) {
             type="button"
             onClick={handleReExtract}
             disabled={reExtracting}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+            className="px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50"
           >
             {reExtracting ? "Re-extracting..." : "Re-extract Profile & Strategy"}
           </button>
           {extractionStatus && (
             <span className={`text-xs font-medium ${
-              extractionStatus === "done" ? "text-green-600" :
-              extractionStatus === "failed" ? "text-red-600" :
-              extractionStatus === "extracting" ? "text-yellow-600" :
-              "text-gray-500"
+              extractionStatus === "done" ? "text-success" :
+              extractionStatus === "failed" ? "text-error" :
+              extractionStatus === "extracting" ? "text-warning" :
+              "text-text-tertiary"
             }`}>
               {extractionStatus === "done" ? "Extraction complete" :
                extractionStatus === "failed" ? "Extraction failed" :
@@ -261,34 +261,34 @@ export function ProductForm({ product }: ProductFormProps) {
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-text-secondary mb-1">
           Text Provider
         </label>
         <select
           value={textProvider}
           onChange={(e) => setTextProvider(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         >
           <option value="gemini">Gemini — gemini-2.5-flash</option>
           <option value="gemini-flash-lite">Gemini — gemini-2.5-flash-lite</option>
           <option value="huggingface">HuggingFace — GLM-4.5V</option>
         </select>
-        <p className="text-xs text-gray-500 mt-1">LLM provider for profile/strategy extraction</p>
+        <p className="text-xs text-text-tertiary mt-1">LLM provider for profile/strategy extraction</p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-text-secondary mb-1">
           Screenshots
         </label>
         {(existingScreenshots.length > 0 || newScreenshotPreviews.length > 0) && (
           <div className="grid grid-cols-4 gap-3 mb-3">
             {existingScreenshots.map((path, i) => (
               <div key={`existing-${i}`} className="relative group">
-                <img src={path} alt="" className="w-full h-24 object-cover rounded-lg border border-gray-200" />
+                <img src={path} alt="" className="w-full h-24 object-cover rounded-lg border border-border" />
                 <button
                   type="button"
                   onClick={() => removeExistingScreenshot(i)}
-                  className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   x
                 </button>
@@ -296,11 +296,11 @@ export function ProductForm({ product }: ProductFormProps) {
             ))}
             {newScreenshotPreviews.map((src, i) => (
               <div key={`new-${i}`} className="relative group">
-                <img src={src} alt="" className="w-full h-24 object-cover rounded-lg border border-blue-200" />
+                <img src={src} alt="" className="w-full h-24 object-cover rounded-lg border border-primary/30" />
                 <button
                   type="button"
                   onClick={() => removeNewScreenshot(i)}
-                  className="absolute top-1 right-1 w-5 h-5 bg-red-600 text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   x
                 </button>
@@ -314,23 +314,23 @@ export function ProductForm({ product }: ProductFormProps) {
           accept="image/*"
           multiple
           onChange={handleScreenshotUpload}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          className="w-full px-3 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary/[0.08] file:text-primary hover:file:bg-primary/20"
         />
-        <p className="text-xs text-gray-500 mt-1">Upload product screenshots for image generation</p>
+        <p className="text-xs text-text-tertiary mt-1">Upload product screenshots for image generation</p>
       </div>
 
       <div className="flex gap-3">
         <button
           type="submit"
           disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
         >
           {saving ? "Saving..." : product ? "Save Changes" : "Create Product"}
         </button>
         <button
           type="button"
           onClick={() => router.push("/products")}
-          className="px-4 py-2 text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+          className="px-4 py-2 text-text-secondary font-medium rounded-lg border border-border-strong hover:bg-background"
         >
           Cancel
         </button>

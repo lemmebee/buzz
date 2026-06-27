@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-27T00:00:00.000Z",
+  "title": "Design System: Buzz",
+  "extensions": {
+    "colorMeta": {
+      "signal-blue": {
+        "role": "primary",
+        "displayName": "Signal Blue",
+        "canonical": "#2563eb",
+        "tonalRamp": ["#1e3a8a", "#1e40af", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#dbeafe"]
+      },
+      "neutral-bg": {
+        "role": "neutral",
+        "displayName": "Page Background",
+        "canonical": "#f9fafb",
+        "tonalRamp": ["#111827", "#1f2937", "#374151", "#6b7280", "#9ca3af", "#d1d5db", "#e5e7eb", "#f9fafb"]
+      },
+      "neutral-surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#1f2937", "#374151", "#4b5563", "#6b7280", "#9ca3af", "#d1d5db", "#e5e7eb", "#ffffff"]
+      },
+      "status-success": {
+        "role": "status",
+        "displayName": "Success",
+        "canonical": "#16a34a",
+        "tonalRamp": ["#14532d", "#166534", "#15803d", "#16a34a", "#22c55e", "#4ade80", "#86efac", "#dcfce7"]
+      },
+      "status-error": {
+        "role": "status",
+        "displayName": "Error",
+        "canonical": "#dc2626",
+        "tonalRamp": ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fee2e2"]
+      },
+      "status-warning": {
+        "role": "status",
+        "displayName": "Warning",
+        "canonical": "#ca8a04",
+        "tonalRamp": ["#713f12", "#854d0e", "#a16207", "#ca8a04", "#eab308", "#facc15", "#fde047", "#fef9c3"]
+      },
+      "status-info": {
+        "role": "status",
+        "displayName": "Info",
+        "canonical": "#9333ea",
+        "tonalRamp": ["#581c87", "#6b21a8", "#7e22ce", "#9333ea", "#a855f7", "#c084fc", "#d8b4fe", "#f3e8ff"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles only. One per page."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Section titles, card headers."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default text. Max line length ~65ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Form labels, button text, navigation."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Technical values, API keys, code."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "transition-fast",
+        "value": "150ms ease",
+        "purpose": "Hover states, focus rings."
+      },
+      {
+        "name": "transition-normal",
+        "value": "200ms ease",
+        "purpose": "Color shifts, border changes."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action button. Signal Blue, white text.",
+      "html": "<button class=\"ds-btn-primary\">Generate</button>",
+      "css": ".ds-btn-primary { background: #2563eb; color: #fff; padding: 8px 16px; font-size: 0.875rem; font-weight: 500; border: none; border-radius: 8px; cursor: pointer; transition: background 150ms ease; } .ds-btn-primary:hover { background: #1d4ed8; } .ds-btn-primary:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary action. Transparent with border.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { background: transparent; color: #374151; padding: 8px 16px; font-size: 0.875rem; font-weight: 500; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; } .ds-btn-secondary:hover { background: #f9fafb; border-color: #9ca3af; } .ds-btn-secondary:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard text input with focus ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Enter value\" />",
+      "css": ".ds-input { width: 100%; padding: 8px 12px; font-size: 0.875rem; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #111827; transition: border-color 150ms ease, box-shadow 150ms ease; } .ds-input::placeholder { color: #9ca3af; } .ds-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15); } .ds-input:disabled { background: #f3f4f6; color: #9ca3af; border-color: #e5e7eb; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Content container. White, bordered, no shadow.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Product Name</h3><p class=\"ds-card-text\">Product description goes here.</p></div>",
+      "css": ".ds-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; transition: border-color 150ms ease; } .ds-card:hover { border-color: #d1d5db; } .ds-card-title { font-size: 1rem; font-weight: 500; color: #111827; margin: 0 0 4px 0; } .ds-card-text { font-size: 0.875rem; color: #6b7280; margin: 0; line-height: 1.5; }"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Status badge. Small, tinted background.",
+      "html": "<span class=\"ds-chip ds-chip--success\">Active</span>",
+      "css": ".ds-chip { display: inline-block; padding: 2px 8px; font-size: 0.75rem; font-weight: 500; border-radius: 4px; } .ds-chip--neutral { background: #f3f4f6; color: #374151; } .ds-chip--success { background: #dcfce7; color: #15803d; } .ds-chip--error { background: #fee2e2; color: #b91c1c; } .ds-chip--warning { background: #fef9c3; color: #a16207; } .ds-chip--info { background: #dbeafe; color: #1d4ed8; } .ds-chip--special { background: #f3e8ff; color: #7e22ce; }"
+    },
+    {
+      "name": "Page Header",
+      "kind": "nav",
+      "refersTo": "page-header",
+      "description": "Top navigation bar with back arrow, title, and action.",
+      "html": "<header class=\"ds-header\"><div class=\"ds-header-inner\"><div class=\"ds-header-left\"><a class=\"ds-back\" href=\"#\">←</a><h1 class=\"ds-header-title\">Products</h1></div><button class=\"ds-btn-primary\">Add Product</button></div></header>",
+      "css": ".ds-header { background: #fff; border-bottom: 1px solid #e5e7eb; } .ds-header-inner { max-width: 80rem; margin: 0 auto; padding: 16px; display: flex; justify-content: space-between; align-items: center; } .ds-header-left { display: flex; align-items: center; gap: 16px; } .ds-back { color: #6b7280; text-decoration: none; font-size: 1rem; transition: color 150ms ease; } .ds-back:hover { color: #374151; } .ds-header-title { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Control Room",
+    "overview": "Buzz is a precision instrument for indie marketers who need to move fast. The interface is the control room: every element earns its place, every pixel serves the workflow. No decoration for its own sake. No chrome that doesn't help the user decide or act.\n\nThe aesthetic is functional clarity. Dense information, clear hierarchy, scannable at a glance. The generated content—images, captions, product data—is the star. The UI recedes. AI works invisibly behind the scenes, showing results, not machinery.\n\nThis system explicitly rejects generic AI/SaaS aesthetics: purple gradients, glow effects, neon accents, \"AI-powered\" hero sections. It rejects overly playful or toy-like interfaces that undermine professional credibility. It rejects heavy, corporate enterprise tool feel.",
+    "keyCharacteristics": [
+      "Content over chrome. The work speaks; the interface gets out of the way.",
+      "Speed of comprehension. Dense information, clear hierarchy, no decorative padding.",
+      "AI as invisible assistant. Results forward, not the machinery.",
+      "Earn every element. If it doesn't help the user move faster or decide better, it doesn't belong."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Signal Blue is used on ≤10% of any given screen. Its rarity is the point. If everything is blue, nothing is.", "section": "colors" },
+      { "name": "The No-Gradient Rule", "body": "No purple-to-pink gradients except the Instagram brand mark. The accent is solid, not decorative.", "section": "colors" },
+      { "name": "The Weight Rule", "body": "Bold (700) is reserved for page titles. Semibold (600) for section headings. Medium (500) for labels and buttons. Regular (400) for everything else. Don't escalate weight to create emphasis—use size or color instead.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. No box-shadow on cards, buttons, or inputs. Depth comes from border + background contrast. If you're reaching for a shadow, the hierarchy is wrong—fix the border or color instead.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Signal Blue for primary actions only. ≤10% of the screen.",
+      "Do use gray-900 for headings, gray-700 for body text, gray-500 for metadata. Never use gray-400 for body text.",
+      "Do use 8px radius for cards, buttons, inputs. 4px for chips. 9999px for avatars and close buttons.",
+      "Do use 1px gray-200 borders for card edges. 1px gray-300 for input borders.",
+      "Do use Geist Sans for everything. Geist Mono only for technical values (API keys, code, env vars).",
+      "Do use status colors semantically: green = success/active, red = error/destructive, yellow = pending/warning, purple = special/posted.",
+      "Do keep the interface dense. Information over decoration. White space is structural, not decorative."
+    ],
+    "donts": [
+      "Don't use purple gradients, glow effects, or neon accents. This is not a generic AI tool.",
+      "Don't use shadows for elevation. The system is flat. Depth comes from border + background contrast.",
+      "Don't use border-left greater than 1px as a colored accent stripe. Never intentional.",
+      "Don't use gradient text (background-clip: text). Decorative, never meaningful.",
+      "Don't use glassmorphism as default. Blurs and glass cards are prohibited except modal backdrops.",
+      "Don't use the hero-metric template (big number, small label, gradient accent). SaaS cliché.",
+      "Don't use identical card grids with icon + heading + text repeated endlessly. Vary the structure.",
+      "Don't use tiny uppercase tracked eyebrows above every section. The 2023-era kicker is AI grammar.",
+      "Don't use numbered section markers (01 / 02 / 03) as default scaffolding.",
+      "Don't let text overflow its container. Test heading copy at every breakpoint.",
+      "Don't use pure gray (#808080) for text. Always use a gray with a slight cool tint (gray-500, gray-600, etc.).",
+      "Don't use warm-tinted neutrals (cream, sand, beige, paper). The background is cool gray-50, not warm."
+    ]
+  }
+}

@@ -82,33 +82,33 @@ export function InstagramLinkModal({ productId, linkedAccountId, onClose, onLink
         if (e.target === backdropRef.current) onClose();
       }}
     >
-      <div className="bg-white rounded-lg w-full max-w-md shadow-xl">
-        <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h3 className="font-medium text-gray-900">Link Instagram</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-xl">
+      <div className="bg-surface rounded-lg w-full max-w-md shadow-xl">
+        <div className="flex justify-between items-center p-4 border-b border-border">
+          <h3 className="font-medium text-text-primary">Link Instagram</h3>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-secondary text-xl">
             ×
           </button>
         </div>
 
         <div className="p-4">
           {loading ? (
-            <p className="text-sm text-gray-500">Loading...</p>
+            <p className="text-sm text-text-tertiary">Loading...</p>
           ) : linkedAccount ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-success-bg border border-success-bg rounded-lg">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">@{linkedAccount.username}</p>
-                  <p className="text-xs text-gray-500">Currently linked</p>
+                  <p className="text-sm font-medium text-text-primary">@{linkedAccount.username}</p>
+                  <p className="text-xs text-text-tertiary">Currently linked</p>
                 </div>
                 <button
                   onClick={unlinkAccount}
                   disabled={linking}
-                  className="text-sm px-3 py-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                  className="text-sm px-3 py-1 text-error hover:text-error disabled:opacity-50"
                 >
                   Unlink
                 </button>
               </div>
-              <p className="text-xs text-gray-500">Or switch to another account:</p>
+              <p className="text-xs text-text-tertiary">Or switch to another account:</p>
               <div className="space-y-2">
                 {accounts
                   .filter((a) => a.id !== linkedAccountId)
@@ -117,35 +117,35 @@ export function InstagramLinkModal({ productId, linkedAccountId, onClose, onLink
                       key={account.id}
                       onClick={() => linkAccount(account.id)}
                       disabled={linking}
-                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                      className="w-full text-left p-3 border border-border rounded-lg hover:bg-background disabled:opacity-50"
                     >
-                      <p className="text-sm font-medium text-gray-900">@{account.username}</p>
+                      <p className="text-sm font-medium text-text-primary">@{account.username}</p>
                     </button>
                   ))}
               </div>
             </div>
           ) : accounts.length > 0 ? (
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">Select an Instagram account to link:</p>
+              <p className="text-sm text-text-secondary">Select an Instagram account to link:</p>
               <div className="space-y-2">
                 {accounts.map((account) => (
                   <button
                     key={account.id}
                     onClick={() => linkAccount(account.id)}
                     disabled={linking}
-                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                    className="w-full text-left p-3 border border-border rounded-lg hover:bg-background disabled:opacity-50"
                   >
-                    <p className="text-sm font-medium text-gray-900">@{account.username}</p>
+                    <p className="text-sm font-medium text-text-primary">@{account.username}</p>
                   </button>
                 ))}
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No Instagram accounts connected yet.</p>
+            <p className="text-sm text-text-tertiary">No Instagram accounts connected yet.</p>
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-border">
           <button
             onClick={connectNew}
             className="w-full px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium rounded-lg hover:from-purple-600 hover:to-pink-600"

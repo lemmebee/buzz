@@ -40,18 +40,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="max-w-md w-full p-8">
         <div className="flex flex-col items-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon.svg" alt="Buzz" width={64} height={64} />
-          <h1 className="text-3xl font-bold text-gray-900 mt-4">Buzz</h1>
-          <p className="text-gray-600 mt-2">Social Media Marketing</p>
+          <h1 className="text-3xl font-bold text-text-primary mt-4">Buzz</h1>
+          <p className="text-text-secondary mt-2">Social Media Marketing</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1">
               Password
             </label>
             <input
@@ -59,20 +59,20 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-transparent"
               placeholder="Enter admin password"
               autoFocus
             />
           </div>
 
           {error && (
-            <p className="text-red-500 text-sm">{error}</p>
+            <p className="text-error text-sm">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-2 px-4 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>

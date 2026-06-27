@@ -443,21 +443,21 @@ export default function GeneratePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-text-tertiary">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-background">
+      <header className="bg-surface border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-500 hover:text-gray-700">
+            <Link href="/" className="text-text-tertiary hover:text-text-secondary">
               ←
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">Generate Content</h1>
+            <h1 className="text-xl font-bold text-text-primary">Generate Content</h1>
           </div>
         </div>
       </header>
@@ -465,25 +465,25 @@ export default function GeneratePage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         {products.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">Add a product first</p>
-            <Link href="/products/new" className="text-blue-600 hover:text-blue-800">
+            <p className="text-text-tertiary mb-4">Add a product first</p>
+            <Link href="/products/new" className="text-primary hover:text-primary-hover">
               Add product
             </Link>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Generation form */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-surface rounded-lg border border-border p-6">
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 {/* Product selector */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
                     Product
                   </label>
                   <select
                     value={productId || ""}
                     onChange={(e) => setProductId(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                   >
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -495,7 +495,7 @@ export default function GeneratePage() {
 
                 {/* Platform */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
                     Platform
                   </label>
                   <select
@@ -506,7 +506,7 @@ export default function GeneratePage() {
                       // Reset content type to first available for new platform
                       setContentType(contentTypesByPlatform[p][0].value);
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                   >
                     {platformTypes.map((p) => (
                       <option key={p.value} value={p.value}>
@@ -518,7 +518,7 @@ export default function GeneratePage() {
 
                 {/* Media type */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
                     Media Type
                   </label>
                   <select
@@ -530,7 +530,7 @@ export default function GeneratePage() {
                         setContentType("post");
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                   >
                     <option value="image">Image</option>
                     <option value="video">Video</option>
@@ -539,13 +539,13 @@ export default function GeneratePage() {
 
                 {/* Content type */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
                     Content Type
                   </label>
                   <select
                     value={contentType}
                     onChange={(e) => setContentType(e.target.value as ContentType)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                   >
                     {contentTypesByPlatform[platform]
                       .filter((ct) => !(ct.value === "reel" && mediaType === "image"))
@@ -559,7 +559,7 @@ export default function GeneratePage() {
 
                 {/* Count */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
                     Count
                   </label>
                   <input
@@ -568,23 +568,23 @@ export default function GeneratePage() {
                     max={10}
                     value={count}
                     onChange={(e) => setCount(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                    className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                   />
                 </div>
               </div>
 
               {/* Config tweaks */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
+              <div className="mt-4 pt-4 border-t border-border">
+                <h3 className="text-sm font-medium text-text-secondary mb-3">
                   Config (defaults from {contentType} / {mediaType})
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Aspect Ratio</label>
+                    <label className="block text-sm text-text-secondary mb-1">Aspect Ratio</label>
                     <select
                       value={config.aspectRatio}
                       onChange={(e) => setConfig({ ...config, aspectRatio: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                      className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                     >
                       {ASPECT_OPTIONS.map((a) => (
                         <option key={a} value={a}>{a}</option>
@@ -594,7 +594,7 @@ export default function GeneratePage() {
                   {mediaType === "video" && (
                     <>
                       <div>
-                        <label className="block text-sm text-gray-600 mb-1">Duration (sec)</label>
+                        <label className="block text-sm text-text-secondary mb-1">Duration (sec)</label>
                         <input
                           type="number"
                           min={5}
@@ -603,11 +603,11 @@ export default function GeneratePage() {
                           onChange={(e) =>
                             setConfig({ ...config, durationSec: parseInt(e.target.value) || 15 })
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                         />
                       </div>
                       <div className="flex items-end">
-                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <label className="flex items-center gap-2 text-sm text-text-secondary">
                           <input
                             type="checkbox"
                             checked={config.captions ?? false}
@@ -623,17 +623,17 @@ export default function GeneratePage() {
 
               {/* Targeting Controls */}
               {suggestions && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Targeting</h3>
+                <div className="mt-4 pt-4 border-t border-border">
+                  <h3 className="text-sm font-medium text-text-secondary mb-3">Targeting</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Hook selector */}
                     <div>
-                      <label className="block text-sm text-gray-600 mb-1">
+                      <label className="block text-sm text-text-secondary mb-1">
                         Hook
                       </label>
                       {suggestions.suggestedHook && hookMode === "auto" && (
                         <div
-                          className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1.5 rounded leading-relaxed"
+                          className="mb-2 text-xs text-success bg-success-bg border border-success-bg px-2 py-1.5 rounded leading-relaxed"
                           title={suggestions.suggestedHook}
                         >
                           <span className="font-medium">Suggested:</span> {suggestions.suggestedHook}
@@ -643,7 +643,7 @@ export default function GeneratePage() {
                         <select
                           value={hookMode}
                           onChange={(e) => setHookMode(e.target.value as "auto" | "specific")}
-                          className="px-2 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="px-2 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                         >
                           <option value="auto">Auto</option>
                           <option value="specific">Pick</option>
@@ -652,7 +652,7 @@ export default function GeneratePage() {
                           <select
                             value={selectedHook}
                             onChange={(e) => setSelectedHook(e.target.value)}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                            className="flex-1 px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                           >
                             <option value="">Select hook...</option>
                             {suggestions.available.hooks.map((h) => (
@@ -667,12 +667,12 @@ export default function GeneratePage() {
 
                     {/* Pillar selector */}
                     <div>
-                      <label className="block text-sm text-gray-600 mb-1">
+                      <label className="block text-sm text-text-secondary mb-1">
                         Content Pillar
                       </label>
                       {suggestions.suggestedPillar && !selectedPillar && (
                         <div
-                          className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1.5 rounded leading-relaxed"
+                          className="mb-2 text-xs text-success bg-success-bg border border-success-bg px-2 py-1.5 rounded leading-relaxed"
                           title={suggestions.suggestedPillar}
                         >
                           <span className="font-medium">Suggested:</span> {suggestions.suggestedPillar}
@@ -681,7 +681,7 @@ export default function GeneratePage() {
                       <select
                         value={selectedPillar}
                         onChange={(e) => setSelectedPillar(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                        className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                       >
                         <option value="">Auto</option>
                         {suggestions.available.pillars.map((p) => (
@@ -694,7 +694,7 @@ export default function GeneratePage() {
 
                     {/* Target type */}
                     <div>
-                      <label className="block text-sm text-gray-600 mb-1">
+                      <label className="block text-sm text-text-secondary mb-1">
                         Focus On
                       </label>
                       <select
@@ -703,7 +703,7 @@ export default function GeneratePage() {
                           setTargetType(e.target.value as TargetType | "");
                           setTargetValue("");
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                        className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                       >
                         {targetTypes.map((t) => (
                           <option key={t.value} value={t.value}>
@@ -716,7 +716,7 @@ export default function GeneratePage() {
                     {/* Target value */}
                     {targetType && (
                       <div>
-                        <label className="block text-sm text-gray-600 mb-1">
+                        <label className="block text-sm text-text-secondary mb-1">
                           {targetType === "pain" ? "Pain Point" : targetType === "desire" ? "Desire" : "Objection"}
                         </label>
                         {/* Show suggestion when no value selected */}
@@ -726,7 +726,7 @@ export default function GeneratePage() {
                           (targetType === "objection" && suggestions.suggestedObjection)
                         ) && (
                           <div
-                            className="mb-2 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1.5 rounded leading-relaxed"
+                            className="mb-2 text-xs text-success bg-success-bg border border-success-bg px-2 py-1.5 rounded leading-relaxed"
                             title={
                               targetType === "pain" ? suggestions.suggestedPain || "" :
                               targetType === "desire" ? suggestions.suggestedDesire || "" :
@@ -742,7 +742,7 @@ export default function GeneratePage() {
                         <select
                           value={targetValue}
                           onChange={(e) => setTargetValue(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
                         >
                           <option value="">Select...</option>
                           {targetType === "pain" &&
@@ -771,8 +771,8 @@ export default function GeneratePage() {
               )}
 
               {/* Screenshot Upload */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="mt-4 pt-4 border-t border-border">
+                <label className="block text-sm font-medium text-text-secondary mb-2">
                   Reference Screenshots (optional)
                 </label>
                 <input
@@ -781,7 +781,7 @@ export default function GeneratePage() {
                   accept="image/*"
                   multiple
                   onChange={handleScreenshotUpload}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  className="block w-full text-sm text-text-tertiary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/[0.08] file:text-primary hover:file:bg-primary/20"
                 />
                 {screenshotPreviews.length > 0 && (
                   <div className="mt-3 grid grid-cols-4 gap-2">
@@ -790,13 +790,13 @@ export default function GeneratePage() {
                         <img
                           src={src}
                           alt={`Screenshot ${i + 1}`}
-                          className="w-full aspect-square object-cover rounded-lg border border-gray-200 cursor-pointer"
+                          className="w-full aspect-square object-cover rounded-lg border border-border cursor-pointer"
                           onClick={() => setLightboxSrc(src)}
                         />
                         <button
                           type="button"
                           onClick={() => removeScreenshot(i)}
-                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           x
                         </button>
@@ -809,20 +809,20 @@ export default function GeneratePage() {
               <button
                 onClick={handleGenerate}
                 disabled={generating || !productId}
-                className="mt-4 w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="mt-4 w-full px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
               >
                 {generating ? "Generating..." : "Generate"}
               </button>
 
               {error && (
-                <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <span className="text-red-500 text-sm leading-5 flex-shrink-0">!</span>
+                <div className="mt-3 flex items-start gap-2 p-3 bg-error-bg border border-error-bg rounded-lg">
+                  <span className="text-error text-sm leading-5 flex-shrink-0">!</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-red-800">{error}</p>
+                    <p className="text-sm text-error">{error}</p>
                   </div>
                   <button
                     onClick={() => setError(null)}
-                    className="text-red-400 hover:text-red-600 text-sm flex-shrink-0"
+                    className="text-error hover:text-error text-sm flex-shrink-0"
                   >
                     x
                   </button>
@@ -832,9 +832,9 @@ export default function GeneratePage() {
 
             {/* Generated content */}
             {generatedPosts.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="bg-surface rounded-lg border border-border p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-medium text-gray-900">
+                  <h2 className="text-lg font-medium text-text-primary">
                     Generated Content ({generatedPosts.length})
                   </h2>
                   <div className="flex gap-2">
@@ -842,8 +842,8 @@ export default function GeneratePage() {
                       onClick={() => setMixMode((v) => !v)}
                       className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                         mixMode
-                          ? "bg-purple-600 text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          ? "bg-info text-white"
+                          : "bg-border text-text-secondary hover:bg-border"
                       }`}
                     >
                       Mix & Match
@@ -852,14 +852,14 @@ export default function GeneratePage() {
                       <>
                         <button
                           onClick={toggleAll}
-                          className="text-sm text-gray-600 hover:text-gray-800"
+                          className="text-sm text-text-secondary hover:text-gray-800"
                         >
                           {selected.size === generatedPosts.length ? "Deselect All" : "Select All"}
                         </button>
                         <button
                           onClick={handleSave}
                           disabled={saving || selected.size === 0}
-                          className="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                          className="px-4 py-1.5 bg-success text-white text-sm font-medium rounded-lg hover:bg-success disabled:opacity-50"
                         >
                           {saving ? "Saving..." : `Save ${selected.size} to Queue`}
                         </button>
@@ -873,16 +873,16 @@ export default function GeneratePage() {
                     mixMode ? (
                       <div
                         key={i}
-                        className="border border-gray-200 rounded-lg overflow-hidden"
+                        className="border border-border rounded-lg overflow-hidden"
                       >
                         {/* Image area */}
                         {post.mediaUrl ? (
                           <div
                             onClick={() => handleMixClick(i, "image")}
-                            className={`aspect-square bg-gray-100 relative cursor-pointer transition-all group ${
+                            className={`aspect-square bg-border relative cursor-pointer transition-all group ${
                               selectedImageIndex === i
-                                ? "ring-2 ring-green-500 ring-inset"
-                                : "hover:ring-1 hover:ring-green-300 hover:ring-inset"
+                                ? "ring-2 ring-success ring-inset"
+                                : "hover:ring-1 hover:ring-success/50 hover:ring-inset"
                             }`}
                           >
                             {isVideoUrl(post.mediaUrl) ? (
@@ -921,7 +921,7 @@ export default function GeneratePage() {
                             )}
                           </div>
                         ) : (
-                          <div className="h-20 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                          <div className="h-20 bg-background flex items-center justify-center text-xs text-text-muted">
                             No image
                           </div>
                         )}
@@ -930,22 +930,22 @@ export default function GeneratePage() {
                           onClick={() => handleMixClick(i, "text")}
                           className={`p-3 cursor-pointer transition-all ${
                             selectedTextIndex === i
-                              ? "ring-2 ring-blue-500 ring-inset bg-blue-50"
-                              : "hover:bg-gray-50"
+                              ? "ring-2 ring-primary ring-inset bg-primary/[0.08]"
+                              : "hover:bg-background"
                           }`}
                         >
                           {selectedTextIndex === i && (
-                            <span className="inline-block mb-1 px-2 py-0.5 bg-blue-500 text-white text-xs font-medium rounded">
+                            <span className="inline-block mb-1 px-2 py-0.5 bg-primary text-white text-xs font-medium rounded">
                               Text
                             </span>
                           )}
-                          <p className="text-sm text-gray-900 whitespace-pre-wrap line-clamp-4">
+                          <p className="text-sm text-text-primary whitespace-pre-wrap line-clamp-4">
                             {post.content}
                           </p>
                           {post.hashtags?.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
                               {post.hashtags.map((tag, j) => (
-                                <span key={j} className="text-xs text-blue-600">
+                                <span key={j} className="text-xs text-primary">
                                   #{tag.replace(/^#+/, "")}
                                 </span>
                               ))}
@@ -959,12 +959,12 @@ export default function GeneratePage() {
                         onClick={() => toggleSelect(i)}
                         className={`border rounded-lg cursor-pointer transition-colors overflow-hidden ${
                           selected.has(i)
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 hover:border-gray-300"
+                            ? "border-primary bg-primary/[0.08]"
+                            : "border-border hover:border-border-strong"
                         }`}
                       >
                         {post.mediaUrl && (
-                          <div className="aspect-square bg-gray-100 relative group">
+                          <div className="aspect-square bg-border relative group">
                             {isVideoUrl(post.mediaUrl) ? (
                               <video
                                 src={post.mediaUrl}
@@ -1015,13 +1015,13 @@ export default function GeneratePage() {
                               onClick={(e) => e.stopPropagation()}
                             />
                           )}
-                          <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                          <p className="text-sm text-text-primary whitespace-pre-wrap">
                             {post.content}
                           </p>
                           {post.hashtags?.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
                               {post.hashtags.map((tag, j) => (
-                                <span key={j} className="text-xs text-blue-600">
+                                <span key={j} className="text-xs text-primary">
                                   #{tag.replace(/^#+/, "")}
                                 </span>
                               ))}
@@ -1035,11 +1035,11 @@ export default function GeneratePage() {
 
                 {/* Composition preview */}
                 {mixMode && (selectedTextIndex !== null || selectedImageIndex !== null) && (
-                  <div className="mt-4 p-4 border border-purple-200 bg-purple-50 rounded-lg">
-                    <h3 className="text-sm font-medium text-purple-900 mb-3">Composition Preview</h3>
+                  <div className="mt-4 p-4 border border-info-bg bg-info-bg rounded-lg">
+                    <h3 className="text-sm font-medium text-info mb-3">Composition Preview</h3>
                     <div className="flex gap-4 items-start">
                       {/* Image thumbnail */}
-                      <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
+                      <div className="w-32 h-32 flex-shrink-0 bg-border rounded-lg overflow-hidden">
                         {selectedImageIndex !== null && generatedPosts[selectedImageIndex]?.mediaUrl ? (
                           <img
                             src={generatedPosts[selectedImageIndex].mediaUrl!}
@@ -1048,7 +1048,7 @@ export default function GeneratePage() {
                             onClick={() => setLightboxSrc(generatedPosts[selectedImageIndex].mediaUrl!)}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                          <div className="w-full h-full flex items-center justify-center text-xs text-text-muted">
                             No image
                           </div>
                         )}
@@ -1057,13 +1057,13 @@ export default function GeneratePage() {
                       <div className="flex-1 min-w-0">
                         {selectedTextIndex !== null ? (
                           <>
-                            <p className="text-sm text-gray-900 whitespace-pre-wrap line-clamp-4">
+                            <p className="text-sm text-text-primary whitespace-pre-wrap line-clamp-4">
                               {generatedPosts[selectedTextIndex].content}
                             </p>
                             {generatedPosts[selectedTextIndex].hashtags?.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {generatedPosts[selectedTextIndex].hashtags.map((tag, j) => (
-                                  <span key={j} className="text-xs text-blue-600">
+                                  <span key={j} className="text-xs text-primary">
                                     #{tag.replace(/^#+/, "")}
                                   </span>
                                 ))}
@@ -1071,14 +1071,14 @@ export default function GeneratePage() {
                             )}
                           </>
                         ) : (
-                          <p className="text-sm text-gray-400 italic">Select a text source</p>
+                          <p className="text-sm text-text-muted italic">Select a text source</p>
                         )}
                       </div>
                     </div>
                     <button
                       onClick={addToQueue}
                       disabled={selectedTextIndex === null}
-                      className="mt-3 px-4 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                      className="mt-3 px-4 py-1.5 bg-info text-white text-sm font-medium rounded-lg hover:bg-info disabled:opacity-50"
                     >
                       Add to Queue
                     </button>
@@ -1087,17 +1087,17 @@ export default function GeneratePage() {
 
                 {/* Composition queue */}
                 {compositionQueue.length > 0 && (
-                  <div className="mt-4 p-4 border border-gray-200 bg-gray-50 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  <div className="mt-4 p-4 border border-border bg-background rounded-lg">
+                    <h3 className="text-sm font-medium text-text-primary mb-3">
                       Composition Queue ({compositionQueue.length})
                     </h3>
                     <div className="space-y-2">
                       {compositionQueue.map((comp, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-3 bg-white p-2 rounded-lg border border-gray-200"
+                          className="flex items-center gap-3 bg-surface p-2 rounded-lg border border-border"
                         >
-                          <div className="w-10 h-10 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                          <div className="w-10 h-10 flex-shrink-0 bg-border rounded overflow-hidden">
                             {comp.mediaUrl ? (
                               <img
                                 src={comp.mediaUrl}
@@ -1105,17 +1105,17 @@ export default function GeneratePage() {
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">
+                              <div className="w-full h-full flex items-center justify-center text-[10px] text-text-muted">
                                 --
                               </div>
                             )}
                           </div>
-                          <p className="flex-1 text-sm text-gray-700 truncate">
+                          <p className="flex-1 text-sm text-text-secondary truncate">
                             {comp.content}
                           </p>
                           <button
                             onClick={() => removeFromQueue(i)}
-                            className="text-red-500 hover:text-red-700 text-sm flex-shrink-0"
+                            className="text-error hover:text-error text-sm flex-shrink-0"
                           >
                             Remove
                           </button>
@@ -1125,7 +1125,7 @@ export default function GeneratePage() {
                     <button
                       onClick={handleSaveCompositions}
                       disabled={saving}
-                      className="mt-3 px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      className="mt-3 px-4 py-1.5 bg-success text-white text-sm font-medium rounded-lg hover:bg-success disabled:opacity-50"
                     >
                       {saving ? "Saving..." : `Save ${compositionQueue.length} to Queue`}
                     </button>

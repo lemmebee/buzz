@@ -32,16 +32,16 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-background">
+      <header className="bg-surface border-b border-border">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-500 hover:text-gray-700">←</Link>
-            <h1 className="text-xl font-bold text-gray-900">Products</h1>
+            <Link href="/" className="text-text-tertiary hover:text-text-secondary">←</Link>
+            <h1 className="text-xl font-bold text-text-primary">Products</h1>
           </div>
           <Link
             href="/products/new"
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
           >
             Add Product
           </Link>
@@ -50,13 +50,13 @@ export default function ProductsPage() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {loading ? (
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-text-tertiary">Loading...</p>
         ) : products.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">No products yet</p>
+            <p className="text-text-tertiary mb-4">No products yet</p>
             <Link
               href="/products/new"
-              className="text-blue-600 hover:text-blue-800"
+              className="text-primary hover:text-primary-hover"
             >
               Add your first product
             </Link>

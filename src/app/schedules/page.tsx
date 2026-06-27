@@ -183,18 +183,18 @@ export default function SchedulesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-background">
+      <header className="bg-surface border-b border-border">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-500 hover:text-gray-700">
+            <Link href="/" className="text-text-tertiary hover:text-text-secondary">
               ←
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">Schedules</h1>
+            <h1 className="text-xl font-bold text-text-primary">Schedules</h1>
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
           >
             {showForm ? "Cancel" : "New Schedule"}
           </button>
@@ -204,15 +204,15 @@ export default function SchedulesPage() {
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         {/* Create form */}
         {showForm && (
-          <form onSubmit={handleCreate} className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-            <h2 className="font-medium text-gray-900">New Generation Schedule</h2>
+          <form onSubmit={handleCreate} className="bg-surface rounded-lg border border-border p-6 space-y-4">
+            <h2 className="font-medium text-text-primary">New Generation Schedule</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Product</label>
+                <label className="block text-sm text-text-secondary mb-1">Product</label>
                 <select
                   value={formProductId}
                   onChange={(e) => setFormProductId(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 >
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -220,11 +220,11 @@ export default function SchedulesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Platform</label>
+                <label className="block text-sm text-text-secondary mb-1">Platform</label>
                 <select
                   value={formPlatform}
                   onChange={(e) => setFormPlatform(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 >
                   {PLATFORMS.map((p) => (
                     <option key={p} value={p}>{p}</option>
@@ -232,7 +232,7 @@ export default function SchedulesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Media Type</label>
+                <label className="block text-sm text-text-secondary mb-1">Media Type</label>
                 <select
                   value={formMediaType}
                   onChange={(e) => {
@@ -241,7 +241,7 @@ export default function SchedulesPage() {
                       setFormTargetSurface("post");
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 >
                   {MEDIA_TYPES.map((m) => (
                     <option key={m} value={m}>{m}</option>
@@ -249,11 +249,11 @@ export default function SchedulesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Content Type</label>
+                <label className="block text-sm text-text-secondary mb-1">Content Type</label>
                 <select
                   value={formTargetSurface}
                   onChange={(e) => setFormTargetSurface(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 >
                   {CONTENT_TYPES
                     .filter((t) => !(t === "reel" && formMediaType === "image"))
@@ -263,11 +263,11 @@ export default function SchedulesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Aspect Ratio</label>
+                <label className="block text-sm text-text-secondary mb-1">Aspect Ratio</label>
                 <select
                   value={formConfig.aspectRatio}
                   onChange={(e) => setFormConfig({ ...formConfig, aspectRatio: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 >
                   {ASPECT_OPTIONS.map((a) => (
                     <option key={a} value={a}>{a}</option>
@@ -277,7 +277,7 @@ export default function SchedulesPage() {
               {formMediaType === "video" && (
                 <>
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Duration (sec)</label>
+                    <label className="block text-sm text-text-secondary mb-1">Duration (sec)</label>
                     <input
                       type="number"
                       min={5}
@@ -286,11 +286,11 @@ export default function SchedulesPage() {
                       onChange={(e) =>
                         setFormConfig({ ...formConfig, durationSec: parseInt(e.target.value) || 15 })
                       }
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                      className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                     />
                   </div>
                   <div className="flex items-end">
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <label className="flex items-center gap-2 text-sm text-text-secondary">
                       <input
                         type="checkbox"
                         checked={formConfig.captions ?? false}
@@ -304,11 +304,11 @@ export default function SchedulesPage() {
                 </>
               )}
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Posts per run</label>
+                <label className="block text-sm text-text-secondary mb-1">Posts per run</label>
                 <select
                   value={formCount}
                   onChange={(e) => setFormCount(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 >
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>{n}</option>
@@ -316,11 +316,11 @@ export default function SchedulesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Frequency</label>
+                <label className="block text-sm text-text-secondary mb-1">Frequency</label>
                 <select
                   value={formFrequency}
                   onChange={(e) => setFormFrequency(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 >
                   {FREQUENCY_OPTIONS.map((f) => (
                     <option key={f.value} value={f.value}>{f.label}</option>
@@ -328,19 +328,19 @@ export default function SchedulesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Preferred Time</label>
+                <label className="block text-sm text-text-secondary mb-1">Preferred Time</label>
                 <input
                   type="time"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 />
               </div>
             </div>
             <button
               type="submit"
               disabled={saving || !formProductId}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
             >
               {saving ? "Creating..." : "Create Schedule"}
             </button>
@@ -349,13 +349,13 @@ export default function SchedulesPage() {
 
         {/* Schedule list */}
         {loading ? (
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-text-tertiary">Loading...</p>
         ) : schedules.length === 0 && !showForm ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">No generation schedules yet</p>
+            <p className="text-text-tertiary mb-4">No generation schedules yet</p>
             <button
               onClick={() => setShowForm(true)}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-primary hover:text-primary-hover"
             >
               Create your first schedule
             </button>
@@ -365,20 +365,20 @@ export default function SchedulesPage() {
             {schedules.map((schedule) => (
               <div
                 key={schedule.id}
-                className={`bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between ${
+                className={`bg-surface rounded-lg border border-border p-4 flex items-center justify-between ${
                   !schedule.enabled ? "opacity-60" : ""
                 }`}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">{schedule.productName || "Unknown"}</span>
-                    <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">{schedule.platform}</span>
-                    <span className="text-xs px-2 py-0.5 bg-gray-100 rounded text-gray-600">{schedule.mediaType}/{schedule.targetSurface}</span>
+                    <span className="font-medium text-text-primary">{schedule.productName || "Unknown"}</span>
+                    <span className="text-xs px-2 py-0.5 bg-border rounded text-text-secondary">{schedule.platform}</span>
+                    <span className="text-xs px-2 py-0.5 bg-border rounded text-text-secondary">{schedule.mediaType}/{schedule.targetSurface}</span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-text-tertiary mt-1">
                     {frequencyLabel(schedule.frequencyHours)} at {schedule.preferredTime} - {schedule.count} post{schedule.count > 1 ? "s" : ""}/run
                     {schedule.lastRunAt && (
-                      <span className="ml-2 text-gray-400">
+                      <span className="ml-2 text-text-muted">
                         Last run: {new Date(schedule.lastRunAt).toLocaleDateString()}
                       </span>
                     )}
@@ -389,15 +389,15 @@ export default function SchedulesPage() {
                     onClick={() => handleToggle(schedule.id, schedule.enabled)}
                     className={`px-3 py-1 text-xs rounded-lg ${
                       schedule.enabled
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-500"
+                        ? "bg-success-bg text-success"
+                        : "bg-border text-text-tertiary"
                     }`}
                   >
                     {schedule.enabled ? "Active" : "Paused"}
                   </button>
                   <button
                     onClick={() => handleDelete(schedule.id)}
-                    className="px-3 py-1 text-xs rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                    className="px-3 py-1 text-xs rounded-lg bg-error-bg text-error hover:bg-error-bg"
                   >
                     Delete
                   </button>
@@ -408,24 +408,24 @@ export default function SchedulesPage() {
         )}
 
         {/* Discord setup */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="font-medium text-gray-900 mb-4">Discord Notifications</h2>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="font-medium text-text-primary mb-4">Discord Notifications</h2>
+          <p className="text-sm text-text-tertiary mb-4">
             Connect a Discord bot to receive drafts for approval. Create an app at{" "}
-            <a href="https://discord.com/developers/applications" className="text-blue-600" target="_blank" rel="noreferrer">
+            <a href="https://discord.com/developers/applications" className="text-primary" target="_blank" rel="noreferrer">
               discord.com/developers
             </a>
             , add a Bot, copy the bot token and the application&apos;s Public Key. Invite the bot to your
-            server with the {" "}<code className="text-xs bg-gray-100 px-1 py-0.5 rounded">bot</code> scope and{" "}
-            <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">Send Messages</code> permission, then
+            server with the {" "}<code className="text-xs bg-border px-1 py-0.5 rounded">bot</code> scope and{" "}
+            <code className="text-xs bg-border px-1 py-0.5 rounded">Send Messages</code> permission, then
             paste a channel ID below (enable Developer Mode in Discord, right-click channel, Copy ID). Set the
             app&apos;s Interactions Endpoint URL to{" "}
-            <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">https://your-domain.com/api/discord/interactions</code>.
+            <code className="text-xs bg-border px-1 py-0.5 rounded">https://your-domain.com/api/discord/interactions</code>.
           </p>
           <form onSubmit={handleDiscordSetup} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Bot Token</label>
+                <label className="block text-sm text-text-secondary mb-1">Bot Token</label>
                 <div className="relative">
                   <input
                     type={dsShowToken ? "text" : "password"}
@@ -433,30 +433,30 @@ export default function SchedulesPage() {
                     value={dsToken}
                     onChange={(e) => setDsToken(e.target.value)}
                     placeholder="MTIzNDU2..."
-                    className="w-full px-3 py-2 pr-16 border border-gray-200 rounded-lg text-sm text-gray-900"
+                    className="w-full px-3 py-2 pr-16 border border-border rounded-lg text-sm text-text-primary"
                   />
                   <button
                     type="button"
                     onClick={() => setDsShowToken((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-tertiary hover:text-text-secondary px-2 py-1"
                   >
                     {dsShowToken ? "Hide" : "Show"}
                   </button>
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Channel ID</label>
+                <label className="block text-sm text-text-secondary mb-1">Channel ID</label>
                 <input
                   type="text"
                   value={dsChannelId}
                   onChange={(e) => setDsChannelId(e.target.value)}
                   placeholder="123456789012345678"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Public Key (from app General Information)</label>
+              <label className="block text-sm text-text-secondary mb-1">Public Key (from app General Information)</label>
               <div className="relative">
                 <input
                   type={dsShowKey ? "text" : "password"}
@@ -464,12 +464,12 @@ export default function SchedulesPage() {
                   value={dsPublicKey}
                   onChange={(e) => setDsPublicKey(e.target.value)}
                   placeholder="hex string, 64 chars"
-                  className="w-full px-3 py-2 pr-16 border border-gray-200 rounded-lg text-sm text-gray-900 font-mono"
+                  className="w-full px-3 py-2 pr-16 border border-border rounded-lg text-sm text-text-primary font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setDsShowKey((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-tertiary hover:text-text-secondary px-2 py-1"
                 >
                   {dsShowKey ? "Hide" : "Show"}
                 </button>
@@ -479,12 +479,12 @@ export default function SchedulesPage() {
               <button
                 type="submit"
                 disabled={dsSaving || !dsToken || !dsChannelId || !dsPublicKey}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
               >
                 {dsSaving ? "Connecting..." : "Connect Discord"}
               </button>
               {dsStatus && (
-                <span className={`text-sm ${dsStatus.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>
+                <span className={`text-sm ${dsStatus.startsWith("Error") ? "text-error" : "text-success"}`}>
                   {dsStatus}
                 </span>
               )}

@@ -10,7 +10,7 @@ const statuses = ["all", "draft", "approved", "scheduled", "posted"] as const;
 
 export default function ContentPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><p className="text-text-tertiary">Loading...</p></div>}>
       <ContentPageInner />
     </Suspense>
   );
@@ -120,18 +120,18 @@ function ContentPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-background">
+      <header className="bg-surface border-b border-border">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-gray-500 hover:text-gray-700">
+            <Link href="/" className="text-text-tertiary hover:text-text-secondary">
               ←
             </Link>
-            <h1 className="text-xl font-bold text-gray-900">Content Queue</h1>
+            <h1 className="text-xl font-bold text-text-primary">Content Queue</h1>
           </div>
           <Link
             href="/generate"
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover"
           >
             Generate Content
           </Link>
@@ -148,8 +148,8 @@ function ContentPageInner() {
                 onClick={() => setFilter(status)}
                 className={`px-3 py-1.5 text-sm rounded-lg capitalize ${
                   filter === status
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
+                    ? "bg-primary text-white"
+                    : "bg-surface text-text-secondary border border-border hover:border-border-strong"
                 }`}
               >
                 {status}
@@ -159,7 +159,7 @@ function ContentPageInner() {
           <select
             value={productFilter}
             onChange={(e) => setProductFilter(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-700 bg-white"
+            className="px-3 py-1.5 text-sm rounded-lg border border-border text-text-secondary bg-surface"
           >
             <option value="all">All Products</option>
             {Object.values(products).map((p) => (
@@ -169,11 +169,11 @@ function ContentPageInner() {
         </div>
 
         {loading ? (
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-text-tertiary">Loading...</p>
         ) : posts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">No content yet</p>
-            <Link href="/generate" className="text-blue-600 hover:text-blue-800">
+            <p className="text-text-tertiary mb-4">No content yet</p>
+            <Link href="/generate" className="text-primary hover:text-primary-hover">
               Generate your first content
             </Link>
           </div>

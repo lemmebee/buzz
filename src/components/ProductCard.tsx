@@ -159,13 +159,13 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="bg-surface rounded-lg border border-border p-4">
         <div className="flex justify-between items-start mb-2">
-          <span className="font-medium text-gray-900">{product.name}</span>
+          <span className="font-medium text-text-primary">{product.name}</span>
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 text-gray-400 hover:text-gray-600 rounded"
+              className="p-1 text-text-muted hover:text-text-secondary rounded"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
@@ -174,24 +174,24 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
             {showMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1">
+                <div className="absolute right-0 mt-1 w-32 bg-surface border border-border rounded-lg shadow-lg z-20 py-1">
                   <Link
                     href={`/products/${product.id}`}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    className="block px-4 py-2 text-sm text-text-secondary hover:bg-background"
                     onClick={() => setShowMenu(false)}
                   >
                     Edit
                   </Link>
                   <button
                     onClick={() => { setShowInstagram(true); setShowMenu(false); }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    className="block w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-background"
                   >
                     Link Instagram
                   </button>
                   {onDelete && (
                     <button
                       onClick={() => { onDelete(product.id); setShowMenu(false); }}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                      className="block w-full text-left px-4 py-2 text-sm text-error hover:bg-background"
                     >
                       Delete
                     </button>
@@ -204,7 +204,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
 
         <div className="flex flex-wrap items-center gap-1 mb-2">
           {isExtracting && (
-            <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded animate-pulse">
+            <span className="text-xs px-2 py-0.5 bg-warning-bg text-warning rounded animate-pulse">
               extracting...
             </span>
           )}
@@ -213,24 +213,24 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               <button
                 onClick={reExtract}
                 disabled={retrying}
-                className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded flex items-center gap-1 hover:bg-red-200 transition-colors"
+                className="text-xs px-2 py-0.5 bg-error-bg text-error rounded flex items-center gap-1 hover:bg-red-200 transition-colors"
               >
                 {retrying ? "retrying..." : "failed ↻"}
               </button>
               <div className="absolute left-0 top-full mt-2 hidden group-hover/failed:block z-10 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
                 <div className="absolute left-4 bottom-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900" />
-                <p className="mb-1 font-medium text-red-300">Extraction failed</p>
+                <p className="mb-1 font-medium text-error/60">Extraction failed</p>
                 <p className="leading-relaxed">
                   {product.extractionError || "We couldn't analyse this product. Click the badge to try again."}
                 </p>
-                <p className="mt-2 text-gray-400">Click the badge to retry.</p>
+                <p className="mt-2 text-text-muted">Click the badge to retry.</p>
               </div>
             </div>
           )}
           {product.profile && (
             <button
               onClick={openProfileModal}
-              className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+              className="text-xs px-2 py-0.5 bg-success-bg text-success rounded hover:bg-success-bg transition-colors"
             >
               profile
             </button>
@@ -238,7 +238,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
           {product.marketingStrategy && (
             <button
               onClick={openStrategyModal}
-              className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
+              className="text-xs px-2 py-0.5 bg-warning-bg text-warning rounded hover:bg-warning-bg transition-colors"
             >
               strategy
             </button>
@@ -246,40 +246,40 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
           {product.planFileName && (
             <button
               onClick={openPlanModal}
-              className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+              className="text-xs px-2 py-0.5 bg-info-bg text-info rounded hover:bg-purple-200 transition-colors"
             >
               plan
             </button>
           )}
           {product.textProvider && (
-            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{product.textProvider}</span>
+            <span className="text-xs px-2 py-0.5 bg-primary/15 text-primary rounded">{product.textProvider}</span>
           )}
           {audience && (
             <div className="relative group/audience inline-block">
-              <span className="text-xs px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded cursor-help">
+              <span className="text-xs px-2 py-0.5 bg-info-bg text-info rounded cursor-help">
                 audience
               </span>
               <div className="absolute left-0 top-full mt-2 hidden group-hover/audience:block z-10 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
                 <div className="absolute left-4 bottom-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900" />
                 {audience.primary && (
-                  <p className="mb-1"><span className="text-gray-400">Primary:</span> {audience.primary}</p>
+                  <p className="mb-1"><span className="text-text-muted">Primary:</span> {audience.primary}</p>
                 )}
                 {audience.demographics && (
-                  <p className="mb-1"><span className="text-gray-400">Demographics:</span> {audience.demographics}</p>
+                  <p className="mb-1"><span className="text-text-muted">Demographics:</span> {audience.demographics}</p>
                 )}
                 {audience.psychographics && (
-                  <p><span className="text-gray-400">Psychographics:</span> {audience.psychographics}</p>
+                  <p><span className="text-text-muted">Psychographics:</span> {audience.psychographics}</p>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        <p className={`text-sm text-gray-600 ${showFullDesc ? "" : "line-clamp-2"}`}>{product.description}</p>
+        <p className={`text-sm text-text-secondary ${showFullDesc ? "" : "line-clamp-2"}`}>{product.description}</p>
         {product.description.length > 100 && (
           <button
             onClick={() => setShowFullDesc(!showFullDesc)}
-            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+            className="text-xs text-primary hover:text-primary-hover mt-1"
           >
             {showFullDesc ? "less" : "more"}
           </button>
@@ -289,13 +289,13 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
       {/* Plan File Modal */}
       {showPlanFile && (
         <Modal onClose={() => { setShowPlanFile(false); setEditModePlan(false); setHistoryField(null); }}>
-          <div className="flex justify-between items-center p-4 border-b border-gray-200">
-            <h3 className="font-medium text-gray-900">Plan File</h3>
+          <div className="flex justify-between items-center p-4 border-b border-border">
+            <h3 className="font-medium text-text-primary">Plan File</h3>
             <div className="flex items-center gap-2">
               {historyField === "planFile" ? (
                 <button
                   onClick={() => setHistoryField(null)}
-                  className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  className="text-xs px-2 py-1 rounded bg-warning-bg text-warning hover:bg-warning-bg"
                 >
                   &larr; Current
                 </button>
@@ -303,20 +303,20 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
                 <>
                   <button
                     onClick={() => { setEditModePlan(false); setHistoryField("planFile"); }}
-                    className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600"
+                    className="text-xs px-2 py-1 rounded bg-border text-text-secondary"
                   >
                     History
                   </button>
                   <button
                     onClick={() => { reExtract(); setShowPlanFile(false); }}
                     disabled={retrying || isExtracting}
-                    className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
+                    className="text-xs px-2 py-1 rounded bg-success-bg text-success hover:bg-success-bg disabled:opacity-50"
                   >
                     {isExtracting ? "Extracting..." : "Re-extract"}
                   </button>
                   <button
                     onClick={() => setEditModePlan(!editModePlan)}
-                    className={`text-xs px-2 py-1 rounded ${editModePlan ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                    className={`text-xs px-2 py-1 rounded ${editModePlan ? "bg-primary/15 text-primary" : "bg-border text-text-secondary"}`}
                   >
                     {editModePlan ? "Preview" : "Edit"}
                   </button>
@@ -324,7 +324,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               )}
               <button
                 onClick={() => { setShowPlanFile(false); setEditModePlan(false); setHistoryField(null); }}
-                className="text-gray-500 hover:text-gray-700 text-xl"
+                className="text-text-tertiary hover:text-text-secondary text-xl"
               >
                 ×
               </button>
@@ -336,7 +336,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
                 productId={product.id}
                 field="planFile"
                 renderContent={(content) => (
-                  <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:mt-3 prose-headings:mb-1 prose-p:text-gray-700 prose-p:my-1 prose-li:text-gray-700 prose-li:my-0 prose-ul:my-1 prose-ol:my-1 prose-strong:text-gray-900 prose-code:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded prose-pre:bg-gray-100 prose-pre:text-gray-900 prose-pre:my-2">
+                  <div className="prose prose-sm max-w-none prose-headings:text-text-primary prose-headings:mt-3 prose-headings:mb-1 prose-p:text-text-secondary prose-p:my-1 prose-li:text-text-secondary prose-li:my-0 prose-ul:my-1 prose-ol:my-1 prose-strong:text-text-primary prose-code:text-text-primary prose-code:bg-border prose-code:px-1 prose-code:rounded prose-pre:bg-border prose-pre:text-text-primary prose-pre:my-2">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
                   </div>
                 )}
@@ -350,26 +350,26 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               <textarea
                 value={editPlanFile}
                 onChange={(e) => setEditPlanFile(e.target.value)}
-                className="w-full h-full min-h-[400px] p-3 font-mono text-sm border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full h-full min-h-[400px] p-3 font-mono text-sm border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
               />
             ) : (
-              <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:mt-3 prose-headings:mb-1 prose-p:text-gray-700 prose-p:my-1 prose-li:text-gray-700 prose-li:my-0 prose-ul:my-1 prose-ol:my-1 prose-strong:text-gray-900 prose-code:text-gray-900 prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded prose-pre:bg-gray-100 prose-pre:text-gray-900 prose-pre:my-2">
+              <div className="prose prose-sm max-w-none prose-headings:text-text-primary prose-headings:mt-3 prose-headings:mb-1 prose-p:text-text-secondary prose-p:my-1 prose-li:text-text-secondary prose-li:my-0 prose-ul:my-1 prose-ol:my-1 prose-strong:text-text-primary prose-code:text-text-primary prose-code:bg-border prose-code:px-1 prose-code:rounded prose-pre:bg-border prose-pre:text-text-primary prose-pre:my-2">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{product.planFile || ""}</ReactMarkdown>
               </div>
             )}
           </div>
           {editModePlan && !historyField && (
-            <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
+            <div className="flex justify-end gap-3 p-4 border-t border-border">
               <button
                 onClick={() => { setShowPlanFile(false); setEditModePlan(false); }}
-                className="px-4 py-2 text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                className="px-4 py-2 text-text-secondary font-medium rounded-lg border border-border-strong hover:bg-background"
               >
                 Cancel
               </button>
               <button
                 onClick={() => saveField("planFile", editPlanFile)}
                 disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save"}
               </button>
@@ -381,13 +381,13 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
       {/* Product Profile Modal */}
       {showProfile && (
         <Modal onClose={() => { setShowProfile(false); setEditModeProfile(false); setHistoryField(null); }}>
-          <div className="flex justify-between items-center p-4 border-b border-gray-200">
-            <h3 className="font-medium text-gray-900">Product Profile</h3>
+          <div className="flex justify-between items-center p-4 border-b border-border">
+            <h3 className="font-medium text-text-primary">Product Profile</h3>
             <div className="flex items-center gap-2">
               {historyField === "profile" ? (
                 <button
                   onClick={() => setHistoryField(null)}
-                  className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  className="text-xs px-2 py-1 rounded bg-warning-bg text-warning hover:bg-warning-bg"
                 >
                   &larr; Current
                 </button>
@@ -395,13 +395,13 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
                 <>
                   <button
                     onClick={() => { setEditModeProfile(false); setHistoryField("profile"); }}
-                    className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600"
+                    className="text-xs px-2 py-1 rounded bg-border text-text-secondary"
                   >
                     History
                   </button>
                   <button
                     onClick={() => setEditModeProfile(!editModeProfile)}
-                    className={`text-xs px-2 py-1 rounded ${editModeProfile ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                    className={`text-xs px-2 py-1 rounded ${editModeProfile ? "bg-primary/15 text-primary" : "bg-border text-text-secondary"}`}
                   >
                     {editModeProfile ? "Preview" : "Edit"}
                   </button>
@@ -409,7 +409,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               )}
               <button
                 onClick={() => { setShowProfile(false); setEditModeProfile(false); setHistoryField(null); }}
-                className="text-gray-500 hover:text-gray-700 text-xl"
+                className="text-text-tertiary hover:text-text-secondary text-xl"
               >
                 ×
               </button>
@@ -440,17 +440,17 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
             )}
           </div>
           {editModeProfile && !historyField && (
-            <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
+            <div className="flex justify-end gap-3 p-4 border-t border-border">
               <button
                 onClick={() => { setShowProfile(false); setEditModeProfile(false); }}
-                className="px-4 py-2 text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                className="px-4 py-2 text-text-secondary font-medium rounded-lg border border-border-strong hover:bg-background"
               >
                 Cancel
               </button>
               <button
                 onClick={() => saveField("profile", JSON.stringify(editProfileData))}
                 disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save"}
               </button>
@@ -462,13 +462,13 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
       {/* Marketing Strategy Modal */}
       {showStrategy && (
         <Modal onClose={() => { setShowStrategy(false); setEditModeStrategy(false); setHistoryField(null); }}>
-          <div className="flex justify-between items-center p-4 border-b border-gray-200">
-            <h3 className="font-medium text-gray-900">Marketing Strategy</h3>
+          <div className="flex justify-between items-center p-4 border-b border-border">
+            <h3 className="font-medium text-text-primary">Marketing Strategy</h3>
             <div className="flex items-center gap-2">
               {historyField === "marketingStrategy" ? (
                 <button
                   onClick={() => setHistoryField(null)}
-                  className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  className="text-xs px-2 py-1 rounded bg-warning-bg text-warning hover:bg-warning-bg"
                 >
                   &larr; Current
                 </button>
@@ -476,13 +476,13 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
                 <>
                   <button
                     onClick={() => { setEditModeStrategy(false); setHistoryField("marketingStrategy"); }}
-                    className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600"
+                    className="text-xs px-2 py-1 rounded bg-border text-text-secondary"
                   >
                     History
                   </button>
                   <button
                     onClick={() => setEditModeStrategy(!editModeStrategy)}
-                    className={`text-xs px-2 py-1 rounded ${editModeStrategy ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                    className={`text-xs px-2 py-1 rounded ${editModeStrategy ? "bg-primary/15 text-primary" : "bg-border text-text-secondary"}`}
                   >
                     {editModeStrategy ? "Preview" : "Edit"}
                   </button>
@@ -490,7 +490,7 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               )}
               <button
                 onClick={() => { setShowStrategy(false); setEditModeStrategy(false); setHistoryField(null); }}
-                className="text-gray-500 hover:text-gray-700 text-xl"
+                className="text-text-tertiary hover:text-text-secondary text-xl"
               >
                 ×
               </button>
@@ -521,17 +521,17 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
             )}
           </div>
           {editModeStrategy && !historyField && (
-            <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
+            <div className="flex justify-end gap-3 p-4 border-t border-border">
               <button
                 onClick={() => { setShowStrategy(false); setEditModeStrategy(false); }}
-                className="px-4 py-2 text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                className="px-4 py-2 text-text-secondary font-medium rounded-lg border border-border-strong hover:bg-background"
               >
                 Cancel
               </button>
               <button
                 onClick={() => saveField("marketingStrategy", JSON.stringify(editStrategyData))}
                 disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary-hover disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save"}
               </button>
@@ -569,7 +569,7 @@ function Modal({ children, onClose }: { children: React.ReactNode; onClose: () =
         if (e.target === backdropRef.current) onClose();
       }}
     >
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col shadow-xl">
+      <div className="bg-surface rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col shadow-xl">
         {children}
       </div>
     </div>
@@ -582,7 +582,7 @@ function JsonToMarkdown({ data, level = 0 }: { data: Record<string, unknown>; le
     <>
       {Object.entries(data).map(([key, value]) => (
         <div key={key} className={level > 0 ? "ml-3 mt-2" : ""}>
-          <h4 className={`font-semibold text-gray-900 ${level === 0 ? "text-sm border-b border-gray-200 pb-1 mb-1" : "text-xs text-gray-600"}`}>
+          <h4 className={`font-semibold text-text-primary ${level === 0 ? "text-sm border-b border-border pb-1 mb-1" : "text-xs text-text-secondary"}`}>
             {formatLabel(key)}
           </h4>
           {renderMarkdownValue(value, level)}
@@ -594,10 +594,10 @@ function JsonToMarkdown({ data, level = 0 }: { data: Record<string, unknown>; le
 
 function renderMarkdownValue(value: unknown, level: number): React.ReactNode {
   if (value === null || value === undefined || value === "") {
-    return <p className="text-sm text-gray-400 italic">Not specified</p>;
+    return <p className="text-sm text-text-muted italic">Not specified</p>;
   }
   if (Array.isArray(value)) {
-    if (value.length === 0) return <p className="text-sm text-gray-400 italic">None</p>;
+    if (value.length === 0) return <p className="text-sm text-text-muted italic">None</p>;
     // Check if array contains objects
     const hasObjects = value.some(item => typeof item === "object" && item !== null);
     if (hasObjects) {
@@ -617,15 +617,15 @@ function renderMarkdownValue(value: unknown, level: number): React.ReactNode {
               return (
                 <div key={i} className="space-y-1">
                   {objection && (
-                    <div className="bg-red-50 border-l-3 border-red-400 rounded p-2 text-sm">
-                      <span className="font-medium text-red-700">Objection: </span>
-                      <span className="text-red-900">{objection}</span>
+                    <div className="bg-error-bg border-l border-red-400 rounded p-2 text-sm">
+                      <span className="font-medium text-error">Objection: </span>
+                      <span className="text-error">{objection}</span>
                     </div>
                   )}
                   {counter && (
-                    <div className="bg-green-50 border-l-3 border-green-400 rounded p-2 text-sm">
-                      <span className="font-medium text-green-700">Counter: </span>
-                      <span className="text-green-900">{counter}</span>
+                    <div className="bg-success-bg border-l border-green-400 rounded p-2 text-sm">
+                      <span className="font-medium text-success">Counter: </span>
+                      <span className="text-success">{counter}</span>
                     </div>
                   )}
                 </div>
@@ -638,12 +638,12 @@ function renderMarkdownValue(value: unknown, level: number): React.ReactNode {
       return (
         <div className="space-y-2 mt-1">
           {value.map((item, i) => (
-            <div key={i} className="bg-gray-50 rounded p-2 text-sm">
+            <div key={i} className="bg-background rounded p-2 text-sm">
               {typeof item === "object" && item !== null ? (
                 Object.entries(item as Record<string, unknown>).map(([k, v]) => (
                   <div key={k} className="flex gap-2">
-                    <span className="font-medium text-gray-600 min-w-[80px]">{formatLabel(k)}:</span>
-                    <span className="text-gray-700">{String(v)}</span>
+                    <span className="font-medium text-text-secondary min-w-[80px]">{formatLabel(k)}:</span>
+                    <span className="text-text-secondary">{String(v)}</span>
                   </div>
                 ))
               ) : (
@@ -655,7 +655,7 @@ function renderMarkdownValue(value: unknown, level: number): React.ReactNode {
       );
     }
     return (
-      <ul className="list-disc list-inside text-sm text-gray-700 space-y-0.5">
+      <ul className="list-disc list-inside text-sm text-text-secondary space-y-0.5">
         {value.map((item, i) => (
           <li key={i}>{String(item)}</li>
         ))}
@@ -665,7 +665,7 @@ function renderMarkdownValue(value: unknown, level: number): React.ReactNode {
   if (typeof value === "object") {
     return <JsonToMarkdown data={value as Record<string, unknown>} level={level + 1} />;
   }
-  return <p className="text-sm text-gray-700">{String(value)}</p>;
+  return <p className="text-sm text-text-secondary">{String(value)}</p>;
 }
 
 function formatLabel(key: string): string {
@@ -685,8 +685,8 @@ function JsonEditor({ data, onChange }: { data: Record<string, unknown>; onChang
   return (
     <div className="space-y-4">
       {Object.entries(data).map(([key, value]) => (
-        <div key={key} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div key={key} className="border border-border rounded-lg p-4 bg-background">
+          <label className="block text-sm font-medium text-text-secondary mb-2">
             {formatLabel(key)}
           </label>
           <FieldEditor value={value} onChange={(v) => updateField(key, v)} />
@@ -733,8 +733,8 @@ function RevisionPanel({
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading history...</p>;
-  if (revisions.length === 0) return <p className="text-sm text-gray-500">No revision history yet.</p>;
+  if (loading) return <p className="text-sm text-text-tertiary">Loading history...</p>;
+  if (revisions.length === 0) return <p className="text-sm text-text-tertiary">No revision history yet.</p>;
 
   const previewed = revisions.find((r) => r.id === previewId);
 
@@ -742,20 +742,20 @@ function RevisionPanel({
     return (
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setPreviewId(null)} className="text-xs text-blue-600 hover:text-blue-800">
+          <button onClick={() => setPreviewId(null)} className="text-xs text-primary hover:text-primary-hover">
             &larr; Back to list
           </button>
-          <span className="text-xs text-gray-500">{timeAgo(previewed.createdAt)}</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded ${previewed.source === "extraction" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+          <span className="text-xs text-text-tertiary">{timeAgo(previewed.createdAt)}</span>
+          <span className={`text-xs px-1.5 py-0.5 rounded ${previewed.source === "extraction" ? "bg-info-bg text-info" : "bg-border text-text-secondary"}`}>
             {previewed.source}
           </span>
           {previewed.textProvider && (
-            <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">{previewed.textProvider}</span>
+            <span className="text-xs px-1.5 py-0.5 bg-primary/15 text-primary rounded">{previewed.textProvider}</span>
           )}
           <button
             onClick={() => handleRevert(previewed.id)}
             disabled={reverting}
-            className="ml-auto text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200 disabled:opacity-50"
+            className="ml-auto text-xs px-2 py-1 bg-warning-bg text-warning rounded hover:bg-warning-bg disabled:opacity-50"
           >
             {reverting ? "Reverting..." : "Revert to this"}
           </button>
@@ -771,14 +771,14 @@ function RevisionPanel({
         <button
           key={rev.id}
           onClick={() => setPreviewId(rev.id)}
-          className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          className="w-full text-left p-3 border border-border rounded-lg hover:bg-background flex items-center gap-2"
         >
-          <span className="text-sm text-gray-700 flex-1">{timeAgo(rev.createdAt)}</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded ${rev.source === "extraction" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+          <span className="text-sm text-text-secondary flex-1">{timeAgo(rev.createdAt)}</span>
+          <span className={`text-xs px-1.5 py-0.5 rounded ${rev.source === "extraction" ? "bg-info-bg text-info" : "bg-border text-text-secondary"}`}>
             {rev.source}
           </span>
           {rev.textProvider && (
-            <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">{rev.textProvider}</span>
+            <span className="text-xs px-1.5 py-0.5 bg-primary/15 text-primary rounded">{rev.textProvider}</span>
           )}
         </button>
       ))}
@@ -814,11 +814,11 @@ function FieldEditor({ value, onChange }: { value: unknown; onChange: (v: unknow
                 newArr[i] = e.target.value;
                 onChange(newArr);
               }}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
+              className="flex-1 px-3 py-2 border border-border-strong rounded text-sm text-text-primary"
             />
             <button
               onClick={() => onChange(value.filter((_, idx) => idx !== i))}
-              className="px-2 py-1 text-red-600 hover:text-red-800 text-sm"
+              className="px-2 py-1 text-error hover:text-error text-sm"
             >
               ×
             </button>
@@ -826,7 +826,7 @@ function FieldEditor({ value, onChange }: { value: unknown; onChange: (v: unknow
         ))}
         <button
           onClick={() => onChange([...value, ""])}
-          className="text-xs text-blue-600 hover:text-blue-800"
+          className="text-xs text-primary hover:text-primary-hover"
         >
           + Add item
         </button>
@@ -836,10 +836,10 @@ function FieldEditor({ value, onChange }: { value: unknown; onChange: (v: unknow
 
   if (typeof value === "object" && value !== null) {
     return (
-      <div className="space-y-3 pl-4 border-l-2 border-gray-200">
+      <div className="space-y-3 pl-4 border-l-2 border-border">
         {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
           <div key={k}>
-            <label className="block text-xs font-medium text-gray-500 mb-1">{formatLabel(k)}</label>
+            <label className="block text-xs font-medium text-text-tertiary mb-1">{formatLabel(k)}</label>
             <FieldEditor
               value={v}
               onChange={(newV) => onChange({ ...(value as Record<string, unknown>), [k]: newV })}
@@ -859,7 +859,7 @@ function FieldEditor({ value, onChange }: { value: unknown; onChange: (v: unknow
         value={strValue}
         onChange={(e) => onChange(e.target.value)}
         rows={4}
-        className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
+        className="w-full px-3 py-2 border border-border-strong rounded text-sm text-text-primary"
       />
     );
   }
@@ -869,7 +869,7 @@ function FieldEditor({ value, onChange }: { value: unknown; onChange: (v: unknow
       type="text"
       value={strValue}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900"
+      className="w-full px-3 py-2 border border-border-strong rounded text-sm text-text-primary"
     />
   );
 }
