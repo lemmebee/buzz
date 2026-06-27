@@ -198,6 +198,74 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* Analytics Section */}
+      {!loading && data && data.content.length > 0 && (
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Content Distribution */}
+          <div className="rounded-lg border border-border bg-surface p-6">
+            <h3 className="mb-4 text-sm font-medium text-text-primary">Content Distribution</h3>
+            <div className="space-y-3">
+              {(["draft", "approved", "scheduled", "posted"] as const).map((status) => {
+                const count = data.content.filter((c) => c.status === status).length;
+                const percentage = data.content.length > 0 ? (count / data.content.length) * 100 : 0;
+                const colors = {
+                  draft: "bg-border",
+                  approved: "bg-warning",
+                  scheduled: "bg-primary",
+                  posted: "bg-success",
+                };
+                return (
+                  <div key={status}>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="capitalize text-text-secondary">{status}</span>
+                      <span className="text-text-tertiary">{count} ({percentage.toFixed(0)}%)</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-border/30">
+                      <div
+                        className={`h-full ${colors[status]} transition-all`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Product Performance */}
+          <div className="rounded-lg border border-border bg-surface p-6">
+            <h3 className="mb-4 text-sm font-medium text-text-primary">Product Performance</h3>
+            <div className="space-y-3">
+              {data.products
+                .map((product) => {
+                  const count = data.content.filter((c) => c.productId === product.id).length;
+                  return { product, count };
+                })
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5)
+                .map(({ product, count }) => {
+                  const maxCount = Math.max(...data.products.map((p) => data.content.filter((c) => c.productId === p.id).length));
+                  const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                  return (
+                    <div key={product.id}>
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span className="truncate text-text-secondary">{product.name}</span>
+                        <span className="text-text-tertiary">{count} posts</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-border/30">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="rounded-lg border border-border bg-surface">

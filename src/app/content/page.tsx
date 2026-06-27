@@ -1,13 +1,16 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
 import { ContentCard } from "@/components/ContentCard";
+import { ContentCalendar } from "@/components/ContentCalendar";
 import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 import { ContentItem, Product } from "../../../drizzle/schema";
-import { Check, Trash2, Calendar, X, Search } from "lucide-react";
+import { Check, Trash2, Calendar, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
+
+const ITEMS_PER_PAGE = 12;
 
 const statuses = ["all", "draft", "approved", "scheduled", "posted"] as const;
 
@@ -21,6 +24,7 @@ export default function ContentPage() {
 
 function ContentPageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { confirm, close, isOpen, title, description, onConfirm, variant } = useConfirm();
   const [posts, setPosts] = useState<ContentItem[]>([]);
   const [products, setProducts] = useState<Record<number, Product>>({});
@@ -36,6 +40,8 @@ function ContentPageInner() {
   const [bulkScheduleOpen, setBulkScheduleOpen] = useState(false);
   const [bulkScheduleDate, setBulkScheduleDate] = useState("");
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<"grid" | "calendar">("grid");
 
   useEffect(() => {
     fetchData();
@@ -154,11 +160,11 @@ function ContentPageInner() {
   }
 
   function toggleSelectAll() {
-    const filteredPosts = posts.filter((p) => productFilter === "all" || p.productId === productFilter);
-    if (selectedIds.size === filteredPosts.length) {
+    const postsOnPage = paginatedPosts;
+    if (selectedIds.size === postsOnPage.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredPosts.map((p) => p.id)));
+      setSelectedIds(new Set(postsOnPage.map((p) => p.id)));
     }
   }
 
@@ -233,6 +239,18 @@ function ContentPageInner() {
     }
     return true;
   });
+
+  const totalPages = Math.ceil(filteredPosts.length / ITEMS_PER_PAGE);
+  const paginatedPosts = filteredPosts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, productFilter, filter]);
+
   const selectedCount = selectedIds.size;
 
   // Status counts
@@ -286,6 +304,28 @@ function ContentPageInner() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-md border border-border bg-surface py-1.5 pl-9 pr-4 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
+          </div>
+          <div className="flex gap-1 rounded-lg border border-border bg-surface p-1">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`rounded-md px-3 py-1.5 text-sm ${
+                viewMode === "grid"
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:bg-background"
+              }`}
+            >
+              Grid
+            </button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={`rounded-md px-3 py-1.5 text-sm ${
+                viewMode === "calendar"
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:bg-background"
+              }`}
+            >
+              Calendar
+            </button>
           </div>
         </div>
 
@@ -381,6 +421,12 @@ function ContentPageInner() {
               </p>
             )}
           </div>
+        ) : viewMode === "calendar" ? (
+          <ContentCalendar
+            posts={filteredPosts}
+            products={products}
+            onPostClick={(post) => router.push(`/content/${post.id}`)}
+          />
         ) : (
           <>
             {/* Select All */}
@@ -394,7 +440,7 @@ function ContentPageInner() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredPosts.map((post) => (
+              {paginatedPosts.map((post) => (
                 <div key={post.id} className="relative">
                   {/* Selection Checkbox */}
                   <div className="absolute top-3 left-3 z-10">
@@ -416,6 +462,43 @@ function ContentPageInner() {
                 </div>
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-secondary hover:bg-background disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`rounded-md px-3 py-2 text-sm ${
+                        currentPage === page
+                          ? "bg-primary text-white"
+                          : "border border-border bg-surface text-text-secondary hover:bg-background"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-1 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-secondary hover:bg-background disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </>
         )}
       </main>
