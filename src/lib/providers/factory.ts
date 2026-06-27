@@ -1,11 +1,17 @@
 import type { TextProvider, AudioProvider, VideoProvider } from "./types";
 import { createHuggingFaceTextProvider } from "./text";
 import { createGeminiTextProvider } from "./gemini";
+import { createAntigravityTextProvider } from "./antigravity";
 import { createMsEdgeTtsAudioProvider } from "./audio";
 import { createFfmpegVideoProvider } from "./video";
 
 export function createTextProvider(providerName?: string): TextProvider {
   const provider = providerName || process.env.TEXT_PROVIDER || "gemini";
+
+  if (provider.startsWith("antigravity")) {
+    const model = provider.includes(":") ? provider.split(":").slice(1).join(":") : undefined;
+    return createAntigravityTextProvider(model ? { model } : {});
+  }
 
   switch (provider) {
     case "gemini":
