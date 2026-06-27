@@ -104,12 +104,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onMobileClose
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     {!collapsed && (
-                      <>
-                        <span className="flex-1">{item.label}</span>
-                        <kbd className="text-xs text-text-tertiary">
-                          {item.shortcut}
-                        </kbd>
-                      </>
+                      <span className="flex-1">{item.label}</span>
                     )}
                   </Link>
                 </li>

@@ -25,7 +25,6 @@ interface CommandItem {
   icon: React.ComponentType<{ className?: string }>;
   action: () => void;
   group: string;
-  shortcut?: string;
 }
 
 export function CommandPalette({ products = [] }: CommandPaletteProps) {
@@ -51,7 +50,6 @@ export function CommandPalette({ products = [] }: CommandPaletteProps) {
       icon: Home,
       action: () => navigate("/"),
       group: "Navigation",
-      shortcut: "1",
     },
     {
       id: "products",
@@ -59,7 +57,6 @@ export function CommandPalette({ products = [] }: CommandPaletteProps) {
       icon: Package,
       action: () => navigate("/products"),
       group: "Navigation",
-      shortcut: "2",
     },
     {
       id: "generate",
@@ -67,7 +64,6 @@ export function CommandPalette({ products = [] }: CommandPaletteProps) {
       icon: Sparkles,
       action: () => navigate("/generate"),
       group: "Navigation",
-      shortcut: "3",
     },
     {
       id: "content",
@@ -75,7 +71,6 @@ export function CommandPalette({ products = [] }: CommandPaletteProps) {
       icon: Inbox,
       action: () => navigate("/content"),
       group: "Navigation",
-      shortcut: "4",
     },
     {
       id: "schedules",
@@ -83,7 +78,6 @@ export function CommandPalette({ products = [] }: CommandPaletteProps) {
       icon: Calendar,
       action: () => navigate("/schedules"),
       group: "Navigation",
-      shortcut: "5",
     },
     {
       id: "settings",
@@ -91,7 +85,6 @@ export function CommandPalette({ products = [] }: CommandPaletteProps) {
       icon: Settings,
       action: () => navigate("/settings"),
       group: "Navigation",
-      shortcut: "6",
     },
     {
       id: "new-product",
@@ -231,11 +224,6 @@ export function CommandPalette({ products = [] }: CommandPaletteProps) {
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />
                       <span className="flex-1 text-left">{cmd.label}</span>
-                      {cmd.shortcut && (
-                        <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-xs text-text-tertiary">
-                          {cmd.shortcut}
-                        </kbd>
-                      )}
                       <ArrowRight className="h-3 w-3 text-text-tertiary" />
                     </button>
                   );
