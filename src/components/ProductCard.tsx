@@ -154,16 +154,16 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
               <span className="text-xs px-2 py-0.5 bg-info-bg text-info rounded cursor-help">
                 audience
               </span>
-              <div className="absolute left-0 top-full mt-2 hidden group-hover/audience:block z-10 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
-                <div className="absolute left-4 bottom-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900" />
+              <div className="absolute left-0 top-full mt-2 hidden group-hover/audience:block z-10 w-64 p-3 bg-elevated text-text-primary text-xs rounded-lg shadow-lg border border-border">
+                <div className="absolute left-4 bottom-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-border" />
                 {audience.primary && (
-                  <p className="mb-1"><span className="text-text-muted">Primary:</span> {audience.primary}</p>
+                  <p className="mb-1"><span className="text-text-tertiary">Primary:</span> {audience.primary}</p>
                 )}
                 {audience.demographics && (
-                  <p className="mb-1"><span className="text-text-muted">Demographics:</span> {audience.demographics}</p>
+                  <p className="mb-1"><span className="text-text-tertiary">Demographics:</span> {audience.demographics}</p>
                 )}
                 {audience.psychographics && (
-                  <p><span className="text-text-muted">Psychographics:</span> {audience.psychographics}</p>
+                  <p><span className="text-text-tertiary">Psychographics:</span> {audience.psychographics}</p>
                 )}
               </div>
             </div>

@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { ContentItem as Post, Product } from "../../../../drizzle/schema";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
+import { Skeleton } from "@/components/Skeleton";
+import { InstagramPhonePreview } from "@/components/InstagramPhonePreview";
 
 const statuses = ["draft", "approved", "scheduled", "posted"] as const;
 const types = ["reel", "post", "story", "ad"] as const;
@@ -141,8 +143,27 @@ export default function ContentEditPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-text-tertiary">Loading...</p>
+      <div className="min-h-screen bg-background">
+        <main className="mx-auto max-w-3xl px-6 py-8">
+          <div className="mb-6 flex items-center justify-between">
+            <Skeleton className="h-8 w-40" />
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-16" />
+            </div>
+          </div>
+          <div className="bg-surface rounded-lg border border-border p-6 space-y-6">
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-40 w-full" />
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </main>
       </div>
     );
   }
@@ -151,7 +172,7 @@ export default function ContentEditPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="mx-auto max-w-3xl px-6 py-8">
+      <main className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-text-primary">Edit Content</h1>
           <div className="flex gap-2">
@@ -179,126 +200,136 @@ export default function ContentEditPage() {
             </button>
           </div>
         </div>
-        <div className="bg-surface rounded-lg border border-border p-6 space-y-6">
-          {/* Product info */}
-          {product && (
-            <div className="text-sm text-text-tertiary">
-              Product: <span className="font-medium text-text-secondary">{product.name}</span>
-            </div>
-          )}
 
-          {/* Type & Status */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">
-                Type
-              </label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-              >
-                {types.map((t) => (
-                  <option key={t} value={t}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">
-                Status
-              </label>
-              <select
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  if (e.target.value !== "scheduled" && e.target.value !== "approved") {
-                    setScheduledAt("");
-                  }
-                }}
-                className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-              >
-                {statuses.map((s) => (
-                  <option key={s} value={s}>
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+          <div className="bg-surface rounded-lg border border-border p-6 space-y-6">
+            {/* Product info */}
+            {product && (
+              <div className="text-sm text-text-tertiary">
+                Product: <span className="font-medium text-text-secondary">{product.name}</span>
+              </div>
+            )}
 
-          {/* Schedule */}
-          {(status === "approved" || status === "scheduled") && (
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">
-                Schedule For
-              </label>
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-                className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-              />
-              {scheduledAt && (
-                <p className="text-xs text-primary mt-1">
-                  Will auto-post at this time
-                </p>
-              )}
+            {/* Type & Status */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Type
+                </label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                >
+                  {types.map((t) => (
+                    <option key={t} value={t}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Status
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value);
+                    if (e.target.value !== "scheduled" && e.target.value !== "approved") {
+                      setScheduledAt("");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                >
+                  {statuses.map((s) => (
+                    <option key={s} value={s}>
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          )}
 
-          {/* Content */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Content
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={6}
-              className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-              placeholder="Post content..."
-            />
-          </div>
-
-          {/* Media URL */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Media URL
-            </label>
-            <input
-              type="text"
-              value={mediaUrl}
-              onChange={(e) => setMediaUrl(e.target.value)}
-              className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
-              placeholder="https://..."
-            />
-            {/* Media preview */}
-            {mediaUrl && (
-              <div className="mt-3 max-w-sm">
-                {/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl) ? (
-                  <video
-                    src={mediaUrl}
-                    controls
-                    muted
-                    loop
-                    playsInline
-                    className="w-full rounded-lg border border-border"
-                  />
-                ) : (
-                  <img
-                    src={mediaUrl}
-                    alt="Preview"
-                    className="w-full rounded-lg border border-border cursor-pointer"
-                    onClick={() => setLightboxSrc(mediaUrl)}
-                  />
+            {/* Schedule */}
+            {(status === "approved" || status === "scheduled") && (
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1">
+                  Schedule For
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                />
+                {scheduledAt && (
+                  <p className="text-xs text-primary mt-1">
+                    Will auto-post at this time
+                  </p>
                 )}
               </div>
             )}
-            {lightboxSrc && (
-              <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
-            )}
+
+            {/* Content */}
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Content
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={6}
+                className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                placeholder="Post content..."
+              />
+            </div>
+
+            {/* Media URL */}
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Media URL
+              </label>
+              <input
+                type="text"
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+                className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                placeholder="https://..."
+              />
+              {/* Media preview */}
+              {mediaUrl && (
+                <div className="mt-3 max-w-sm">
+                  {/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl) ? (
+                    <video
+                      src={mediaUrl}
+                      controls
+                      muted
+                      loop
+                      playsInline
+                      className="w-full rounded-lg border border-border"
+                    />
+                  ) : (
+                    <img
+                      src={mediaUrl}
+                      alt="Preview"
+                      className="w-full rounded-lg border border-border cursor-pointer"
+                      onClick={() => setLightboxSrc(mediaUrl)}
+                    />
+                  )}
+                </div>
+              )}
+              {lightboxSrc && (
+                <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+              )}
+            </div>
+          </div>
+
+          {/* Instagram Preview */}
+          <div className="hidden lg:block">
+            <div className="sticky top-8">
+              <InstagramPhonePreview content={content} mediaUrl={mediaUrl} type={type} />
+            </div>
           </div>
         </div>
       </main>
