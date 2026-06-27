@@ -8,7 +8,7 @@ import { ImageLightbox } from "@/components/ImageLightbox";
 import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 
 const statuses = ["draft", "approved", "scheduled", "posted"] as const;
-const types = ["reel", "post", "story"] as const;
+const types = ["reel", "post", "story", "ad"] as const;
 
 export default function ContentEditPage() {
   const params = useParams();
@@ -76,13 +76,18 @@ export default function ContentEditPage() {
   async function handleSave() {
     setSaving(true);
 
+    // Extract hashtags from content (anything starting with #)
+    const hashtagMatches = content.match(/#[\w\u0080-\uFFFF]+/g) || [];
+    const hashtags = hashtagMatches.map(tag => tag.replace(/^#+/, ""));
+    const cleanContent = content.replace(/\n*#[\w\u0080-\uFFFF]+(\s+#[\w\u0080-\uFFFF]+)*\s*$/, "").trim();
+
     const saveStatus = scheduledAt ? "scheduled" : status;
-    await fetch(`/api/posts/${params.id}`, {
+    const res = await fetch(`/api/posts/${params.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        content,
-        hashtags: [],
+        content: cleanContent,
+        hashtags,
         type,
         status: saveStatus,
         mediaUrl: mediaUrl || null,
@@ -90,13 +95,24 @@ export default function ContentEditPage() {
       }),
     });
 
+    if (res.ok) {
+      toast.success("Post saved");
+    } else {
+      toast.error("Failed to save post");
+    }
+
     setSaving(false);
     router.push("/content");
   }
 
   async function handleDelete() {
     confirm("Delete Post", "Are you sure you want to delete this post?", async () => {
-      await fetch(`/api/posts/${params.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/posts/${params.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Post deleted");
+      } else {
+        toast.error("Failed to delete post");
+      }
       router.push("/content");
     }, "destructive");
   }
