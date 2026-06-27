@@ -91,7 +91,7 @@ function SettingsContent() {
         <select
           value={textProvider}
           onChange={(e) => updateTextProvider(e.target.value)}
-          className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
         >
           {TEXT_PROVIDERS.map((p) => (
             <option key={p.value} value={p.value}>

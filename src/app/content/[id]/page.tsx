@@ -219,7 +219,7 @@ export default function ContentEditPage() {
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
-                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-sm text-text-primary"
                 >
                   {types.map((t) => (
                     <option key={t} value={t}>
@@ -240,7 +240,7 @@ export default function ContentEditPage() {
                       setScheduledAt("");
                     }
                   }}
-                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-sm text-text-primary"
                 >
                   {statuses.map((s) => (
                     <option key={s} value={s}>
@@ -261,7 +261,7 @@ export default function ContentEditPage() {
                   type="datetime-local"
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}
-                  className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-sm text-text-primary"
                 />
                 {scheduledAt && (
                   <p className="text-xs text-primary mt-1">
@@ -280,7 +280,7 @@ export default function ContentEditPage() {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={6}
-                className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-sm text-text-primary"
                 placeholder="Post content..."
               />
             </div>
@@ -294,7 +294,7 @@ export default function ContentEditPage() {
                 type="text"
                 value={mediaUrl}
                 onChange={(e) => setMediaUrl(e.target.value)}
-                className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-sm text-text-primary"
                 placeholder="https://..."
               />
               {/* Media preview */}

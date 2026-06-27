@@ -739,7 +739,7 @@ export default function GeneratePage() {
                       setScreenshotPreviews((prev) => [...prev, ...newPreviews]);
                       if (screenshotInputRef.current) screenshotInputRef.current.value = "";
                     }}
-                    className="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                    className="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary file:text-white hover:file:bg-primary-hover"
                   />
                   {screenshotPreviews.length > 0 && (
                     <div className="mt-3 grid grid-cols-4 gap-2">

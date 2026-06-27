@@ -201,7 +201,7 @@ export default function SchedulesPage() {
                 <select
                   value={formProductId}
                   onChange={(e) => setFormProductId(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -213,7 +213,7 @@ export default function SchedulesPage() {
                 <select
                   value={formPlatform}
                   onChange={(e) => setFormPlatform(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {PLATFORMS.map((p) => (
                     <option key={p} value={p}>{p}</option>
@@ -230,7 +230,7 @@ export default function SchedulesPage() {
                       setFormTargetSurface("post");
                     }
                   }}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {MEDIA_TYPES.map((m) => (
                     <option key={m} value={m}>{m}</option>
@@ -242,7 +242,7 @@ export default function SchedulesPage() {
                 <select
                   value={formTargetSurface}
                   onChange={(e) => setFormTargetSurface(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {CONTENT_TYPES
                     .filter((t) => !(t === "reel" && formMediaType === "image"))
@@ -256,7 +256,7 @@ export default function SchedulesPage() {
                 <select
                   value={formConfig.aspectRatio}
                   onChange={(e) => setFormConfig({ ...formConfig, aspectRatio: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {ASPECT_OPTIONS.map((a) => (
                     <option key={a} value={a}>{a}</option>
@@ -275,7 +275,7 @@ export default function SchedulesPage() {
                       onChange={(e) =>
                         setFormConfig({ ...formConfig, durationSec: parseInt(e.target.value) || 15 })
                       }
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                     />
                   </div>
                   <div className="flex items-end">
@@ -297,7 +297,7 @@ export default function SchedulesPage() {
                 <select
                   value={formCount}
                   onChange={(e) => setFormCount(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>{n}</option>
@@ -309,7 +309,7 @@ export default function SchedulesPage() {
                 <select
                   value={formFrequency}
                   onChange={(e) => setFormFrequency(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 >
                   {FREQUENCY_OPTIONS.map((f) => (
                     <option key={f.value} value={f.value}>{f.label}</option>
@@ -322,7 +322,7 @@ export default function SchedulesPage() {
                   type="time"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 />
               </div>
             </div>
@@ -440,7 +440,7 @@ export default function SchedulesPage() {
                   value={dsChannelId}
                   onChange={(e) => setDsChannelId(e.target.value)}
                   placeholder="123456789012345678"
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-text-primary"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary"
                 />
               </div>
             </div>
