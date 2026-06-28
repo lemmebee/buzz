@@ -35,6 +35,10 @@ const tabs: { id: Tab; label: string; icon: typeof FileText }[] = [
   { id: "content", label: "Content", icon: Inbox },
 ];
 
+function stripFrontmatter(content: string): string {
+  return content.replace(/^---\n[\s\S]*?\n---\n/, "");
+}
+
 export default function ProductDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const router = useRouter();
@@ -315,7 +319,7 @@ function OverviewTab({
       <div>
         <h3 className="text-sm font-medium text-text-secondary mb-2">Description</h3>
         <div className="prose prose-sm max-w-none prose-headings:text-text-primary prose-headings:mt-4 prose-headings:mb-2 prose-p:text-text-primary prose-p:my-2 prose-li:text-text-primary prose-li:my-0.5 prose-ul:my-2 prose-ol:my-2 prose-strong:text-text-primary prose-code:text-text-primary prose-code:bg-border prose-code:px-1 prose-code:rounded prose-pre:bg-border prose-pre:text-text-primary prose-pre:my-3 prose-blockquote:text-text-primary prose-blockquote:border-l-2 prose-blockquote:border-border-strong prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:my-4 prose-a:text-primary prose-a:underline prose-a:hover:text-primary-hover">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{product.description}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripFrontmatter(product.description)}</ReactMarkdown>
         </div>
       </div>
 
@@ -397,7 +401,7 @@ function BriefTab({ product }: { product: Product }) {
               <p className="text-xs text-text-tertiary mb-4">{product.planFileName}</p>
             )}
             <div className="prose prose-sm max-w-none prose-headings:text-text-primary prose-headings:mt-4 prose-headings:mb-2 prose-p:text-text-secondary prose-p:my-2 prose-li:text-text-secondary prose-li:my-0.5 prose-ul:my-2 prose-ol:my-2 prose-strong:text-text-primary prose-code:text-text-primary prose-code:bg-border prose-code:px-1 prose-code:rounded prose-pre:bg-border prose-pre:text-text-primary prose-pre:my-3 prose-blockquote:text-text-primary prose-blockquote:border-l-2 prose-blockquote:border-border-strong prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:my-4 prose-a:text-primary prose-a:underline prose-a:hover:text-primary-hover">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{product.planFile}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripFrontmatter(product.planFile || "")}</ReactMarkdown>
             </div>
           </div>
         ) : (
