@@ -6,9 +6,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."   # project root
 
-# Use the prod DB for any schema sync (read from .env.prod so it stays in one place).
+# Read prod settings from .env.prod so build + DB sync use the prod values.
 export DATABASE_PATH="$(grep -E '^DATABASE_PATH=' .env.prod | cut -d= -f2-)"
-echo "==> Deploying buzz-prod (DATABASE_PATH=$DATABASE_PATH)"
+export NEXT_DIST_DIR="$(grep -E '^NEXT_DIST_DIR=' .env.prod | cut -d= -f2-)"
+echo "==> Deploying buzz-prod (DATABASE_PATH=$DATABASE_PATH, NEXT_DIST_DIR=$NEXT_DIST_DIR)"
 
 echo "==> Building..."
 npm run build
