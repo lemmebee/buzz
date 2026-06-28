@@ -274,7 +274,8 @@ export function buildContentGenerationPrompt(
   targeting?: ContentTargeting,
   accountHandle?: string,
   productName?: string,
-  llmInstructions?: string
+  llmInstructions?: string,
+  imageStyle?: string
 ): { prompt: string; metadata: GenerationMetadata } {
   const profile = normalizeProfile(rawProfile);
   const strategy = normalizeStrategy(rawStrategy);
@@ -301,6 +302,9 @@ export function buildContentGenerationPrompt(
   const brandStyle = profile.visualIdentity?.style || "";
   const brandColors = profile.visualIdentity?.colors || "";
   const brandMood = profile.visualIdentity?.mood || "";
+
+  // Image scene style: "product" (depict the product in context) | "abstract" (brand-mood still-life, original pipeline)
+  const productScene = imageStyle !== "abstract";
 
   // Build targeted sections
   const sections: string[] = [];
@@ -442,7 +446,9 @@ IMAGE CLASSIFICATION — for EACH image, determine its type:
 
 A) FEATURE SPOTLIGHT (app screen, UI screenshot, product feature, dashboard, product photo)
    → CAPTION: reference specific UI elements, features, or experiences visible. Be concrete.
-   → IMAGE PROMPT: create a scene rooted in the feature's real-world subject matter - what the user DOES or FEELS when using it. Don't recreate the UI - depict the real-world context the feature lives in, styled using the product's visual identity. Example: a mood tracking screen → a warm evening scene with a journal and candlelight in the brand's color palette. A budget dashboard → a serene workspace with neatly sorted objects in brand colors.
+   → IMAGE PROMPT: ${productScene
+    ? `convey what ${name} does and how it FEELS for THIS post's topic with a FRESH concept — draw on the Brand Story metaphor and Core Value, not a stock phone-on-a-desk shot. The device is optional; if shown, keep its screen textless abstract color blocks. Vary subject, composition and lighting from other posts.`
+    : `create a scene rooted in the feature's real-world subject matter - what the user DOES or FEELS when using it. Don't recreate the UI - depict the real-world context the feature lives in, styled using the product's visual identity. Example: a mood tracking screen → a warm evening scene with a journal and candlelight in the brand's color palette. A budget dashboard → a serene workspace with neatly sorted objects in brand colors.`}
 
 B) STYLE REFERENCE (moodboard, aesthetic inspo, design reference, color palette, lifestyle photo)
    → CAPTION: do NOT mention or describe this image. It's for visual direction only.
@@ -465,8 +471,10 @@ The image model cannot see these images - your description is the only bridge. W
 - Do NOT add quality tags like "8k", "uhd", "highly detailed" — Flux ignores them
 - Target 20-60 words for the scene field
 - NEVER include people, human figures, faces, hands, or body parts — Flux renders them poorly
-- NEVER include text, lettering, words, or typography in the scene — Flux cannot render text correctly
-- Focus on products, objects, environments, abstract compositions, and still-life setups instead`);
+- NEVER include readable text, lettering, words, logos, or typography — Flux cannot render text correctly
+${productScene
+  ? `- Capture what ${name} IS and how it FEELS for THIS post's specific hook — lean on the Brand Story metaphor and Core Value above, not generic decor\n- VARY every image: rotate the concept, composition, angle and lighting between posts. Do NOT default to a phone lying on a desk next to a coffee cup — that repeated flatlay is banned\n- Each post, pick ONE concept from a DIFFERENT family: (a) the brand's core metaphor made visual, (b) the real moment of use, (c) the emotional outcome/feeling, (d) a bold abstract brand-motif with strong negative space and a soft primary-tinted glow, (e) the product's domain objects. The device is OPTIONAL — include it only if it serves the concept; any screen stays textless-abstract\n- Range the lighting and mood (calm warm light AND bold or moody/dark are both on-brand when the palette supports them) so images don't all look like the same warm beige scene`
+  : `- Focus on products, objects, environments, abstract compositions, and still-life setups that evoke the product's essence — no devices, no UI`}`);
   sections.push("");
 
   sections.push(`Produce BOTH a caption and image generation instructions together, so they are creatively aligned.
@@ -476,7 +484,9 @@ Return ONLY valid JSON:
   "caption": "the full caption text without hashtags",
   "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
   "imagePrompt": {
-    "scene": "Natural language paragraph describing an environment, abstract composition, or still-life that evokes the product's essence. Lead with the main visual element. Include setting, lighting, camera spec, and brand colors woven naturally. No people, no devices, no text. Example: 'A sunlit loft workspace with exposed brick walls and monstera plants, warm amber light pooling across a navy blue velvet surface with scattered gold geometric shapes, shot on 50mm f/2.0 with shallow depth of field.'",
+    "scene": "${productScene
+      ? `Natural language paragraph for ONE distinct concept conveying ${name}'s essence and THIS post's hook (use the Brand Story metaphor and Core Value). Lead with the main visual element; include setting, lighting, camera spec and brand colors woven naturally. No people, no readable text. Make each post visibly different in subject, composition and lighting — do NOT reuse a phone-next-to-coffee flatlay; the device is optional and any screen is textless-abstract. Vary the direction across posts, e.g.: the brand metaphor made visual; a single bold subject in vast negative space with a soft primary-tinted glow; a moody dark scene lit by one accent color; the product's domain objects arranged with calm intention.`
+      : `Natural language paragraph describing an environment, abstract composition, or still-life that evokes the product's essence. Lead with the main visual element. Include setting, lighting, camera spec, and brand colors woven naturally. No people, no devices, no text. Example: 'A sunlit loft workspace with exposed brick walls and monstera plants, warm amber light pooling across a navy blue velvet surface with scattered gold geometric shapes, shot on 50mm f/2.0 with shallow depth of field.'`}",
     "brandColorUsage": "How brand colors appear in the scene (e.g. 'navy in the furniture, amber in the lighting')",
     "mood": "single word or short phrase — energetic, calm, luxurious, playful, professional, cozy, etc.",
     "style": "one of: photo-realistic, illustrated, minimal-graphic, cinematic, 3d-render, flat-design",

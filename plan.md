@@ -1,506 +1,176 @@
-# Buzz UX Refactor Plan
+# Plan: Configurable Image Providers + Settings-managed API Keys
 
-## Business Flow
+**Status:** Plan only — no code changes yet.
+**Date:** 2026-06-28
+
+## Objective
+
+Let the app generate images with any of three providers — **Pollinations**, **Google AI Studio (Gemini)**, or **HuggingFace** — chosen **per product** (mirroring the existing per-product `text_provider`). All API keys (text *and* image) move out of `.env` and into the DB-backed **Settings** UI, which becomes the single source of truth.
+
+## Confirmed decisions
+
+| # | Decision | Resolution |
+|---|----------|------------|
+| 1 | Default image provider | **Pollinations** stays the default — nothing changes until a product/global setting selects otherwise. |
+| 2 | Gemini SDK | Use the **already-installed** `@google/generative-ai@0.24.1` (no new dependency). HuggingFace shows a **model dropdown** (researched options below). |
+| 3 | Scope | **Per-product** image provider, mirroring `products.text_provider`. Global default lives in Settings as the fallback. |
+| 4 | API keys | **No API keys in `.env`.** Both text and image provider keys are entered in Settings and read from the DB. |
+| 5 | Secret handling | `GET /api/settings` masks secret values; key inputs are write-only. |
+
+---
+
+## Research findings
+
+### Google Gemini image generation with the installed SDK
+
+- `@google/generative-ai@0.24.1` is **officially deprecated/legacy** (its `README.md` line 1: "[Deprecated] Google AI JavaScript SDK"; recommends migrating to `@google/genai`). Its TypeScript types **do not** include `responseModalities`.
+- **However**, the SDK is a thin pass-through: `dist/index.js` builds the request with `Object.assign({ generationConfig: this.generationConfig, ... }, formattedParams)` (lines ~1377/1393) — it does **not** whitelist `generationConfig` fields. So a `generationConfig: { responseModalities: ["Image"] }` passed via a TS cast is forwarded verbatim to the `v1beta` endpoint.
+- Reading image output is supported: the response part type `GenerativeContentBlob` / `inlineData` exists in the type defs. Image bytes arrive as `response.candidates[0].content.parts[].inlineData = { mimeType, data (base64) }`.
+- **Model:** `gemini-2.5-flash-image` ("Nano Banana"). Aspect ratio is hinted via prompt (the `imageConfig.aspectRatio` knob is a `@google/genai`-only convenience).
+- **Caveat / risk:** because we rely on undocumented pass-through of a deprecated SDK, a runtime smoke test is mandatory (see Phase 7). Pricing for reference: ~$0.039/image (1290 output tokens @ $30/1M).
+
+### Best HuggingFace text-to-image models to offer (mid-2026)
+
+| Model id | Why offer it |
+|----------|--------------|
+| `black-forest-labs/FLUX.1-schnell` | Fast, Apache-2.0, most free-tier-friendly — **default** |
+| `black-forest-labs/FLUX.1-dev` | Higher quality than schnell |
+| `Qwen/Qwen-Image` | Current quality leader (Feb 2026 "Qwen-Image-2.0"); best complex-text rendering, native 2K |
+| `stabilityai/stable-diffusion-3.5-large` | Strong general-purpose alternative |
+
+- **Endpoint risk:** HF's serverless image surface is in flux (classic `api-inference.huggingface.co` vs. the newer Inference Providers router). Plan: default to `POST https://api-inference.huggingface.co/models/{model}` returning raw image bytes; if a chosen model is only on Inference Providers, fall back to the router. **Confirm the working endpoint per model during implementation** (Phase 2).
+
+**Sources:**
+- [Gemini API — Image generation](https://ai.google.dev/gemini-api/docs/image-generation)
+- [Introducing Gemini 2.5 Flash Image (Nano Banana)](https://developers.googleblog.com/introducing-gemini-2-5-flash-image/)
+- [`@google/generative-ai` deprecation / migration](https://ai.google.dev/gemini-api/docs/migrate)
+- [HuggingFace — Text-to-Image task](https://huggingface.co/docs/inference-providers/tasks/text-to-image)
+- [Qwen-Image (HF)](https://huggingface.co/Qwen/Qwen-Image)
+- [Text-to-Image model king: Qwen Image vs FLUX](https://huggingface.co/blog/MonsterMMORPG/new-text-to-image-model-king-is-qwen-image-flux-de)
+
+---
+
+## Architecture
+
+### Data model
+
+- **No new settings table** — reuse `settings(key unique, value)` (`drizzle/schema.ts:104`). New keys are just rows (no migration):
+  - `IMAGE_PROVIDER` — global default: `pollinations` \| `gemini` \| `huggingface` (default `pollinations`)
+  - `IMAGE_MODEL_HUGGINGFACE` — selected HF model (default `black-forest-labs/FLUX.1-schnell`)
+  - `GOOGLE_AI_API_KEY`, `HUGGINGFACE_API_KEY`, `POLLINATIONS_API_KEY` — secret (shared: the Google/HF keys power **both** text and image)
+- **New per-product column** (`drizzle/schema.ts`, after line 17 `text_provider`): `imageProvider: text("image_provider")` — nullable; `null` = use global default. **Requires `npm run db:push`** (per project memory: use `db:push`, not generate/migrate — journal is stale).
+
+### Resolution logic (the core contract)
 
 ```
-Login → Dashboard → Add Product (AI extracts profile) → Connect Instagram → Generate Content → Review/Approve → Schedule/Post
+resolveImageProvider(productImageProvider?):
+  name = productImageProvider || getSetting("IMAGE_PROVIDER") || env.IMAGE_PROVIDER || "pollinations"
+  key  = getApiKey(KEY_FOR[name])            // settings-first, env fallback
+  switch name:
+    pollinations -> createPollinationsImageProvider({ apiKey: key })
+    gemini       -> createGeminiImageProvider({ apiKey: key })
+    huggingface  -> createHuggingFaceImageProvider({ apiKey: key, model: getImageModel() })
+
+getApiKey(name)   = (await getSetting(name)) || process.env[name] || ""
+getImageModel()   = (await getSetting("IMAGE_MODEL_HUGGINGFACE")) || "black-forest-labs/FLUX.1-schnell"
 ```
 
-The app is a content pipeline: product briefs go in, AI-generated Instagram posts come out, managed through a draft → approved → scheduled → posted lifecycle.
+**Hard invariant (do not break):** every image provider must save the file under `public/media/` and return `localPath` (a `/api/media/...` path). The video orchestrator depends on it — `orchestrator.ts:250` does `urlPathToFs(imgResult.localPath)` for ffmpeg. The current Pollinations provider already does this.
+
+### Why env stays a *silent* fallback
+
+`getApiKey` reads Settings first, then `process.env`. This keeps existing deployments working through the migration. `.env.example` will **stop listing the keys as required** (documented as "set via Settings UI"). This honors "nothing in `.env` for keys" while avoiding a hard breakage if a key isn't yet entered. (If you want a *hard* removal with no env fallback, say so — it's a one-line change but means generation throws until keys are entered in Settings.)
 
 ---
 
-## Critical UX Problems
+## Implementation phases
 
-### 1. No real navigation
-Every page uses a `←` back arrow as the only navigation. No sidebar, no tabs, no persistent nav. Users bounce through the dashboard to switch sections. This is the #1 usability problem.
+### Phase 1 — Settings helpers (`src/lib/settings.ts`)
+Add, mirroring the existing `getTextProvider()`:
+- `getImageProviderName(): Promise<string>` → `getSetting("IMAGE_PROVIDER") || process.env.IMAGE_PROVIDER || "pollinations"`
+- `getApiKey(name: string): Promise<string>` → `getSetting(name) || process.env[name] || ""`
+- `getImageModel(): Promise<string>` → `getSetting("IMAGE_MODEL_HUGGINGFACE") || "black-forest-labs/FLUX.1-schnell"`
+- **Verify:** returns DB value when a row exists, env when not, default otherwise.
 
-### 2. Dashboard is a dead-end
-Shows 5 link cards with zero context — no counts, no recent activity, no "what needs attention." A marketer opens this and sees links, not a workspace.
+### Phase 2 — Image providers (`src/lib/providers/`)
+- **Edit `image.ts`** — `createPollinationsImageProvider(config: ProviderConfig = {})`: take key from `config.apiKey ?? process.env.POLLINATIONS_API_KEY` (line 15). No other behavior change.
+- **New `image-gemini.ts`** — `createGeminiImageProvider({ apiKey })`:
+  - `new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: "gemini-2.5-flash-image" })`
+  - `generateContent({ contents:[{ role:"user", parts:[{ text: prompt }] }], generationConfig: ({ responseModalities:["Image"] } as unknown as GenerationConfig) })`
+  - Find the part with `inlineData`, `Buffer.from(data, "base64")`, save to `public/media/gemini-<ts>.png`, return `{ url: localPath, localPath: "/api/media/<file>" }`.
+  - Aspect ratio: append a hint to the prompt from `input.width/height`.
+- **New `image-hf.ts`** — `createHuggingFaceImageProvider({ apiKey, model })`:
+  - `POST https://api-inference.huggingface.co/models/{model}` with `{ inputs: prompt }`, `Authorization: Bearer <key>`; response is raw image bytes → save → return `localPath`. (Confirm endpoint per model; fall back to Inference Providers router if needed.)
+- **Export** all three from `index.ts`.
+- **Verify:** each writes a real file to `public/media/` and returns a valid `/api/media/...` path.
 
-### 3. Generate page is a 1,144-line monolith
-9+ form fields before you can generate. Targeting controls (hooks, pillars, pains, desires, objections) assume marketing expertise with zero explanation. Mix & Match mode is a hidden second interaction paradigm. No progress feedback during 30-60s AI generation.
+### Phase 3 — Factory / resolvers (`src/lib/providers/factory.ts`)
+- `createTextProvider(providerName?, config?: { apiKey?: string })` — forward `config` into `createGeminiTextProvider`/`createHuggingFaceTextProvider` (both already accept `config.apiKey`). Antigravity ignores it.
+- `resolveTextProvider(productTextProvider?: string | null): Promise<TextProvider>` — resolve name (`productTextProvider || getTextProvider()`), pick the key by family (`gemini*` → `GOOGLE_AI_API_KEY`; `huggingface` → `HUGGINGFACE_API_KEY`; `antigravity` → none), call `createTextProvider(name, { apiKey })`.
+- `resolveImageProvider(productImageProvider?: string | null): Promise<ImageProvider>` — per the contract above.
+- **Verify:** typechecks; resolvers return a provider whose `name` reflects the chosen family.
 
-### 4. Hashtags are destroyed on edit
-`/content/[id]` sends `hashtags: []` on save. All hashtag data is lost when editing a post.
+### Phase 4 — Migrate all construction sites (satisfies #4)
+Replace direct env-keyed construction with the resolvers:
 
-### 5. No content preview
-Nowhere can you see what a post will look like on Instagram. Just raw text + image side by side.
+| File:line | Change |
+|-----------|--------|
+| `generate.ts:79` | `createTextProvider(...)` → `await resolveTextProvider(product.textProvider)` |
+| `generate.ts:119` | `createPollinationsImageProvider()` → `await resolveImageProvider(product.imageProvider)` |
+| `video/orchestrator.ts:138` | → `await resolveTextProvider(product.textProvider)` |
+| `video/orchestrator.ts:198` | → `await resolveImageProvider(product.imageProvider)` |
+| `api/products/[id]/brainstorm/route.ts:87` | → `await resolveTextProvider(product.textProvider)` |
+| `brain/extract.ts:38` | `createTextProvider(textProvider)` → `await resolveTextProvider(textProvider)` |
 
-### 6. Error handling is a mess
-Mix of inline errors, `alert()` dialogs, and URL params. No toast system. `confirm()` for destructive actions.
+- **Verify:** `grep -rn "process.env.\(GOOGLE_AI\|HUGGINGFACE\|POLLINATIONS\)_API_KEY" src` returns only the in-provider `getApiKey` fallbacks; no caller reads keys directly.
 
-### 7. Instagram management is split across 3 pages
-Add account in Settings → link to product in ProductCard menu → see linkage back in Settings. No unified flow.
+### Phase 5 — Per-product UI (`src/components/ProductForm.tsx`)
+Mirror the `textProvider` pattern exactly:
+- State: `const [imageProvider, setImageProvider] = useState(product?.imageProvider || "")` (`""` = use default).
+- Dropdown (next to the Text Provider block at lines 281–317): `Use default` / `Pollinations` / `Google AI Studio (Gemini)` / `HuggingFace`.
+- Include in submit payload alongside `textProvider` (line ~157): `imageProvider: imageProvider || null`.
+- **API routes** — mirror `textProvider`:
+  - `api/products/route.ts:62` (POST) → add `imageProvider: body.imageProvider || null`
+  - `api/products/[id]/route.ts:110,131` (PUT) → add `imageProvider: body.imageProvider || null`
+- **Verify:** set a product's image provider, save, reload → persists; generation uses it.
 
-### 8. Discord setup on the wrong page
-Technical developer instructions (bot tokens, public keys, interaction endpoints) are on the Schedules page, which is a marketer tool.
+### Phase 6 — Settings UI (`src/app/settings/page.tsx`)
+- **New "API Keys" card** — three write-only password inputs: Google AI, HuggingFace, Pollinations. Each saves via existing `PUT /api/settings { key, value }` on blur/Save. Show "•••• set" when a value already exists (from masked GET).
+- **New "Default Image Provider" card** — dropdown (`pollinations`/`gemini`/`huggingface`) → `PUT IMAGE_PROVIDER`. When `huggingface` is selected, reveal a **model dropdown** (the four researched options) → `PUT IMAGE_MODEL_HUGGINGFACE`. (Mirrors the antigravity model sub-dropdown.)
+- **Verify:** selections persist across reload; entering a key then generating uses it.
 
-### 9. No bulk operations
-Can't approve 10 posts at once. Can't batch-schedule. Every post is handled individually.
+### Phase 7 — Secret hardening (`src/app/api/settings/route.ts`)
+- In `GET`, mask values whose key matches `/(_API_KEY|SECRET|TOKEN|PASSWORD)$/i`: return a marker (`"••••" + last4`) or `{ __set: true }` instead of the raw value. Non-secret keys (`IMAGE_PROVIDER`, `IMAGE_MODEL_HUGGINGFACE`, `TEXT_PROVIDER`) return normally.
+- UI treats key fields as write-only: only `PUT` when the user types a new value (empty input = leave unchanged).
+- **Verify:** `GET /api/settings` response contains no full key strings.
 
-### 10. No onboarding
-First-time user sees 5 cards with no guidance on what to do first. No setup wizard, no progress indicators.
-
----
-
-## Page-by-Page Summary
-
-| Page | Core Issue |
-|---|---|
-| **Login** | Generic — no context about what this tool is |
-| **Dashboard** | No data, no quick actions, no onboarding |
-| **Products** | ProductCard is 875 lines — card + modal + JSON editor + revision history all in one |
-| **Generate** | 9+ fields, no progress, Mix & Match is hidden, results are ephemeral |
-| **Content Queue** | No status counts, no bulk actions, cluttered action bar, no pagination |
-| **Content Edit** | Hashtags lost on save, no Instagram preview, no image upload, "ad" type missing |
-| **Schedules** | Discord setup mixed in, same 9-field complexity as Generate, no "run now" |
-| **Settings** | Env var docs in UI, no token refresh, no account removal, auto-save without confirmation |
-
----
-
-## What a Solopreneur Marketer Actually Needs
-
-1. **Persistent sidebar navigation** — jump between sections fluidly
-2. **Dashboard with real data** — counts, pending approvals, next scheduled post, recent activity
-3. **Content calendar view** — temporal context for scheduled/published posts
-4. **Instagram preview** — phone mockup showing how the post will actually look
-5. **Bulk approve/schedule** — select multiple, distribute across a week
-6. **Onboarding flow** — "1. Add product → 2. Connect Instagram → 3. Generate first post"
-7. **Toast notifications** — replace all `alert()` and `confirm()`
-8. **Generation presets** — "Quick post", "Product showcase", etc. Reduce 9 fields to 1 click
-9. **Caption character counter** — Instagram has a 2,200 char limit
-10. **Search across products and content**
-
----
-
-## Component Patterns
-
-### Reused Patterns
-- **Page shell**: Every page has the same structure: `min-h-screen bg-background` → `header` (bg-surface, border-b, max-w-7xl, back arrow + title) → `main` (max-w-7xl, px-4, py-8). Consistent.
-- **Card pattern**: `bg-surface rounded-lg border border-border` used everywhere — ProductCard, ContentCard, form sections, schedule items.
-- **Button styles**: Primary (`bg-primary text-white rounded-lg`), secondary (border), destructive (text-error). Consistent.
-- **Loading state**: Always `"Loading..."` text in `text-text-tertiary`. No skeleton loaders, no spinners.
-- **Empty state**: Always centered text + link/button. No illustrations.
-- **Modal pattern**: Fixed inset-0, bg-black/50 backdrop, centered card, ESC to close. Used in ProductCard (plan/profile/strategy), ImageLightbox, InstagramLinkModal.
-- **Back navigation**: Always a "←" text link. No breadcrumbs, no back button component.
-
-### Inconsistencies
-- **Error handling**: Mix of inline errors (generate page), `alert()` (save failures in generate, product form), and URL params (settings page OAuth errors). No toast system.
-- **Confirmation dialogs**: All use browser `confirm()` except the Discord setup which uses inline status.
-- **Color tokens**: Most of the app uses CSS custom properties (`text-text-primary`, `bg-surface`), but ProductCard has hardcoded `bg-gray-900 text-white` for tooltips — breaks in light mode.
-- **Border inconsistency**: Some components use `border-border`, others `border-border-strong`. No clear rule.
-- **Text size hierarchy**: Headers use `text-xl font-bold`, section titles use `text-lg font-medium`, labels use `text-sm font-medium`. Consistent but the jump from page header to content is abrupt — no page-level descriptions or context.
-- **The "←" back arrow**: Used everywhere but has no accessible label. Screen readers just read "←".
-- **Max-width inconsistency**: Dashboard/Products/Content/Schedules use `max-w-7xl`, Generate uses `max-w-4xl`, Settings/ContentEdit use `max-w-3xl`. No clear logic.
+### Phase 8 — `.env` cleanup
+- Remove `GOOGLE_AI_API_KEY`, `HUGGINGFACE_API_KEY`, `POLLINATIONS_API_KEY` from `.env.example` (and clear in `.env`); add a comment: "AI provider API keys are managed in Settings → API Keys." Non-key config (`ANTIGRAVITY_BIN`, `ADMIN_PASSWORD`, `FACEBOOK_*`, `INSTAGRAM_*`, `DATABASE_PATH`, `TEXT_PROVIDER`) stays.
 
 ---
 
-## Data Model
+## Verification (end-to-end)
 
-```
-products
-  ├── id, name, description
-  ├── planFile, planFileName (markdown brief)
-  ├── screenshots (JSON array of file paths)
-  ├── profile (JSON → ProductProfile)
-  ├── marketingStrategy (JSON → MarketingStrategy)
-  ├── icp (JSON → ICP persona)
-  ├── jtbd (JSON → JTBD[])
-  ├── channelHints (JSON → string[])
-  ├── landingUrl, attributionWebhookSecret
-  ├── textProvider (gemini | huggingface)
-  ├── extractionStatus (pending | extracting | done | failed)
-  ├── extractionError
-  ├── instagramAccountId → instagramAccounts.id
-  └── createdAt
-
-content
-  ├── id, productId → products.id
-  ├── mediaType (image | video), targetSurface (reel | post | story | ad)
-  ├── content, hashtags (JSON), mediaUrl, publicMediaUrl
-  ├── script, duration, audioUrl, captionsUrl
-  ├── config (JSON), status (draft | approved | scheduled | posted)
-  ├── scheduledAt, postedAt, instagramId
-  ├── hookUsed, pillarUsed, targetType, targetValue
-  ├── toneConstraints (JSON), visualDirection
-  ├── generationParams (JSON), discordMessageId
-  └── createdAt
-
-instagramAccounts
-  ├── id, instagramUserId, username
-  ├── accessToken, tokenExpiresAt
-  └── createdAt
-
-productRevisions
-  ├── id, productId → products.id (cascade delete)
-  ├── field (planFile | profile | marketingStrategy)
-  ├── content, textProvider, source (manual | extraction)
-  └── createdAt
-
-generationSchedules
-  ├── id, productId → products.id (cascade delete)
-  ├── platform, mediaType, targetSurface, config (JSON)
-  ├── count, frequencyHours, preferredTime
-  ├── enabled, lastRunAt
-  └── createdAt
-
-settings
-  ├── id, key (unique), value
-  └── (key-value store for TEXT_PROVIDER, DISCORD_BOT_TOKEN, etc.)
-```
-
-**Relationships**: Product → many Content items. Product → one Instagram account. Product → many Revisions. Product → many Schedules. Instagram accounts are global, linked to products via `instagramAccountId`.
+1. `npm run db:push` succeeds; `products.image_provider` column exists.
+2. `npm run lint` and `npm run build` clean (keep the zero-ESLint-warning state).
+3. In Settings: enter each key; pick global image provider; pick HF model.
+4. Generate an **image post** with a product set to each provider → image renders, file lands in `public/media/`, post shows it.
+5. Generate a **video** (orchestrator path) with a non-Pollinations product → scenes render via the chosen provider (confirms the `localPath` invariant).
+6. Per-product override beats the global default; `""`/null falls back to the default.
+7. `GET /api/settings` shows masked keys only.
 
 ---
 
-## All Pain Points
+## Risks & mitigations
 
-### Critical
-1. No persistent navigation — every page has its own header with a "←" back link
-2. Hashtags are destroyed on edit — Content edit page sends `hashtags: []` on save
-3. No global navigation — the "←" arrow is the only way to navigate
-4. Generate page is a 1144-line monolith
-5. No feedback during AI generation — can take 30-60+ seconds with zero progress indication
-6. `alert()` used for errors in multiple places
+- **Deprecated Gemini SDK image path** — undocumented pass-through. *Mitigation:* Phase 7 smoke test; if it fails at runtime, the fallback is a raw `fetch` to `…/models/gemini-2.5-flash-image:generateContent` (same request body), or adding `@google/genai`. Flag back before switching approaches.
+- **HF serverless endpoint drift** — *Mitigation:* verify endpoint per model in Phase 2; keep the model list small and tested.
+- **Free-tier limits / quota errors** — providers may 429. *Mitigation:* surface provider errors to the UI rather than failing silently (current code throws on `!response.ok`).
+- **Key migration gap** — a deploy with empty Settings keys and blanked `.env` will fail generation until keys are entered. *Mitigation:* the silent env fallback in `getApiKey` (see above); document the one-time Settings entry step.
 
-### High
-7. No content preview — nowhere can you see what a post will look like on Instagram
-8. Product extraction is a black box
-9. Mix & Match is undiscoverable
-10. Schedule and Discord are on the same page
-11. No bulk operations
-12. Instagram account management is split across 3 places
-13. Content type "ad" missing from edit page
-14. No pagination anywhere
-15. Tooltips in ProductCard use hardcoded dark colors
+## Out of scope (intentionally)
 
-### Medium
-16. No keyboard shortcuts
-17. No search
-18. No sort options
-19. Settings page auto-saves text provider with no undo
-20. No confirmation for logout
-21. `confirm()` dialogs — browser-native, inconsistent
-22. No responsive sidebar
-23. No dark mode toggle
-24. No image upload on content edit
-25. Schedule form duplicates Generate form
-26. Product count has no upper bound feedback
-27. No way to regenerate a single post
-28. Revision history is buried
-29. No analytics or reporting
-30. Environment variables listed in UI
-
-### Low
-31. No favicon fallback
-32. "Loading..." text everywhere — no skeleton screens
-33. No optimistic updates
-34. URL not updated for filters
-35. No "are you sure you want to leave" on unsaved forms
-
----
-
-## Missing Features for a Solopreneur Marketer
-
-### Must-Have
-1. Persistent sidebar/tab navigation
-2. Content calendar view
-3. Instagram preview (phone mockup)
-4. Bulk approve/schedule
-5. Content analytics dashboard
-6. Onboarding flow
-7. Toast notification system
-8. Unsaved changes protection
-
-### Should-Have
-9. Content templates/presets
-10. Batch scheduling
-11. Content performance tracking
-12. Multi-platform support (Twitter/X)
-13. Content recycling/evergreen queue
-14. Draft collaboration
-15. Image editing/regeneration
-16. Caption character count
-17. Hashtag management
-18. Webhook/notification on publish
-19. Export functionality
-20. Rate limiting/cost warnings
-
-### Nice-to-Have
-21. A/B test variations
-22. Content approval workflow via email
-23. Brand asset library
-24. Competitor analysis
-25. AI content scoring
-26. Scheduling timezone support
-27. Mobile-responsive bottom nav
-28. Keyboard shortcuts
-29. Undo/redo for status changes
-30. Search across all content
-
----
-
-## API Routes
-
-### Auth
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/login` | Verify password, create session cookie |
-| POST | `/api/auth/logout` | Destroy session |
-
-### Settings
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/settings` | Get all settings as key-value map |
-| PUT | `/api/settings` | Upsert a setting `{ key, value }` |
-
-### Products
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/products` | List all products |
-| POST | `/api/products` | Create product (multipart or JSON). Triggers async extraction if planFile present |
-| GET | `/api/products/[id]` | Get single product |
-| PUT | `/api/products/[id]` | Update product. Snapshots revisions. Re-triggers extraction if planFile changed |
-| DELETE | `/api/products/[id]` | Delete product (cascades to schedules/revisions) |
-| GET | `/api/products/[id]/suggestions` | Get rotation-aware suggestions for hooks, pillars, pains, desires, objections |
-| POST | `/api/products/[id]/re-extract` | Re-run profile/strategy extraction |
-| GET | `/api/products/[id]/revisions` | List revisions. Optional `?field=` filter |
-| POST | `/api/products/[id]/revisions/[revisionId]/revert` | Revert field to revision content |
-
-### Content (Posts)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/posts` | List all posts (desc by id). Optional `?status=` filter |
-| POST | `/api/posts` | Create post manually |
-| GET | `/api/posts/[id]` | Get single post |
-| PUT | `/api/posts/[id]` | Partial update of post fields |
-| DELETE | `/api/posts/[id]` | Delete post |
-
-### Generation
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/generate` | Generate content via AI (multipart). Returns `{ posts: GeneratedPost[] }` |
-
-### Schedules
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/schedules` | List all generation schedules with product name |
-| POST | `/api/schedules` | Create generation schedule |
-| PUT | `/api/schedules/[id]` | Partial update of schedule |
-| DELETE | `/api/schedules/[id]` | Delete schedule |
-
-### Cron / Scheduler
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/cron/generate` | Cron endpoint. Checks due schedules, generates drafts, sends to Discord. Auth: `x-cron-secret` header |
-| POST | `/api/scheduler/run` | Process scheduled posts (publish due posts) |
-
-### Instagram
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/instagram/auth` | Redirect to Facebook OAuth. Optional `?productId=` |
-| GET | `/api/instagram/callback` | OAuth callback. Exchange code → tokens. Upsert accounts |
-| GET | `/api/instagram/account` | Get first connected IG account info |
-| DELETE | `/api/instagram/account` | Delete ALL instagram accounts |
-| GET | `/api/instagram/accounts` | List all IG accounts with linked products |
-| POST | `/api/instagram/accounts` | Link IG account to product `{ productId, accountId }` |
-| DELETE | `/api/instagram/accounts` | Unlink IG account from product `{ productId }` |
-| POST | `/api/instagram/post` | Publish post to Instagram `{ postId }` |
-
-### Discord
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/discord/setup` | Validate bot token, save config, send test message |
-| POST | `/api/discord/interactions` | Discord interactions webhook (PING, button clicks, modal submit) |
-
-### Media
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/media/[...path]` | Serve static media files from `public/media/` |
-
----
-
-## DB Schema
-
-### `products`
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| `id` | integer | PK | autoIncrement |
-| `name` | text | NOT NULL | — |
-| `description` | text | NOT NULL | — |
-| `plan_file` | text | nullable | — |
-| `plan_file_name` | text | nullable | — |
-| `screenshots` | text | nullable | JSON string[] |
-| `profile` | text | nullable | JSON extracted profile |
-| `marketing_strategy` | text | nullable | JSON extracted strategy |
-| `icp` | text (json) | nullable | JSON ICP persona |
-| `jtbd` | text (json) | nullable | JSON JTBD[] |
-| `channel_hints` | text (json) | nullable | JSON string[] |
-| `landing_url` | text | nullable | — |
-| `attribution_webhook_secret` | text | nullable | — |
-| `text_provider` | text | nullable | `gemini` \| `huggingface` |
-| `extraction_status` | text | nullable | `pending` \| `extracting` \| `done` \| `failed` |
-| `extraction_error` | text | nullable | — |
-| `instagram_account_id` | integer | FK → `instagram_accounts.id` | — |
-| `created_at` | integer (timestamp) | — | `new Date()` |
-
-### `content`
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| `id` | integer | PK | autoIncrement |
-| `product_id` | integer | FK → `products.id` | — |
-| `media_type` | text | NOT NULL | `image` \| `video` |
-| `target_surface` | text | NOT NULL | `reel` \| `post` \| `story` \| `ad` |
-| `content` | text | NOT NULL | — |
-| `hashtags` | text | nullable | JSON array |
-| `media_url` | text | nullable | — |
-| `public_media_url` | text | nullable | — |
-| `script` | text | nullable | — |
-| `duration` | integer | nullable | seconds |
-| `audio_url` | text | nullable | — |
-| `captions_url` | text | nullable | — |
-| `config` | text | nullable | JSON generation config |
-| `status` | text | NOT NULL | `"draft"` |
-| `scheduled_at` | integer (timestamp) | nullable | — |
-| `posted_at` | integer (timestamp) | nullable | — |
-| `instagram_id` | text | nullable | — |
-| `hook_used` | text | nullable | — |
-| `pillar_used` | text | nullable | — |
-| `target_type` | text | nullable | `pain` \| `desire` \| `objection` |
-| `target_value` | text | nullable | — |
-| `tone_constraints` | text | nullable | JSON array |
-| `visual_direction` | text | nullable | — |
-| `generation_params` | text | nullable | full JSON |
-| `discord_message_id` | text | nullable | — |
-| `created_at` | integer (timestamp) | — | `new Date()` |
-
-### `instagram_accounts`
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| `id` | integer | PK | autoIncrement |
-| `instagram_user_id` | text | nullable | — |
-| `username` | text | nullable | — |
-| `access_token` | text | NOT NULL | — |
-| `token_expires_at` | integer (timestamp) | nullable | — |
-| `created_at` | integer (timestamp) | — | `new Date()` |
-
-### `product_revisions`
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| `id` | integer | PK | autoIncrement |
-| `product_id` | integer | NOT NULL, FK → `products.id` ON DELETE CASCADE | — |
-| `field` | text | NOT NULL | `planFile` \| `profile` \| `marketingStrategy` |
-| `content` | text | NOT NULL | — |
-| `text_provider` | text | nullable | model used |
-| `source` | text | NOT NULL | `manual` \| `extraction` |
-| `created_at` | integer (timestamp) | — | `new Date()` |
-
-### `generation_schedules`
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| `id` | integer | PK | autoIncrement |
-| `product_id` | integer | NOT NULL, FK → `products.id` ON DELETE CASCADE | — |
-| `platform` | text | NOT NULL | `instagram` \| `twitter` |
-| `media_type` | text | NOT NULL | `"image"` |
-| `target_surface` | text | NOT NULL | `reel` \| `post` \| `story` \| `ad` |
-| `config` | text | nullable | JSON generation config |
-| `count` | integer | NOT NULL | `1` |
-| `frequency_hours` | integer | NOT NULL | `24` |
-| `preferred_time` | text | NOT NULL | `"09:00"` |
-| `enabled` | integer (boolean) | NOT NULL | `true` |
-| `last_run_at` | integer (timestamp) | nullable | — |
-| `created_at` | integer (timestamp) | — | `new Date()` |
-
-### `settings`
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| `id` | integer | PK | autoIncrement |
-| `key` | text | NOT NULL, UNIQUE | — |
-| `value` | text | nullable | — |
-
-### Relations
-- `products.instagram_account_id` → `instagram_accounts.id`
-- `content.product_id` → `products.id`
-- `product_revisions.product_id` → `products.id` (CASCADE)
-- `generation_schedules.product_id` → `products.id` (CASCADE)
-
----
-
-## Middleware
-
-**Auth guard** for all routes except public paths.
-
-- **Public paths (no auth):** `/login`, `/api/auth/login`, `/api/cron/*`, `/api/discord/interactions`
-- **Static assets:** `/_next/*` and paths with `.` (file extensions) pass through
-- **All other routes:** Check `buzz_session` cookie. Value must equal SHA-256 hash of `"buzz:${ADMIN_PASSWORD}"`. If missing/mismatched, redirect to `/login`.
-
----
-
-## Phase 1: Design Brief — Navigation + Dashboard Refactor
-
-**1. Feature Summary**
-Refactor the app shell to introduce persistent sidebar navigation, command palette, toast notifications, skeleton loading states, and a data-rich dashboard. This replaces the current "← back arrow" navigation pattern and dead-end dashboard with a Linear/Vercel-style workspace that supports keyboard-first power users.
-
-**2. Primary User Action**
-Navigate fluidly between sections (Products, Generate, Content, Schedules, Settings) without losing context. The dashboard should surface "what needs attention" — pending approvals, recent activity, next scheduled post — so users can act immediately.
-
-**3. Design Direction**
-- **Color strategy:** Restrained (existing). Signal Blue ≤10% of screen. Neutrals carry structure.
-- **Theme scene:** Indie marketer at their desk, morning coffee, checking what needs attention before diving into content creation. Light mode default, dark mode automatic.
-- **Anchor references:** Linear (sidebar nav, command palette, keyboard shortcuts), Vercel (minimal chrome, fast feedback, skeleton loaders), Raycast (command palette density, search-first interaction).
-
-**4. Scope**
-- **Fidelity:** Production-ready. Shipped-quality components.
-- **Breadth:** App shell (sidebar, layout, command palette, toast system) + Dashboard page.
-- **Interactivity:** Fully interactive. Keyboard shortcuts, focus management, optimistic updates.
-- **Time intent:** Polish until it ships.
-
-**5. Layout Strategy**
-- **Left sidebar (240px collapsed, 280px expanded):** Fixed position. Logo + app name at top. Section links (Products, Generate, Content, Schedules, Settings) with icons + labels. Active state: subtle background tint + left border accent. Collapse to icon-only on mobile. Keyboard shortcut: `[` to toggle.
-- **Main content area:** Max-width 1280px, centered. Proper padding (24px desktop, 16px mobile). Breadcrumbs optional (sidebar provides context).
-- **Command palette (Cmd+K):** Centered overlay, 640px max-width. Search input at top. Results grouped by section (Pages, Products, Content, Actions). Keyboard navigation (↑↓ to move, ↵ to select, esc to close). Fuzzy search across navigation + content.
-- **Toast stack:** Bottom-right corner. Max 3 toasts visible. Auto-dismiss after 5s (success/info) or manual dismiss (error). Slide-in animation.
-- **Dashboard:** 3-column grid on desktop. Top row: 4 stat cards (Products count, Drafts pending, Scheduled this week, Posted this month). Middle row: Recent activity feed (last 5 actions) + Quick actions (Generate, Add Product, Connect Instagram). Bottom row: Next scheduled post card + Onboarding progress (if first-time user).
-
-**6. Key States**
-- **Empty dashboard (first-time user):** Onboarding card with 3-step progress: "1. Add your product → 2. Connect Instagram → 3. Generate your first post". Each step is a clickable action. Progress persists in localStorage.
-- **Loading states:** Skeleton screens for all data-driven sections. Dashboard stats show skeleton cards. Recent activity shows skeleton list. No "Loading..." text.
-- **Error states:** Toast notifications for transient errors. Inline error cards for persistent failures (e.g., "Failed to load products" with retry button).
-- **Command palette:** Empty state: "No results found". Loading state: skeleton list. Populated: grouped results with icons + labels + keyboard shortcuts hints.
-- **Sidebar:** Collapsed state: icon-only (48px width). Expanded state: icon + label. Mobile: hidden by default, slide-in on hamburger click.
-
-**7. Interaction Model**
-- **Sidebar navigation:** Click section link → navigate to page. Active section highlighted. Keyboard: `1-5` to jump to sections (when not focused on input). `[` to toggle sidebar collapse.
-- **Command palette:** `Cmd+K` (Mac) / `Ctrl+K` (Windows) to open. Type to search. `↑↓` to navigate results. `↵` to select. `esc` to close. Click backdrop to close. Results update as you type (debounced 150ms).
-- **Toast notifications:** Appear bottom-right. Stack vertically (max 3). Auto-dismiss after 5s. Click to dismiss manually. Error toasts require manual dismiss. Animation: slide-in from right (200ms ease-out).
-- **Dashboard stats:** Click stat card → navigate to filtered list (e.g., click "Drafts pending" → `/content?status=draft`). Hover: subtle border shift. No lift/shadow.
-- **Quick actions:** Click button → navigate to page. Hover: background tint.
-- **Onboarding:** Click step → navigate to page. Completed steps show checkmark. Progress auto-updates when user completes action.
-
-**8. Content Requirements**
-- **Sidebar labels:** Products, Generate, Content, Schedules, Settings. Icons: Lucide React (package, sparkles, inbox, calendar, settings).
-- **Dashboard stats:** "Products" (count), "Drafts Pending" (count), "Scheduled This Week" (count), "Posted This Month" (count). Subtle labels below numbers.
-- **Recent activity:** "No recent activity" (empty state). Otherwise: "{user} generated 5 posts for {product}" / "{user} approved {post}" / "{user} scheduled {post} for {date}". Relative timestamps ("2m ago", "1h ago", "Yesterday").
-- **Quick actions:** "Generate Content", "Add Product", "Connect Instagram". Icons + labels.
-- **Onboarding:** "Welcome to Buzz" heading. "Get started in 3 steps" subheading. Steps: "Add your first product" / "Connect your Instagram account" / "Generate your first post". Each with description + action button.
-- **Command palette:** Search placeholder: "Search or type a command...". Result groups: "Pages" / "Products" / "Content" / "Actions". Each result: icon + label + optional shortcut hint (e.g., "⌘G" for Generate).
-- **Toast messages:** "Product created" / "Post approved" / "Scheduled for {date}" / "Failed to save. Please try again."
-
-**9. Recommended References**
-- `reference/layout.md` — sidebar + main content layout strategy
-- `reference/interaction-design.md` — command palette, keyboard shortcuts, focus management
-- `reference/animate.md` — toast animations, skeleton loading transitions
-- `reference/onboard.md` — onboarding flow design
-- `reference/harden.md` — error handling, toast system, loading states
-
-**10. Open Questions**
-None. The direction is clear from PRODUCT.md (Linear reference), DESIGN.md (Signal Blue, flat elevation), and the user's explicit pattern selections.
-
----
-
-**Implementation plan:**
-1. **App shell refactor** — Create `Sidebar` component, `CommandPalette` component, `Toast` system, `Skeleton` components. Update `layout.tsx` to use sidebar layout.
-2. **Dashboard redesign** — Fetch real data (product count, content counts by status, recent activity). Build stat cards, recent activity feed, quick actions, onboarding card.
-3. **Keyboard shortcuts** — `Cmd+K` for command palette, `1-5` for section navigation, `[` for sidebar toggle.
-4. **Toast integration** — Replace all `alert()` and `confirm()` calls with toast notifications.
+- Per-product **model** override (model stays a global Settings choice; provider is per-product).
+- Imagen / other Gemini image models (different `:predict` API).
+- Migrating non-key config out of `.env`.
+- Local GPU generation (no NVIDIA GPU on this host).

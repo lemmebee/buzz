@@ -28,6 +28,17 @@ function SettingsContent() {
   const [antigravityModel, setAntigravityModel] = useState("");
   const [antigravityModels, setAntigravityModels] = useState<string[]>([]);
   const [providerSaving, setProviderSaving] = useState(false);
+  const [imageProvider, setImageProvider] = useState("pollinations");
+  const [imageModel, setImageModel] = useState("black-forest-labs/FLUX.1-schnell");
+  const [imageStyle, setImageStyle] = useState("product");
+  const [imageProviderSaving, setImageProviderSaving] = useState(false);
+  const [googleAiKey, setGoogleAiKey] = useState("");
+  const [huggingfaceKey, setHuggingfaceKey] = useState("");
+  const [pollinationsKey, setPollinationsKey] = useState("");
+  const [googleAiKeySet, setGoogleAiKeySet] = useState(false);
+  const [huggingfaceKeySet, setHuggingfaceKeySet] = useState(false);
+  const [pollinationsKeySet, setPollinationsKeySet] = useState(false);
+  const [keysSaving, setKeysSaving] = useState(false);
 
   const error = searchParams.get("error");
   const success = searchParams.get("success");
@@ -55,6 +66,24 @@ function SettingsContent() {
       } else {
         setTextProvider(val);
       }
+    }
+    if (data.IMAGE_PROVIDER) {
+      setImageProvider(data.IMAGE_PROVIDER);
+    }
+    if (data.IMAGE_MODEL_HUGGINGFACE) {
+      setImageModel(data.IMAGE_MODEL_HUGGINGFACE);
+    }
+    if (data.IMAGE_STYLE) {
+      setImageStyle(data.IMAGE_STYLE);
+    }
+    if (data.GOOGLE_AI_API_KEY) {
+      setGoogleAiKeySet(true);
+    }
+    if (data.HUGGINGFACE_API_KEY) {
+      setHuggingfaceKeySet(true);
+    }
+    if (data.POLLINATIONS_API_KEY) {
+      setPollinationsKeySet(true);
     }
   }
 
@@ -103,6 +132,51 @@ function SettingsContent() {
       body: JSON.stringify({ key: "TEXT_PROVIDER", value }),
     });
     setProviderSaving(false);
+  }
+
+  async function updateImageProvider(value: string) {
+    setImageProvider(value);
+    setImageProviderSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "IMAGE_PROVIDER", value }),
+    });
+    setImageProviderSaving(false);
+  }
+
+  async function updateImageModel(model: string) {
+    setImageModel(model);
+    setImageProviderSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "IMAGE_MODEL_HUGGINGFACE", value: model }),
+    });
+    setImageProviderSaving(false);
+  }
+
+  async function updateImageStyle(value: string) {
+    setImageStyle(value);
+    setImageProviderSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "IMAGE_STYLE", value }),
+    });
+    setImageProviderSaving(false);
+  }
+
+  async function saveApiKey(keyName: string, value: string, setKeySet: (v: boolean) => void) {
+    if (!value.trim()) return;
+    setKeysSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: keyName, value }),
+    });
+    setKeySet(true);
+    setKeysSaving(false);
   }
 
   const errorMessages: Record<string, string> = {
@@ -171,6 +245,140 @@ function SettingsContent() {
         {providerSaving && (
           <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
         )}
+      </div>
+
+      {/* API Keys */}
+      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+        <h2 className="text-lg font-medium text-text-primary mb-4">
+          API Keys
+        </h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Google AI API Key
+            </label>
+            <input
+              type="password"
+              value={googleAiKey}
+              onChange={(e) => setGoogleAiKey(e.target.value)}
+              placeholder={googleAiKeySet ? "•••• set" : "Enter key"}
+              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                saveApiKey("GOOGLE_AI_API_KEY", googleAiKey, setGoogleAiKeySet);
+                setGoogleAiKey("");
+              }}
+              disabled={!googleAiKey.trim() || keysSaving}
+              className="mt-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {keysSaving ? "Saving..." : "Save"}
+            </button>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              HuggingFace API Key
+            </label>
+            <input
+              type="password"
+              value={huggingfaceKey}
+              onChange={(e) => setHuggingfaceKey(e.target.value)}
+              placeholder={huggingfaceKeySet ? "•••• set" : "Enter key"}
+              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                saveApiKey("HUGGINGFACE_API_KEY", huggingfaceKey, setHuggingfaceKeySet);
+                setHuggingfaceKey("");
+              }}
+              disabled={!huggingfaceKey.trim() || keysSaving}
+              className="mt-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {keysSaving ? "Saving..." : "Save"}
+            </button>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Pollinations API Key
+            </label>
+            <input
+              type="password"
+              value={pollinationsKey}
+              onChange={(e) => setPollinationsKey(e.target.value)}
+              placeholder={pollinationsKeySet ? "•••• set" : "Enter key (optional)"}
+              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                saveApiKey("POLLINATIONS_API_KEY", pollinationsKey, setPollinationsKeySet);
+                setPollinationsKey("");
+              }}
+              disabled={!pollinationsKey.trim() || keysSaving}
+              className="mt-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {keysSaving ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+        <p className="mt-4 text-xs text-text-tertiary">
+          API keys are stored securely in the database and used for AI generation. Leave Pollinations blank if using the free tier.
+        </p>
+      </div>
+
+      {/* Default Image Provider */}
+      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+        <h2 className="text-lg font-medium text-text-primary mb-4">
+          Default Image Provider
+        </h2>
+        <select
+          value={imageProvider}
+          onChange={(e) => updateImageProvider(e.target.value)}
+          className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="pollinations">Pollinations</option>
+          <option value="gemini">Google AI Studio (Gemini)</option>
+          <option value="huggingface">HuggingFace</option>
+        </select>
+        {imageProvider === "huggingface" && (
+          <>
+            <select
+              value={imageModel}
+              onChange={(e) => updateImageModel(e.target.value)}
+              className="w-full mt-2 bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="black-forest-labs/FLUX.1-schnell">FLUX.1-schnell (fast)</option>
+              <option value="stabilityai/stable-diffusion-3-medium-diffusers">Stable Diffusion 3 Medium</option>
+            </select>
+            <p className="mt-1 text-xs text-text-tertiary">
+              These are the only text-to-image models on HuggingFace&apos;s free tier. Higher-end models (Qwen-Image, FLUX.1-dev, SD 3.5) require enabling a paid Inference provider on your HuggingFace account.
+            </p>
+          </>
+        )}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Image Style
+          </label>
+          <select
+            value={imageStyle}
+            onChange={(e) => updateImageStyle(e.target.value)}
+            className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="product">Product-relevant — show the product/device in context</option>
+            <option value="abstract">Abstract / brand mood — still-life in brand colors (original)</option>
+          </select>
+          <p className="mt-1 text-xs text-text-tertiary">
+            Product-relevant ties each image to the post topic and may show the app/device with an abstract, textless screen. Abstract is the original brand-colored still-life with no product.
+          </p>
+        </div>
+        {imageProviderSaving && (
+          <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
+        )}
+        <p className="mt-2 text-xs text-text-tertiary">
+          Default image generation provider. Can be overridden per product.
+        </p>
       </div>
 
       {/* Instagram Accounts */}

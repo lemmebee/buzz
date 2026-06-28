@@ -10,16 +10,15 @@ interface GeneratedResultsProps {
   posts: GeneratedPost[];
   productId: number | null;
   contentType: ContentType;
-  saving: boolean;
-  onSave: () => void;
 }
 
-export function GeneratedResults({ posts, productId, contentType, saving, onSave }: GeneratedResultsProps) {
+export function GeneratedResults({ posts, productId, contentType }: GeneratedResultsProps) {
   const [selected, setSelected] = useState<Set<number>>(new Set(posts.map((_, i) => i)));
   const [mixMode, setMixMode] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [selectedTextIndex, setSelectedTextIndex] = useState<number | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   function toggleSelect(index: number) {
     const newSelected = new Set(selected);
@@ -77,6 +76,43 @@ export function GeneratedResults({ posts, productId, contentType, saving, onSave
     });
   }
 
+  async function handleSaveToQueue() {
+    const chosen = posts.filter((_, i) => selected.has(i));
+    if (chosen.length === 0) return;
+    setIsSaving(true);
+    try {
+      await Promise.all(
+        chosen.map(async (post) => {
+          const res = await fetch("/api/posts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              productId,
+              type: contentType,
+              content: post.content,
+              hashtags: post.hashtags,
+              mediaUrl: post.mediaUrl ?? null,
+              publicMediaUrl: post.publicMediaUrl ?? null,
+              status: "draft",
+              hookUsed: post.metadata?.hookUsed,
+              pillarUsed: post.metadata?.pillarUsed,
+              targetType: post.metadata?.targetType,
+              targetValue: post.metadata?.targetValue,
+              toneConstraints: post.metadata?.toneConstraints,
+              visualDirection: post.metadata?.visualDirection,
+            }),
+          });
+          if (!res.ok) throw new Error(`save failed: ${res.status}`);
+        })
+      );
+      toast.success(`Saved ${chosen.length} to queue`);
+    } catch {
+      toast.error("Failed to save to queue");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <div className="rounded-lg border border-border bg-surface p-6">
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
@@ -111,11 +147,11 @@ export function GeneratedResults({ posts, productId, contentType, saving, onSave
                 {selected.size === posts.length ? "Deselect All" : "Select All"}
               </button>
               <button
-                onClick={onSave}
-                disabled={saving || selected.size === 0}
+                onClick={handleSaveToQueue}
+                disabled={isSaving || selected.size === 0}
                 className="px-4 py-1.5 bg-success text-white text-sm font-medium rounded-lg hover:bg-success/90 disabled:opacity-50"
               >
-                {saving ? "Saving..." : `Save ${selected.size} to Queue`}
+                {isSaving ? "Saving..." : `Save ${selected.size} to Queue`}
               </button>
             </>
           )}
