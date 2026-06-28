@@ -56,12 +56,27 @@ interface ExtractionInput {
   name: string;
   description: string;
   planFileContent: string;
+  llmInstructions?: string;
 }
 
-export function buildProfileAndStrategyPrompt({ name, description, planFileContent }: ExtractionInput): string {
-  return `You are an expert marketing strategist extracting a deep product profile and content strategy from a marketing brief.
-${composeSkillSection("profile-strategy")}
-## PHASE 1 — THINK (internal analysis, do NOT output this)
+/**
+ * Canonical "USER INSTRUCTIONS" block shared by every prompt builder, so a product's
+ * custom instructions reach the model framed identically across extraction, content
+ * generation, and brainstorming. Returns null when there are no instructions to inject.
+ */
+function composeUserInstructions(llmInstructions?: string): string | null {
+  const trimmed = llmInstructions?.trim();
+  if (!trimmed) return null;
+  return `## USER INSTRUCTIONS (follow these in addition to the default rules)\n${trimmed}`;
+}
+
+export function buildProfileAndStrategyPrompt({ name, description, planFileContent, llmInstructions }: ExtractionInput): string {
+  const sections: string[] = [];
+  sections.push(`You are an expert marketing strategist extracting a deep product profile and content strategy from a marketing brief.`);
+  sections.push(composeSkillSection("profile-strategy"));
+  const userInstructions = composeUserInstructions(llmInstructions);
+  if (userInstructions) sections.push(userInstructions);
+  sections.push(`## PHASE 1 — THINK (internal analysis, do NOT output this)
 
 Before writing any JSON, answer these questions internally:
 - What is the REAL problem this product solves? Not the feature description — the felt pain.
@@ -215,7 +230,8 @@ COUNT REQUIREMENTS:
 - ctaStrategies: 4-6 (cover different goals)
 - painPoints: 5-7
 - desirePoints: 5-7
-- brandVoice.samplePhrases: 5-8`;
+- brandVoice.samplePhrases: 5-8`);
+  return sections.join("\n");
 }
 
 // Parse tone guidelines into constraint list
@@ -257,7 +273,8 @@ export function buildContentGenerationPrompt(
   contentType: ContentPurpose,
   targeting?: ContentTargeting,
   accountHandle?: string,
-  productName?: string
+  productName?: string,
+  llmInstructions?: string
 ): { prompt: string; metadata: GenerationMetadata } {
   const profile = normalizeProfile(rawProfile);
   const strategy = normalizeStrategy(rawStrategy);
@@ -304,6 +321,12 @@ export function buildContentGenerationPrompt(
 - Sound like someone who actually uses the product, not someone selling it
 - Match how real ${platform} creators write. Study the platform's native voice`);
   sections.push("");
+
+  const userInstructions = composeUserInstructions(llmInstructions);
+  if (userInstructions) {
+    sections.push(userInstructions);
+    sections.push("");
+  }
 
   const skillSection = composeSkillSection("content");
   if (skillSection) sections.push(skillSection);
@@ -478,6 +501,7 @@ Return ONLY valid JSON:
 export interface BrainstormOptions {
   count?: number;
   theme?: string;
+  llmInstructions?: string;
 }
 
 /**
@@ -532,6 +556,9 @@ export function buildBrainstormPrompt(
   if (opts.theme) {
     sections.push(`\nFOCUS THEME: orient the whole brainstorm around "${opts.theme}".`);
   }
+
+  const userInstructions = composeUserInstructions(opts.llmInstructions);
+  if (userInstructions) sections.push(`\n${userInstructions}`);
 
   sections.push(`\nSTYLE: hooks must sound human and specific. Never use the em dash character. Never use AI cliche words (elevate, unlock, unleash, seamlessly, revolutionize, empower, leverage, game-changer, cutting-edge, next-level).`);
 

@@ -22,6 +22,7 @@ export function ProductForm({ product }: ProductFormProps) {
   const [description, setDescription] = useState(product?.description || "");
   const [planFile, setPlanFile] = useState(product?.planFile || "");
   const [planFileName, setPlanFileName] = useState(product?.planFileName || "");
+  const [llmInstructions, setLlmInstructions] = useState(product?.llmInstructions || "");
   const [textProvider, setTextProvider] = useState(() => {
     const tp = product?.textProvider || "gemini";
     return tp.startsWith("antigravity") ? "antigravity" : tp;
@@ -152,6 +153,7 @@ export function ProductForm({ product }: ProductFormProps) {
       description,
       planFile: planFile || null,
       planFileName: planFileName || null,
+      llmInstructions: llmInstructions || null,
       textProvider: textProvider === "antigravity"
         ? (antigravityModel ? `antigravity:${antigravityModel}` : "antigravity")
         : (textProvider || null),
@@ -312,6 +314,20 @@ export function ProductForm({ product }: ProductFormProps) {
           </select>
         )}
         <p className="text-xs text-text-tertiary mt-1">LLM provider for profile/strategy extraction</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          LLM Instructions
+        </label>
+        <textarea
+          value={llmInstructions}
+          onChange={(e) => setLlmInstructions(e.target.value)}
+          rows={4}
+          placeholder="Optional rules, guidance, or constraints for the AI. Examples: 'Always write in British English', 'Focus on technical audience', 'Avoid mentioning competitors', 'Use a humorous tone'..."
+          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary resize-y"
+        />
+        <p className="text-xs text-text-tertiary mt-1">Custom instructions injected into all AI operations (extraction, content generation, brainstorm)</p>
       </div>
 
       <div>

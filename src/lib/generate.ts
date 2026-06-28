@@ -78,7 +78,7 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
 
   const textProvider = createTextProvider(product.textProvider || await getTextProvider());
   const { prompt: systemPrompt, metadata } = buildContentGenerationPrompt(
-    rawProfile, rawStrategy, images.length, platform, contentType, targeting, accountHandle, product.name
+    rawProfile, rawStrategy, images.length, platform, contentType, targeting, accountHandle, product.name, product.llmInstructions || undefined
   );
 
   const styleReminder = `\n\nREMINDER: Write like a real human. NEVER use em dashes (—), NEVER use AI cliché words (elevate, unlock, unleash, seamlessly, revolutionize, empower, leverage, game-changer, cutting-edge, next-level). Use casual, imperfect language. Be specific, not generic.`;

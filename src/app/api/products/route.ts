@@ -31,6 +31,57 @@ export async function GET() {
   return NextResponse.json(products);
 }
 
+interface ProductBody {
+  name: string;
+  description: string;
+  planFile?: string | null;
+  planFileName?: string | null;
+  icp?: unknown;
+  jtbd?: unknown;
+  channelHints?: unknown;
+  landingUrl?: string | null;
+  textProvider?: string | null;
+  llmInstructions?: string | null;
+}
+
+// Insert a product from a parsed request body + screenshot paths, kicking off
+// profile/strategy extraction when a brief is present. Shared by both the
+// multipart and JSON POST paths.
+async function createProduct(body: ProductBody, screenshotPaths: string[]) {
+  const result = await db.insert(schema.products).values({
+    name: body.name,
+    description: body.description,
+    planFile: body.planFile || null,
+    planFileName: body.planFileName || null,
+    screenshots: screenshotPaths.length > 0 ? JSON.stringify(screenshotPaths) : null,
+    icp: normalizeICP(body.icp),
+    jtbd: normalizeJTBDList(body.jtbd),
+    channelHints: normalizeChannelHints(body.channelHints),
+    landingUrl: body.landingUrl || null,
+    attributionWebhookSecret: randomBytes(32).toString("hex"),
+    textProvider: body.textProvider || null,
+    llmInstructions: body.llmInstructions || null,
+    extractionStatus: body.planFile ? "pending" : null,
+  }).returning();
+
+  const created = result[0];
+
+  // Extract profile + strategy if brief exists
+  if (created.planFile) {
+    extractProfileAndStrategy({
+      productId: created.id,
+      name: created.name,
+      description: created.description,
+      planFileContent: created.planFile,
+      screenshotPaths,
+      textProvider: created.textProvider || undefined,
+      llmInstructions: created.llmInstructions || undefined,
+    }).catch(console.error);
+  }
+
+  return created;
+}
+
 // POST new product
 export async function POST(req: NextRequest) {
   const contentType = req.headers.get("content-type") || "";
@@ -39,70 +90,13 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const screenshotFiles = formData.getAll("screenshots") as File[];
     const screenshotPaths = screenshotFiles.length > 0 ? await saveScreenshots(screenshotFiles) : [];
-
     const body = JSON.parse(formData.get("data") as string || "{}");
-
-    const result = await db.insert(schema.products).values({
-      name: body.name,
-      description: body.description,
-      planFile: body.planFile || null,
-      planFileName: body.planFileName || null,
-      screenshots: screenshotPaths.length > 0 ? JSON.stringify(screenshotPaths) : null,
-      icp: normalizeICP(body.icp),
-      jtbd: normalizeJTBDList(body.jtbd),
-      channelHints: normalizeChannelHints(body.channelHints),
-      landingUrl: body.landingUrl || null,
-      attributionWebhookSecret: randomBytes(32).toString("hex"),
-      textProvider: body.textProvider || null,
-      extractionStatus: body.planFile ? "pending" : null,
-    }).returning();
-
-    const created = result[0];
-
-    // Extract profile + strategy if brief exists
-    if (created.planFile) {
-      extractProfileAndStrategy({
-        productId: created.id,
-        name: created.name,
-        description: created.description,
-        planFileContent: created.planFile,
-        screenshotPaths,
-        textProvider: created.textProvider || undefined,
-      }).catch(console.error);
-    }
-
+    const created = await createProduct(body, screenshotPaths);
     return NextResponse.json(created, { status: 201 });
   }
 
   // JSON fallback (no screenshots)
   const body = await req.json();
-
-  const result = await db.insert(schema.products).values({
-    name: body.name,
-    description: body.description,
-    planFile: body.planFile || null,
-    planFileName: body.planFileName || null,
-    icp: normalizeICP(body.icp),
-    jtbd: normalizeJTBDList(body.jtbd),
-    channelHints: normalizeChannelHints(body.channelHints),
-    landingUrl: body.landingUrl || null,
-    attributionWebhookSecret: randomBytes(32).toString("hex"),
-    textProvider: body.textProvider || null,
-    extractionStatus: body.planFile ? "pending" : null,
-  }).returning();
-
-  const created = result[0];
-
-  if (created.planFile) {
-    extractProfileAndStrategy({
-      productId: created.id,
-      name: created.name,
-      description: created.description,
-      planFileContent: created.planFile,
-      screenshotPaths: [],
-      textProvider: created.textProvider || undefined,
-    }).catch(console.error);
-  }
-
+  const created = await createProduct(body, []);
   return NextResponse.json(created, { status: 201 });
 }

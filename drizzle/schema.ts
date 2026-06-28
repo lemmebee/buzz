@@ -15,6 +15,7 @@ export const products = sqliteTable("products", {
   landingUrl: text("landing_url"), // public URL where attribution snippet lives
   attributionWebhookSecret: text("attribution_webhook_secret"), // HMAC secret for /api/conversions
   textProvider: text("text_provider"), // gemini | huggingface
+  llmInstructions: text("llm_instructions"), // user-provided rules/guidance for LLM
   extractionStatus: text("extraction_status"), // pending | extracting | done | failed
   extractionError: text("extraction_error"), // human-readable reason when failed
   instagramAccountId: integer("instagram_account_id").references(() => instagramAccounts.id),

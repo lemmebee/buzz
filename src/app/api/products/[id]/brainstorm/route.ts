@@ -85,7 +85,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   try {
     const provider = createTextProvider(product.textProvider || (await getTextProvider()));
-    const systemPrompt = buildBrainstormPrompt(rawProfile, rawStrategy, { count, theme });
+    const systemPrompt = buildBrainstormPrompt(rawProfile, rawStrategy, { count, theme, llmInstructions: product.llmInstructions || undefined });
 
     const result = await provider.generate({
       systemPrompt,

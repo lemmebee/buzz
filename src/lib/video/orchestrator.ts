@@ -144,7 +144,8 @@ export async function generateVideoContent(
     targetSurface,
     targeting,
     accountHandle,
-    product.name
+    product.name,
+    product.llmInstructions || undefined
   );
 
   const sceneCount = Math.max(2, Math.min(6, Math.ceil(targetDuration / 4)));

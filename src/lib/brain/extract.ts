@@ -13,6 +13,7 @@ interface ExtractionParams {
   planFileContent: string;
   screenshotPaths: string[];
   textProvider?: string;
+  llmInstructions?: string;
 }
 
 /**
@@ -26,6 +27,7 @@ export async function extractProfileAndStrategy({
   planFileContent,
   screenshotPaths,
   textProvider,
+  llmInstructions,
 }: ExtractionParams): Promise<void> {
   // Set status to extracting
   await db.update(schema.products)
@@ -34,7 +36,7 @@ export async function extractProfileAndStrategy({
 
   try {
     const provider = createTextProvider(textProvider);
-    const systemPrompt = buildProfileAndStrategyPrompt({ name, description, planFileContent });
+    const systemPrompt = buildProfileAndStrategyPrompt({ name, description, planFileContent, llmInstructions });
 
     // Load, resize, compress, and limit screenshots
     const prepared = await prepareImages(screenshotPaths);
