@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { BrainstormIdeaRow } from "../../../../../../drizzle/schema";
-import { createTextProvider } from "@/lib/providers";
-import { getTextProvider } from "@/lib/settings";
+import { resolveTextProvider } from "@/lib/providers";
 import { buildBrainstormPrompt, parseBrainstormResponse } from "@/lib/brain/prompts";
 import { classifyProviderError } from "@/lib/providers/errors";
 
@@ -84,7 +83,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const rawStrategy = JSON.parse(product.marketingStrategy);
 
   try {
-    const provider = createTextProvider(product.textProvider || (await getTextProvider()));
+    const provider = await resolveTextProvider(product.textProvider);
     const systemPrompt = buildBrainstormPrompt(rawProfile, rawStrategy, { count, theme, llmInstructions: product.llmInstructions || undefined });
 
     const result = await provider.generate({

@@ -39,6 +39,8 @@ export { createAntigravityTextProvider, listAntigravityModels } from "./antigrav
 
 // Image provider implementations
 export { createPollinationsImageProvider } from "./image";
+export { createGeminiImageProvider } from "./image-gemini";
+export { createHuggingFaceImageProvider } from "./image-hf";
 
 // Audio provider implementations
 export { createMsEdgeTtsAudioProvider } from "./audio";
@@ -47,4 +49,4 @@ export { createMsEdgeTtsAudioProvider } from "./audio";
 export { createFfmpegVideoProvider } from "./video";
 
 // Factory entry points
-export { createTextProvider, createAudioProvider, createVideoProvider } from "./factory";
+export { createTextProvider, createAudioProvider, createVideoProvider, resolveTextProvider, resolveImageProvider } from "./factory";

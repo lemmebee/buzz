@@ -27,6 +27,7 @@ export function ProductForm({ product }: ProductFormProps) {
     const tp = product?.textProvider || "gemini";
     return tp.startsWith("antigravity") ? "antigravity" : tp;
   });
+  const [imageProvider, setImageProvider] = useState(product?.imageProvider || "");
   const [antigravityModel, setAntigravityModel] = useState(() => {
     const tp = product?.textProvider || "";
     return tp.startsWith("antigravity:") ? tp.split(":").slice(1).join(":") : "";
@@ -157,6 +158,7 @@ export function ProductForm({ product }: ProductFormProps) {
       textProvider: textProvider === "antigravity"
         ? (antigravityModel ? `antigravity:${antigravityModel}` : "antigravity")
         : (textProvider || null),
+      imageProvider: imageProvider || null,
       replaceScreenshots: true,
     };
 
@@ -314,6 +316,23 @@ export function ProductForm({ product }: ProductFormProps) {
           </select>
         )}
         <p className="text-xs text-text-tertiary mt-1">LLM provider for profile/strategy extraction</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          Image Provider
+        </label>
+        <select
+          value={imageProvider}
+          onChange={(e) => setImageProvider(e.target.value)}
+          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+        >
+          <option value="">Use default</option>
+          <option value="pollinations">Pollinations</option>
+          <option value="gemini">Google AI Studio (Gemini)</option>
+          <option value="huggingface">HuggingFace</option>
+        </select>
+        <p className="text-xs text-text-tertiary mt-1">Image generation provider (leave empty to use global default)</p>
       </div>
 
       <div>

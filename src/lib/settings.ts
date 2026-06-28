@@ -15,3 +15,22 @@ export async function getTextProvider(): Promise<string> {
     "gemini"
   );
 }
+
+export async function getImageProviderName(): Promise<string> {
+  return (
+    (await getSetting("IMAGE_PROVIDER")) ||
+    process.env.IMAGE_PROVIDER ||
+    "pollinations"
+  );
+}
+
+export async function getApiKey(name: string): Promise<string> {
+  return (await getSetting(name)) || process.env[name] || "";
+}
+
+export async function getImageModel(): Promise<string> {
+  return (
+    (await getSetting("IMAGE_MODEL_HUGGINGFACE")) ||
+    "black-forest-labs/FLUX.1-schnell"
+  );
+}

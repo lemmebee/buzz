@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { buildProfileAndStrategyPrompt } from "./prompts";
-import { createTextProvider } from "@/lib/providers";
+import { resolveTextProvider } from "@/lib/providers";
 import { prepareImages } from "@/lib/images";
 import { snapshotChangedFields } from "@/lib/revisions";
 import { classifyProviderError } from "@/lib/providers/errors";
@@ -35,7 +35,7 @@ export async function extractProfileAndStrategy({
     .where(eq(schema.products.id, productId));
 
   try {
-    const provider = createTextProvider(textProvider);
+    const provider = await resolveTextProvider(textProvider);
     const systemPrompt = buildProfileAndStrategyPrompt({ name, description, planFileContent, llmInstructions });
 
     // Load, resize, compress, and limit screenshots

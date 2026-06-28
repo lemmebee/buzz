@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import type { ImageProvider, ImageGenerationInput, ImageGenerationOutput } from "./types";
+import type { ImageProvider, ImageGenerationInput, ImageGenerationOutput, ProviderConfig } from "./types";
 
 const BASE_URL = "https://gen.pollinations.ai/image";
 
-export function createPollinationsImageProvider(): ImageProvider {
+export function createPollinationsImageProvider(config: ProviderConfig = {}): ImageProvider {
   return {
     name: "pollinations/flux",
 
@@ -12,7 +12,7 @@ export function createPollinationsImageProvider(): ImageProvider {
       const prompt = encodeURIComponent(input.prompt);
       const width = input.width || 1024;
       const height = input.height || 1024;
-      const apiKey = process.env.POLLINATIONS_API_KEY;
+      const apiKey = config.apiKey || process.env.POLLINATIONS_API_KEY;
 
       const params = new URLSearchParams({
         width: String(width),

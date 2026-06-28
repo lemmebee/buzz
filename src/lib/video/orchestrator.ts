@@ -4,12 +4,11 @@ import { db, schema } from "@/lib/db";
 import { buildContentGenerationPrompt } from "@/lib/brain/prompts";
 import { normalizeProfile, normalizeStrategy } from "@/lib/brain/types";
 import {
-  createTextProvider,
-  createPollinationsImageProvider,
+  resolveTextProvider,
+  resolveImageProvider,
   createAudioProvider,
   createVideoProvider,
 } from "@/lib/providers";
-import { getTextProvider as getDefaultTextProvider } from "@/lib/settings";
 import { transcribeToSrt } from "@/lib/captions";
 import { sanitizeCaption, type GenerateContentInput, type GeneratedPost } from "@/lib/generate";
 import type { ContentConfig } from "@/lib/content/defaults";
@@ -135,7 +134,7 @@ export async function generateVideoContent(
     if (igAccount?.username) accountHandle = `@${igAccount.username}`;
   }
 
-  const textProvider = createTextProvider(product.textProvider || (await getDefaultTextProvider()));
+  const textProvider = await resolveTextProvider(product.textProvider);
   const { prompt: basePrompt, metadata } = buildContentGenerationPrompt(
     rawProfile,
     rawStrategy,
@@ -195,7 +194,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
 
   const audioProvider = createAudioProvider();
   const videoProvider = createVideoProvider();
-  const imageProvider = createPollinationsImageProvider();
+  const imageProvider = await resolveImageProvider(product.imageProvider);
   const dims = aspectRatioToDims(config.aspectRatio);
 
   const posts: GeneratedPost[] = [];
