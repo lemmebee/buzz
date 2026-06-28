@@ -14,11 +14,13 @@ import { ContentCard } from "@/components/ContentCard";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 import { Skeleton } from "@/components/Skeleton";
+import type { BrainstormIdea } from "@/lib/brain/types";
 import {
   ArrowLeft,
   FileText,
   Brain,
   Inbox,
+  Lightbulb,
   MoreVertical,
   Pencil,
   RefreshCw,
@@ -26,12 +28,13 @@ import {
   Search,
 } from "lucide-react";
 
-type Tab = "overview" | "brief" | "intelligence" | "content";
+type Tab = "overview" | "brief" | "intelligence" | "ideas" | "content";
 
 const tabs: { id: Tab; label: string; icon: typeof FileText }[] = [
   { id: "overview", label: "Overview", icon: FileText },
   { id: "brief", label: "Brief", icon: FileText },
   { id: "intelligence", label: "Intelligence", icon: Brain },
+  { id: "ideas", label: "Ideas", icon: Lightbulb },
   { id: "content", label: "Content", icon: Inbox },
 ];
 
@@ -199,6 +202,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         {activeTab === "intelligence" && (
           <IntelligenceTab product={product} onUpdate={setProduct} />
         )}
+        {activeTab === "ideas" && <IdeasTab product={product} />}
         {activeTab === "content" && <ContentTab productId={product.id} />}
       </main>
       <ConfirmDialog isOpen={isOpen} onClose={close} onConfirm={onConfirm} title={title} description={description} variant={variant} />
@@ -267,6 +271,9 @@ function OverviewTab({
   editing: boolean;
   onEdit: (editing: boolean) => void;
 }) {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const screenshots: string[] = product.screenshots ? JSON.parse(product.screenshots) : [];
+
   if (editing) {
     return (
       <div>
@@ -285,7 +292,6 @@ function OverviewTab({
   }
 
   const audience = product.profile ? JSON.parse(product.profile)?.audience : null;
-  const screenshots: string[] = product.screenshots ? JSON.parse(product.screenshots) : [];
 
   return (
     <div className="space-y-6">
@@ -355,12 +361,17 @@ function OverviewTab({
           </h3>
           <div className="grid grid-cols-4 gap-2">
             {screenshots.slice(0, 4).map((path, i) => (
-              <img
+              <div
                 key={i}
-                src={path}
-                alt=""
-                className="w-full aspect-square object-cover rounded-lg border border-border"
-              />
+                className="relative group cursor-pointer"
+                onClick={() => setLightboxIndex(i)}
+              >
+                <img
+                  src={path}
+                  alt=""
+                  className="w-full aspect-square object-cover rounded-lg border border-border group-hover:border-border-strong transition-colors"
+                />
+              </div>
             ))}
           </div>
           {screenshots.length > 4 && (
@@ -369,6 +380,16 @@ function OverviewTab({
             </p>
           )}
         </div>
+      )}
+
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          src={screenshots[lightboxIndex]}
+          images={screenshots}
+          currentIndex={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
 
       {/* Quick actions */}
@@ -387,7 +408,7 @@ function OverviewTab({
 }
 
 function BriefTab({ product }: { product: Product }) {
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const screenshots: string[] = product.screenshots ? JSON.parse(product.screenshots) : [];
 
   return (
@@ -422,7 +443,7 @@ function BriefTab({ product }: { product: Product }) {
         {screenshots.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {screenshots.map((path, i) => (
-              <div key={i} className="relative group cursor-pointer" onClick={() => setLightboxSrc(path)}>
+              <div key={i} className="relative group cursor-pointer" onClick={() => setLightboxIndex(i)}>
                 <img
                   src={path}
                   alt=""
@@ -438,8 +459,14 @@ function BriefTab({ product }: { product: Product }) {
         )}
       </div>
 
-      {lightboxSrc && (
-        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          src={screenshots[lightboxIndex]}
+          images={screenshots}
+          currentIndex={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
     </div>
   );
@@ -528,6 +555,182 @@ function IntelligenceTab({ product, onUpdate }: { product: Product; onUpdate: (p
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+type SavedIdea = BrainstormIdea & { id: number; theme?: string | null; createdAt?: string | null };
+
+const KIND_STYLES: Record<string, string> = {
+  campaign: "bg-info-bg text-info",
+  series: "bg-primary/15 text-primary",
+  post: "bg-success-bg text-success",
+  experiment: "bg-warning-bg text-warning",
+};
+
+function ScorePill({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-text-tertiary">
+      {label}
+      <span className="font-medium text-text-secondary">{value}/5</span>
+    </span>
+  );
+}
+
+function IdeaCard({ idea, onDelete }: { idea: SavedIdea; onDelete: (id: number) => void }) {
+  return (
+    <div className="bg-surface rounded-lg border border-border p-5 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <h4 className="text-base font-semibold text-text-primary">{idea.title}</h4>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-xs px-2 py-0.5 rounded capitalize ${KIND_STYLES[idea.kind] || "bg-border text-text-secondary"}`}>
+            {idea.kind}
+          </span>
+          <button
+            onClick={() => onDelete(idea.id)}
+            title="Delete idea"
+            className="text-text-tertiary hover:text-error transition-colors"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      <p className="text-base text-text-primary italic">&ldquo;{idea.hook}&rdquo;</p>
+      {idea.whyItWorks && (
+        <p className="text-sm text-text-secondary">
+          <span className="text-text-tertiary">Why it works: </span>{idea.whyItWorks}
+        </p>
+      )}
+      {idea.format && (
+        <p className="text-sm text-text-secondary">
+          <span className="text-text-tertiary">Format: </span>{idea.format}
+        </p>
+      )}
+      {idea.riskiestAssumption && (
+        <p className="text-sm text-text-secondary">
+          <span className="text-text-tertiary">Riskiest assumption: </span>{idea.riskiestAssumption}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs">
+        <ScorePill label="Novelty" value={idea.scores.novelty} />
+        <ScorePill label="Fit" value={idea.scores.fit} />
+        <ScorePill label="Feasibility" value={idea.scores.feasibility} />
+        {idea.theme && <span className="text-text-tertiary">focus: {idea.theme}</span>}
+        {idea.createdAt && (
+          <span className="text-text-tertiary ml-auto">{new Date(idea.createdAt).toLocaleDateString()}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IdeasTab({ product }: { product: Product }) {
+  const [ideas, setIdeas] = useState<SavedIdea[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [theme, setTheme] = useState("");
+
+  const hasStrategy = !!(product.profile && product.marketingStrategy);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/products/${product.id}/brainstorm`);
+        if (active && res.ok) {
+          const data = await res.json();
+          setIdeas(data.ideas || []);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [product.id]);
+
+  async function handleBrainstorm() {
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/products/${product.id}/brainstorm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: 8, theme: theme.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const fresh: SavedIdea[] = data.ideas || [];
+        setIdeas((prev) => [...fresh, ...prev]);
+        toast.success(fresh.length ? `Saved ${fresh.length} new ideas` : "No ideas returned, try again");
+      } else {
+        toast.error(data.error || "Brainstorm failed");
+      }
+    } catch {
+      toast.error("Brainstorm failed");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handleDelete(ideaId: number) {
+    const res = await fetch(`/api/products/${product.id}/brainstorm?ideaId=${ideaId}`, { method: "DELETE" });
+    if (res.ok) {
+      setIdeas((prev) => prev.filter((i) => i.id !== ideaId));
+    } else {
+      toast.error("Failed to delete idea");
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <input
+          type="text"
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          placeholder="Optional focus (e.g. launch week, a specific segment)"
+          onKeyDown={(e) => { if (e.key === "Enter" && hasStrategy && !generating) handleBrainstorm(); }}
+          className="flex-1 rounded-md border border-border bg-surface py-2 px-3 text-base text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <button
+          onClick={handleBrainstorm}
+          disabled={generating || !hasStrategy}
+          title={!hasStrategy ? "Extract a profile and strategy first" : undefined}
+          className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
+        >
+          {generating ? (
+            <><RefreshCw className="h-4 w-4 animate-spin" /> Brainstorming...</>
+          ) : (
+            <><Lightbulb className="h-4 w-4" /> Brainstorm ideas</>
+          )}
+        </button>
+      </div>
+
+      {!hasStrategy && (
+        <p className="text-sm text-text-tertiary">
+          Brainstorming uses this product&apos;s profile and strategy. Extract them on the Intelligence tab to generate new ideas. Saved ideas still show below.
+        </p>
+      )}
+
+      {/* Results */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-44 w-full" />)}
+        </div>
+      ) : ideas.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {ideas.map((idea) => <IdeaCard key={idea.id} idea={idea} onDelete={handleDelete} />)}
+        </div>
+      ) : (
+        <div className="bg-surface rounded-lg border border-border p-8 text-center">
+          <Lightbulb className="h-6 w-6 text-text-tertiary mx-auto mb-2" />
+          <p className="text-sm text-text-tertiary">
+            {generating
+              ? "Brainstorming ideas..."
+              : "No ideas yet. Generate innovative campaign, series, post, and experiment ideas from this product's profile and strategy."}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

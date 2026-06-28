@@ -1,5 +1,6 @@
-import type { ProductPlan, Platform, ContentPurpose, MediaType, ContentTargeting, GenerationMetadata, CategorizedHook, HookType, BrandVoice } from "./types";
+import type { ProductPlan, Platform, ContentPurpose, MediaType, ContentTargeting, GenerationMetadata, CategorizedHook, HookType, BrandVoice, BrainstormIdea, BrainstormKind } from "./types";
 import { normalizeProfile, normalizeStrategy } from "./types";
+import { composeSkillSection } from "@/lib/skills";
 
 // Platform-specific rules and best practices
 const PLATFORM_RULES: Record<Platform, string> = {
@@ -59,7 +60,7 @@ interface ExtractionInput {
 
 export function buildProfileAndStrategyPrompt({ name, description, planFileContent }: ExtractionInput): string {
   return `You are an expert marketing strategist extracting a deep product profile and content strategy from a marketing brief.
-
+${composeSkillSection("profile-strategy")}
 ## PHASE 1 — THINK (internal analysis, do NOT output this)
 
 Before writing any JSON, answer these questions internally:
@@ -304,6 +305,9 @@ export function buildContentGenerationPrompt(
 - Match how real ${platform} creators write. Study the platform's native voice`);
   sections.push("");
 
+  const skillSection = composeSkillSection("content");
+  if (skillSection) sections.push(skillSection);
+
   // Product context (expanded)
   sections.push("PRODUCT CONTEXT:");
   sections.push(`Name: ${name}`);
@@ -467,6 +471,125 @@ Return ONLY valid JSON:
   };
 
   return { prompt: sections.join("\n"), metadata };
+}
+
+// --- Brainstorming engine ---
+
+export interface BrainstormOptions {
+  count?: number;
+  theme?: string;
+}
+
+/**
+ * Brainstorming engine: generate innovative, non-obvious marketing/content ideas
+ * from a product's profile + strategy. Injects the brainstorming knowledge pack.
+ */
+export function buildBrainstormPrompt(
+  rawProfile: Record<string, unknown>,
+  rawStrategy: Record<string, unknown>,
+  opts: BrainstormOptions = {}
+): string {
+  const profile = normalizeProfile(rawProfile);
+  const strategy = normalizeStrategy(rawStrategy);
+  const count = Math.min(Math.max(opts.count ?? 8, 3), 15);
+
+  const sections: string[] = [];
+
+  sections.push(`You are a creative marketing strategist running a high-energy brainstorm for "${profile.name}".`);
+  sections.push(`Your job: produce ${count} INNOVATIVE, non-obvious marketing and content ideas, ranging across campaigns, content series, single posts, and growth experiments. The obvious ideas are worthless here. Push past them.`);
+
+  const skills = composeSkillSection("brainstorming");
+  if (skills) sections.push(skills);
+
+  sections.push("PRODUCT:");
+  sections.push(`Name: ${profile.name}`);
+  if (profile.tagline) sections.push(`Tagline: ${profile.tagline}`);
+  if (profile.category) sections.push(`Category: ${profile.category}`);
+  if (profile.coreValue) sections.push(`Core value: ${profile.coreValue}`);
+  if (profile.differentiators?.length) sections.push(`Differentiators: ${profile.differentiators.join("; ")}`);
+  if (profile.competitorContext) sections.push(`Competitive context: ${profile.competitorContext}`);
+  if (profile.brandStory) sections.push(`Brand story: ${profile.brandStory}`);
+  if (profile.audience?.primary) sections.push(`Audience: ${profile.audience.primary}`);
+
+  if (profile.customerSegments?.length) {
+    sections.push("\nSEGMENTS (mine these pains/desires):");
+    for (const seg of profile.customerSegments) {
+      sections.push(`- ${seg.label}: pains=[${seg.painPoints.join(", ")}], desires=[${seg.desires.join(", ")}], angle="${seg.messagingAngle}"`);
+    }
+  }
+
+  if (strategy.painPoints?.length) sections.push(`\nPain points: ${strategy.painPoints.join("; ")}`);
+  if (strategy.desirePoints?.length) sections.push(`Desires: ${strategy.desirePoints.join("; ")}`);
+  if (strategy.contentPillars?.length) sections.push(`Content pillars: ${strategy.contentPillars.join("; ")}`);
+  if (strategy.objections?.length) sections.push(`Objections to flip: ${strategy.objections.map(o => o.objection).join("; ")}`);
+
+  const existingHooks = (strategy.hooks as CategorizedHook[]).map(h => h.text).filter(Boolean);
+  if (existingHooks.length) {
+    sections.push(`\nALREADY USED (the OBVIOUS baseline. Do NOT repeat these, beat them):`);
+    sections.push(existingHooks.map(h => `- ${h}`).join("\n"));
+  }
+
+  if (opts.theme) {
+    sections.push(`\nFOCUS THEME: orient the whole brainstorm around "${opts.theme}".`);
+  }
+
+  sections.push(`\nSTYLE: hooks must sound human and specific. Never use the em dash character. Never use AI cliche words (elevate, unlock, unleash, seamlessly, revolutionize, empower, leverage, game-changer, cutting-edge, next-level).`);
+
+  sections.push(`\nReturn ONLY a valid JSON array of exactly ${count} ideas, each from a DIFFERENT angle lens. No markdown, no commentary. Schema per idea:
+{
+  "title": "short, punchy name for the idea",
+  "kind": "campaign | series | post | experiment",
+  "hook": "the one-line opening or angle a viewer would actually see",
+  "whyItWorks": "the job, pain, or emotion it taps and why it lands",
+  "format": "content format and channel, e.g. 'Instagram Reel', 'X thread', '7-day challenge'",
+  "riskiestAssumption": "the one belief that must be true for this to work",
+  "scores": { "novelty": 1-5, "fit": 1-5, "feasibility": 1-5 }
+}
+Order best-first by novelty + fit. Exclude any idea scoring 1-2 on BOTH novelty and fit.`);
+
+  return sections.join("\n");
+}
+
+/** Parse + validate the brainstorm engine's JSON array response. */
+export function parseBrainstormResponse(response: string): BrainstormIdea[] {
+  const cleaned = response.replace(/```(?:json)?\s*/gi, "").trim();
+  const match = cleaned.match(/\[[\s\S]*\]/);
+  if (!match) return [];
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(match[0]);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+
+  const allowedKinds = ["campaign", "series", "post", "experiment"];
+  const clampScore = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(5, Math.max(1, Math.round(n))) : 3; // NaN/missing -> neutral 3
+  };
+
+  return raw
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+    .map((x): BrainstormIdea => {
+      const s = (x.scores || {}) as Record<string, unknown>;
+      const kind = String(x.kind || "post").toLowerCase();
+      return {
+        title: String(x.title || "").trim(),
+        kind: (allowedKinds.includes(kind) ? kind : "post") as BrainstormKind,
+        hook: String(x.hook || "").trim(),
+        whyItWorks: String(x.whyItWorks || "").trim(),
+        format: String(x.format || "").trim(),
+        riskiestAssumption: String(x.riskiestAssumption || "").trim(),
+        scores: {
+          novelty: clampScore(s.novelty),
+          fit: clampScore(s.fit),
+          feasibility: clampScore(s.feasibility),
+        },
+      };
+    })
+    .filter(idea => idea.title && idea.hook);
 }
 
 // System prompt for product analysis

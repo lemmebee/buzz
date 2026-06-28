@@ -239,6 +239,20 @@ export function normalizeProfile(raw: Record<string, unknown>): ProductProfile {
   };
 }
 
+// --- Brainstorming engine (S3) ---
+
+export type BrainstormKind = "campaign" | "series" | "post" | "experiment";
+
+export interface BrainstormIdea {
+  title: string;
+  kind: BrainstormKind;
+  hook: string;
+  whyItWorks: string;
+  format: string;          // content format + channel, e.g. "Instagram Reel", "X thread"
+  riskiestAssumption: string;
+  scores: { novelty: number; fit: number; feasibility: number }; // 1-5 each
+}
+
 /** Normalize a raw strategy from DB — converts flat string hooks to CategorizedHook[], etc. */
 export function normalizeStrategy(raw: Record<string, unknown>): MarketingStrategy {
   const s = raw as Partial<MarketingStrategy> & Record<string, unknown>;

@@ -84,6 +84,22 @@ export const generationSchedules = sqliteTable("generation_schedules", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+export const brainstormIdeas = sqliteTable("brainstorm_ideas", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  kind: text("kind").notNull(), // campaign | series | post | experiment
+  hook: text("hook").notNull(),
+  whyItWorks: text("why_it_works"),
+  format: text("format"),
+  riskiestAssumption: text("riskiest_assumption"),
+  noveltyScore: integer("novelty_score"),
+  fitScore: integer("fit_score"),
+  feasibilityScore: integer("feasibility_score"),
+  theme: text("theme"), // optional focus used when generated
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   key: text("key").notNull().unique(),
@@ -100,3 +116,5 @@ export type Setting = typeof settings.$inferSelect;
 export type ProductRevision = typeof productRevisions.$inferSelect;
 export type GenerationSchedule = typeof generationSchedules.$inferSelect;
 export type NewGenerationSchedule = typeof generationSchedules.$inferInsert;
+export type BrainstormIdeaRow = typeof brainstormIdeas.$inferSelect;
+export type NewBrainstormIdea = typeof brainstormIdeas.$inferInsert;
