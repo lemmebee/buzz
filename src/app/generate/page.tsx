@@ -191,10 +191,6 @@ export default function GeneratePage() {
     }
   }
 
-  async function handleSave() {
-    // This is handled by GeneratedResults component now
-  }
-
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-6 py-8">
@@ -472,8 +468,6 @@ export default function GeneratePage() {
               posts={generatedPosts}
               productId={productId}
               contentType={contentType}
-              saving={false}
-              onSave={handleSave}
             />
           )}
         </div>
