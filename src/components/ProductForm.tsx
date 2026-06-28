@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Product } from "../../drizzle/schema";
 
 interface ProductFormProps {
@@ -321,7 +322,7 @@ export function ProductForm({ product }: ProductFormProps) {
           <div className="grid grid-cols-4 gap-3 mb-3">
             {existingScreenshots.map((path, i) => (
               <div key={`existing-${i}`} className="relative group">
-                <img src={path} alt="" className="w-full h-24 object-cover rounded-lg border border-border" />
+                <Image src={path} alt="" width={0} height={0} sizes="25vw" unoptimized className="w-full h-24 object-cover rounded-lg border border-border" />
                 <button
                   type="button"
                   onClick={() => removeExistingScreenshot(i)}
@@ -333,7 +334,7 @@ export function ProductForm({ product }: ProductFormProps) {
             ))}
             {newScreenshotPreviews.map((src, i) => (
               <div key={`new-${i}`} className="relative group">
-                <img src={src} alt="" className="w-full h-24 object-cover rounded-lg border border-primary/30" />
+                <Image src={src} alt="" width={0} height={0} sizes="25vw" unoptimized className="w-full h-24 object-cover rounded-lg border border-primary/30" />
                 <button
                   type="button"
                   onClick={() => removeNewScreenshot(i)}

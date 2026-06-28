@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
 
@@ -88,11 +88,7 @@ export default function SchedulesPage() {
     if (next) setFormConfig({ ...next });
   }, [formMediaType, formTargetSurface]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     const [schedulesRes, productsRes] = await Promise.all([
       fetch("/api/schedules"),
@@ -107,7 +103,11 @@ export default function SchedulesPage() {
       setFormProductId(productsData[0].id);
     }
     setLoading(false);
-  }
+  }, [formProductId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

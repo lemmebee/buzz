@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Package,
@@ -71,7 +72,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onMobileClose
             className="flex items-center gap-2"
             onClick={onMobileClose}
           >
-            <img src="/icon.svg" alt="Buzz" width={24} height={24} />
+            <Image src="/icon.svg" alt="Buzz" width={24} height={24} />
             {!collapsed && (
               <span className="text-base font-semibold text-text-primary">
                 Buzz

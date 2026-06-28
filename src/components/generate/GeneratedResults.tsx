@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import Image from "next/image";
 import type { GeneratedPost, ContentType } from "./types";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
@@ -165,9 +166,11 @@ export function GeneratedResults({ posts, productId, contentType, saving, onSave
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <img
+                  <Image
                     src={post.mediaUrl!}
                     alt="Generated"
+                    fill
+                    unoptimized
                     className="w-full h-full object-cover"
                   />
                 )}
@@ -231,11 +234,13 @@ export function GeneratedResults({ posts, productId, contentType, saving, onSave
         <div className="mt-4 p-4 border border-primary/20 bg-primary/5 rounded-lg">
           <h3 className="text-sm font-medium text-text-primary mb-3">Composition Preview</h3>
           <div className="flex gap-4 items-start">
-            <div className="w-32 h-32 flex-shrink-0 bg-background rounded-lg overflow-hidden">
+            <div className="relative w-32 h-32 flex-shrink-0 bg-background rounded-lg overflow-hidden">
               {selectedImageIndex !== null && posts[selectedImageIndex]?.mediaUrl ? (
-                <img
+                <Image
                   src={posts[selectedImageIndex].mediaUrl!}
                   alt="Selected"
+                  fill
+                  unoptimized
                   className="w-full h-full object-cover cursor-pointer"
                   onClick={() => setLightboxSrc(posts[selectedImageIndex].mediaUrl!)}
                 />

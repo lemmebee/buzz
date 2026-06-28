@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -54,18 +55,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [menuOpen, setMenuOpen] = useState(false);
   const [reExtracting, setReExtracting] = useState(false);
 
-  useEffect(() => {
-    fetchProduct();
-  }, [id]);
-
-  useEffect(() => {
-    if (product?.extractionStatus === "pending" || product?.extractionStatus === "extracting") {
-      const interval = setInterval(fetchProduct, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [product?.extractionStatus]);
-
-  async function fetchProduct() {
+  const fetchProduct = useCallback(async () => {
     const res = await fetch(`/api/products/${id}`);
     if (!res.ok) {
       router.push("/products");
@@ -74,7 +64,18 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     const data = await res.json();
     setProduct(data);
     setLoading(false);
-  }
+  }, [id, router]);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
+
+  useEffect(() => {
+    if (product?.extractionStatus === "pending" || product?.extractionStatus === "extracting") {
+      const interval = setInterval(fetchProduct, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [product?.extractionStatus, fetchProduct]);
 
   async function handleReExtract() {
     setReExtracting(true);
@@ -366,9 +367,13 @@ function OverviewTab({
                 className="relative group cursor-pointer"
                 onClick={() => setLightboxIndex(i)}
               >
-                <img
+                <Image
                   src={path}
                   alt=""
+                  width={0}
+                  height={0}
+                  sizes="25vw"
+                  unoptimized
                   className="w-full aspect-square object-cover rounded-lg border border-border group-hover:border-border-strong transition-colors"
                 />
               </div>
@@ -444,9 +449,13 @@ function BriefTab({ product }: { product: Product }) {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {screenshots.map((path, i) => (
               <div key={i} className="relative group cursor-pointer" onClick={() => setLightboxIndex(i)}>
-                <img
+                <Image
                   src={path}
                   alt=""
+                  width={0}
+                  height={0}
+                  sizes="25vw"
+                  unoptimized
                   className="w-full aspect-square object-cover rounded-lg border border-border group-hover:border-border-strong transition-colors"
                 />
               </div>
@@ -743,11 +752,7 @@ function ContentTab({ productId }: { productId: number }) {
 
   const statuses = ["all", "draft", "approved", "scheduled", "posted"] as const;
 
-  useEffect(() => {
-    fetchPosts();
-  }, [productId, statusFilter]);
-
-  async function fetchPosts() {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
     const url = statusFilter === "all"
       ? `/api/posts?productId=${productId}`
@@ -757,7 +762,11 @@ function ContentTab({ productId }: { productId: number }) {
       setPosts(await res.json());
     }
     setLoading(false);
-  }
+  }, [productId, statusFilter]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
 
   async function handleDelete(id: number) {
     const res = await fetch(`/api/posts/${id}`, { method: "DELETE" });

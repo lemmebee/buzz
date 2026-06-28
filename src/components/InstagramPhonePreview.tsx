@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 interface InstagramPhonePreviewProps {
   content: string;
@@ -60,9 +61,11 @@ export function InstagramPhonePreview({ content, mediaUrl, type = "post" }: Inst
                   playsInline
                 />
               ) : (
-                <img
+                <Image
                   src={mediaUrl}
                   alt="Post preview"
+                  fill
+                  unoptimized
                   className="w-full h-full object-cover"
                   onError={() => setImageError(true)}
                 />

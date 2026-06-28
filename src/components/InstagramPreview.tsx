@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { X, Heart, MessageCircle, Send, Bookmark } from "lucide-react";
 
 interface InstagramPreviewProps {
@@ -34,11 +35,11 @@ export function InstagramPreview({ content, hashtags = [], mediaUrl, onClose }: 
 
         {/* Media */}
         {mediaUrl && (
-          <div className="aspect-square bg-background">
+          <div className="relative aspect-square bg-background">
             {/\.(mp4|webm|mov)(\?|$)/i.test(mediaUrl) ? (
               <video src={mediaUrl} controls muted loop playsInline className="h-full w-full object-cover" />
             ) : (
-              <img src={mediaUrl} alt="Preview" className="h-full w-full object-cover" />
+              <Image src={mediaUrl} alt="Preview" fill unoptimized className="h-full w-full object-cover" />
             )}
           </div>
         )}

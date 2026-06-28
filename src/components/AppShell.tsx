@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "./CommandPalette";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -94,7 +95,7 @@ export function AppShell({ children }: AppShellProps) {
             className="flex items-center gap-2"
             onClick={() => setMobileOpen(false)}
           >
-            <img src="/icon.svg" alt="Buzz" width={20} height={20} />
+            <Image src="/icon.svg" alt="Buzz" width={20} height={20} />
             <span className="text-sm font-semibold text-text-primary">Buzz</span>
           </Link>
         </div>

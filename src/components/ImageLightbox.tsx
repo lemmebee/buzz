@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
 
@@ -72,10 +73,14 @@ export function ImageLightbox({ src, onClose, images, currentIndex = 0, onIndexC
         </button>
       )}
 
-      <img
+      <Image
         ref={imgRef}
         src={src}
         alt=""
+        width={0}
+        height={0}
+        sizes="90vw"
+        unoptimized
         className="max-w-[90vw] max-h-[90vh] object-contain"
       />
 

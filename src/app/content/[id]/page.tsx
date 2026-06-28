@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { ContentItem as Post, Product } from "../../../../drizzle/schema";
 import { ImageLightbox } from "@/components/ImageLightbox";
@@ -310,9 +311,13 @@ export default function ContentEditPage() {
                       className="w-full rounded-lg border border-border"
                     />
                   ) : (
-                    <img
+                    <Image
                       src={mediaUrl}
                       alt="Preview"
+                      width={0}
+                      height={0}
+                      sizes="100vw"
+                      unoptimized
                       className="w-full rounded-lg border border-border cursor-pointer"
                       onClick={() => setLightboxSrc(mediaUrl)}
                     />

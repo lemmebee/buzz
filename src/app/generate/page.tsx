@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Product } from "../../../drizzle/schema";
 import type { TargetType, ContentTargeting } from "@/lib/brain/types";
 import { Settings2, ChevronDown, ChevronUp } from "lucide-react";
@@ -424,9 +425,13 @@ export default function GeneratePage() {
                     <div className="mt-3 grid grid-cols-4 gap-2">
                       {screenshotPreviews.map((src, i) => (
                         <div key={i} className="relative group">
-                          <img
+                          <Image
                             src={src}
                             alt={`Screenshot ${i + 1}`}
+                            width={0}
+                            height={0}
+                            sizes="25vw"
+                            unoptimized
                             className="w-full aspect-square object-cover rounded-lg border border-border"
                           />
                           <button

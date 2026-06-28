@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ContentItem as Post } from "../../drizzle/schema";
 import { ImageLightbox } from "./ImageLightbox";
 import { InstagramPreview } from "./InstagramPreview";
@@ -61,12 +62,14 @@ export function ContentCard({
           </div>
         ) : (
           <div
-            className="aspect-square bg-border cursor-pointer"
+            className="relative aspect-square bg-border cursor-pointer"
             onClick={() => setLightboxSrc(post.mediaUrl!)}
           >
-            <img
+            <Image
               src={post.mediaUrl}
               alt=""
+              fill
+              unoptimized
               className="w-full h-full object-cover"
             />
           </div>
