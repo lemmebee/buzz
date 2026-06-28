@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { DiscordSetup } from "@/components/DiscordSetup";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface InstagramAccountWithProducts {
   id: number;
@@ -130,6 +131,14 @@ function SettingsContent() {
           </p>
         </div>
       )}
+
+      {/* Appearance */}
+      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+        <h2 className="text-lg font-medium text-text-primary mb-4">
+          Appearance
+        </h2>
+        <ThemeToggle />
+      </div>
 
       {/* Default Text Provider */}
       <div className="bg-surface rounded-lg border border-border p-6 mb-6">
