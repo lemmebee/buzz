@@ -47,37 +47,41 @@ export function ProductForm({ product }: ProductFormProps) {
     setPlanFileName(file.name);
 
     // Auto-populate fields from plan file content
-    autoPopulateFromPlan(text);
+    autoPopulateFromPlan(text, name, description);
   }
 
-  function autoPopulateFromPlan(content: string) {
-    const lines = content.split("\n");
+  function autoPopulateFromPlan(content: string, currentName: string, currentDescription: string) {
+    const cleanContent = content.replace(/^---\n[\s\S]*?\n---\n/, "");
+    const lines = cleanContent.split("\n");
 
-    // Extract name from first heading (# Title or ## Title)
-    const titleMatch = content.match(/^#+\s+(.+)$/m);
-    if (titleMatch) {
-      setName(titleMatch[1].trim());
-    }
-
-    // Find description — first paragraph after title
-    let foundTitle = false;
-    const descLines: string[] = [];
-    for (const line of lines) {
-      if (line.match(/^#+\s/)) {
-        if (foundTitle && descLines.length > 0) break;
-        foundTitle = true;
-        continue;
-      }
-      if (foundTitle && line.trim() && !line.startsWith("-") && !line.startsWith("*") && !line.startsWith("|")) {
-        descLines.push(line.trim());
-      } else if (foundTitle && descLines.length > 0 && !line.trim()) {
-        break;
+    // Only auto-populate name if empty (new product)
+    if (!currentName.trim()) {
+      const titleMatch = cleanContent.match(/^#+\s+(.+)$/m);
+      if (titleMatch) {
+        setName(titleMatch[1].trim());
       }
     }
-    if (descLines.length > 0) {
-      setDescription(descLines.join(" "));
-    }
 
+    // Only auto-populate description if empty
+    if (!currentDescription.trim()) {
+      let foundTitle = false;
+      const descLines: string[] = [];
+      for (const line of lines) {
+        if (line.match(/^#+\s/)) {
+          if (foundTitle && descLines.length > 0) break;
+          foundTitle = true;
+          continue;
+        }
+        if (foundTitle && line.trim() && !line.startsWith("-") && !line.startsWith("*") && !line.startsWith("|")) {
+          descLines.push(line.trim());
+        } else if (foundTitle && descLines.length > 0 && !line.trim()) {
+          break;
+        }
+      }
+      if (descLines.length > 0) {
+        setDescription(descLines.join(" "));
+      }
+    }
   }
 
   function handleRemoveFile() {
