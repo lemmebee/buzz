@@ -1,21 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, and } from "drizzle-orm";
 
-// GET all posts (optionally filter by status)
+// GET all posts (optionally filter by status and/or productId)
 export async function GET(req: NextRequest) {
   const status = req.nextUrl.searchParams.get("status");
+  const productId = req.nextUrl.searchParams.get("productId");
+
+  const query = db.select().from(schema.content);
+
+  if (status && productId) {
+    const posts = await query
+      .where(and(eq(schema.content.status, status), eq(schema.content.productId, parseInt(productId))))
+      .orderBy(desc(schema.content.id));
+    return NextResponse.json(posts);
+  }
 
   if (status) {
-    const posts = await db
-      .select()
-      .from(schema.content)
+    const posts = await query
       .where(eq(schema.content.status, status))
       .orderBy(desc(schema.content.id));
     return NextResponse.json(posts);
   }
 
-  const posts = await db.select().from(schema.content).orderBy(desc(schema.content.id));
+  if (productId) {
+    const posts = await query
+      .where(eq(schema.content.productId, parseInt(productId)))
+      .orderBy(desc(schema.content.id));
+    return NextResponse.json(posts);
+  }
+
+  const posts = await query.orderBy(desc(schema.content.id));
   return NextResponse.json(posts);
 }
 
