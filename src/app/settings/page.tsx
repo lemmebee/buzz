@@ -30,6 +30,7 @@ function SettingsContent() {
   const [providerSaving, setProviderSaving] = useState(false);
   const [imageProvider, setImageProvider] = useState("pollinations");
   const [imageModel, setImageModel] = useState("black-forest-labs/FLUX.1-schnell");
+  const [imageStyle, setImageStyle] = useState("product");
   const [imageProviderSaving, setImageProviderSaving] = useState(false);
   const [googleAiKey, setGoogleAiKey] = useState("");
   const [huggingfaceKey, setHuggingfaceKey] = useState("");
@@ -71,6 +72,9 @@ function SettingsContent() {
     }
     if (data.IMAGE_MODEL_HUGGINGFACE) {
       setImageModel(data.IMAGE_MODEL_HUGGINGFACE);
+    }
+    if (data.IMAGE_STYLE) {
+      setImageStyle(data.IMAGE_STYLE);
     }
     if (data.GOOGLE_AI_API_KEY) {
       setGoogleAiKeySet(true);
@@ -148,6 +152,17 @@ function SettingsContent() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: "IMAGE_MODEL_HUGGINGFACE", value: model }),
+    });
+    setImageProviderSaving(false);
+  }
+
+  async function updateImageStyle(value: string) {
+    setImageStyle(value);
+    setImageProviderSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "IMAGE_STYLE", value }),
     });
     setImageProviderSaving(false);
   }
@@ -328,17 +343,36 @@ function SettingsContent() {
           <option value="huggingface">HuggingFace</option>
         </select>
         {imageProvider === "huggingface" && (
-          <select
-            value={imageModel}
-            onChange={(e) => updateImageModel(e.target.value)}
-            className="w-full mt-2 bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="black-forest-labs/FLUX.1-schnell">FLUX.1-schnell (fast, free-tier friendly)</option>
-            <option value="black-forest-labs/FLUX.1-dev">FLUX.1-dev (higher quality)</option>
-            <option value="Qwen/Qwen-Image">Qwen-Image (best quality)</option>
-            <option value="stabilityai/stable-diffusion-3.5-large">Stable Diffusion 3.5 Large</option>
-          </select>
+          <>
+            <select
+              value={imageModel}
+              onChange={(e) => updateImageModel(e.target.value)}
+              className="w-full mt-2 bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="black-forest-labs/FLUX.1-schnell">FLUX.1-schnell (fast)</option>
+              <option value="stabilityai/stable-diffusion-3-medium-diffusers">Stable Diffusion 3 Medium</option>
+            </select>
+            <p className="mt-1 text-xs text-text-tertiary">
+              These are the only text-to-image models on HuggingFace&apos;s free tier. Higher-end models (Qwen-Image, FLUX.1-dev, SD 3.5) require enabling a paid Inference provider on your HuggingFace account.
+            </p>
+          </>
         )}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Image Style
+          </label>
+          <select
+            value={imageStyle}
+            onChange={(e) => updateImageStyle(e.target.value)}
+            className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="product">Product-relevant — show the product/device in context</option>
+            <option value="abstract">Abstract / brand mood — still-life in brand colors (original)</option>
+          </select>
+          <p className="mt-1 text-xs text-text-tertiary">
+            Product-relevant ties each image to the post topic and may show the app/device with an abstract, textless screen. Abstract is the original brand-colored still-life with no product.
+          </p>
+        </div>
         {imageProviderSaving && (
           <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
         )}

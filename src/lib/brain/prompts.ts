@@ -274,7 +274,8 @@ export function buildContentGenerationPrompt(
   targeting?: ContentTargeting,
   accountHandle?: string,
   productName?: string,
-  llmInstructions?: string
+  llmInstructions?: string,
+  imageStyle?: string
 ): { prompt: string; metadata: GenerationMetadata } {
   const profile = normalizeProfile(rawProfile);
   const strategy = normalizeStrategy(rawStrategy);
@@ -301,6 +302,9 @@ export function buildContentGenerationPrompt(
   const brandStyle = profile.visualIdentity?.style || "";
   const brandColors = profile.visualIdentity?.colors || "";
   const brandMood = profile.visualIdentity?.mood || "";
+
+  // Image scene style: "product" (depict the product in context) | "abstract" (brand-mood still-life, original pipeline)
+  const productScene = imageStyle !== "abstract";
 
   // Build targeted sections
   const sections: string[] = [];
@@ -442,7 +446,9 @@ IMAGE CLASSIFICATION — for EACH image, determine its type:
 
 A) FEATURE SPOTLIGHT (app screen, UI screenshot, product feature, dashboard, product photo)
    → CAPTION: reference specific UI elements, features, or experiences visible. Be concrete.
-   → IMAGE PROMPT: create a scene rooted in the feature's real-world subject matter - what the user DOES or FEELS when using it. Don't recreate the UI - depict the real-world context the feature lives in, styled using the product's visual identity. Example: a mood tracking screen → a warm evening scene with a journal and candlelight in the brand's color palette. A budget dashboard → a serene workspace with neatly sorted objects in brand colors.
+   → IMAGE PROMPT: ${productScene
+    ? `depict ${name} in its real-world context — the moment and setting where this feature is used, tied to THIS post's topic. You MAY show the product's device (e.g. a phone) in frame, but render any on-screen content as soft abstract color blocks in the brand palette — never readable text or detailed UI. Example: a voice-capture feature → a phone propped on a desk beside a coffee cup and a few coins, its screen showing calm abstract color blocks in the brand palette, warm morning light.`
+    : `create a scene rooted in the feature's real-world subject matter - what the user DOES or FEELS when using it. Don't recreate the UI - depict the real-world context the feature lives in, styled using the product's visual identity. Example: a mood tracking screen → a warm evening scene with a journal and candlelight in the brand's color palette. A budget dashboard → a serene workspace with neatly sorted objects in brand colors.`}
 
 B) STYLE REFERENCE (moodboard, aesthetic inspo, design reference, color palette, lifestyle photo)
    → CAPTION: do NOT mention or describe this image. It's for visual direction only.
@@ -465,8 +471,10 @@ The image model cannot see these images - your description is the only bridge. W
 - Do NOT add quality tags like "8k", "uhd", "highly detailed" — Flux ignores them
 - Target 20-60 words for the scene field
 - NEVER include people, human figures, faces, hands, or body parts — Flux renders them poorly
-- NEVER include text, lettering, words, or typography in the scene — Flux cannot render text correctly
-- Focus on products, objects, environments, abstract compositions, and still-life setups instead`);
+- NEVER include readable text, lettering, words, logos, or typography — Flux cannot render text correctly
+${productScene
+  ? `- The scene MUST connect to ${name} and THIS post's topic/hook — depict the product's real-world subject matter and the moment it's used, NOT generic brand-colored decor\n- You MAY show the product's device (e.g. a phone) in frame; render any screen as soft abstract color blocks in the brand palette — never readable text or detailed UI`
+  : `- Focus on products, objects, environments, abstract compositions, and still-life setups that evoke the product's essence — no devices, no UI`}`);
   sections.push("");
 
   sections.push(`Produce BOTH a caption and image generation instructions together, so they are creatively aligned.
@@ -476,7 +484,9 @@ Return ONLY valid JSON:
   "caption": "the full caption text without hashtags",
   "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
   "imagePrompt": {
-    "scene": "Natural language paragraph describing an environment, abstract composition, or still-life that evokes the product's essence. Lead with the main visual element. Include setting, lighting, camera spec, and brand colors woven naturally. No people, no devices, no text. Example: 'A sunlit loft workspace with exposed brick walls and monstera plants, warm amber light pooling across a navy blue velvet surface with scattered gold geometric shapes, shot on 50mm f/2.0 with shallow depth of field.'",
+    "scene": "${productScene
+      ? `Natural language paragraph describing a concrete scene that connects to the product and THIS post's topic. Lead with the main visual element. You MAY include the product's device with a soft, textless, abstract screen. Include setting, lighting, camera spec, and brand colors woven naturally. No people, no readable text. Example: 'A phone resting face-up on a wooden desk beside a ceramic coffee cup and a small notebook, its screen showing soft abstract color blocks in the brand palette, warm window light casting gentle shadows, shot on 50mm f/2.0 with shallow depth of field.'`
+      : `Natural language paragraph describing an environment, abstract composition, or still-life that evokes the product's essence. Lead with the main visual element. Include setting, lighting, camera spec, and brand colors woven naturally. No people, no devices, no text. Example: 'A sunlit loft workspace with exposed brick walls and monstera plants, warm amber light pooling across a navy blue velvet surface with scattered gold geometric shapes, shot on 50mm f/2.0 with shallow depth of field.'`}",
     "brandColorUsage": "How brand colors appear in the scene (e.g. 'navy in the furniture, amber in the lighting')",
     "mood": "single word or short phrase — energetic, calm, luxurious, playful, professional, cozy, etc.",
     "style": "one of: photo-realistic, illustrated, minimal-graphic, cinematic, 3d-render, flat-design",

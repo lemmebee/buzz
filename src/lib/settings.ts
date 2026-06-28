@@ -34,3 +34,12 @@ export async function getImageModel(): Promise<string> {
     "black-forest-labs/FLUX.1-schnell"
   );
 }
+
+// Image scene style: "product" (depict the product in context) | "abstract" (brand-mood still-life)
+export async function getImageStyle(): Promise<string> {
+  return (
+    (await getSetting("IMAGE_STYLE")) ||
+    process.env.IMAGE_STYLE ||
+    "product"
+  );
+}

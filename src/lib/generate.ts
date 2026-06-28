@@ -5,6 +5,7 @@ import { buildFluxPrompt } from "@/lib/brain/imagePromptBuilder";
 import type { Platform, ContentPurpose, ContentTargeting, ImagePrompt, GenerationMetadata, MediaType } from "@/lib/brain/types";
 import { normalizeProfile, normalizeStrategy } from "@/lib/brain/types";
 import { resolveTextProvider, resolveImageProvider } from "@/lib/providers";
+import { getImageStyle } from "@/lib/settings";
 import { getDefaults, type ContentConfig } from "@/lib/content/defaults";
 
 export interface GenerateContentInput {
@@ -76,8 +77,9 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
   }
 
   const textProvider = await resolveTextProvider(product.textProvider);
+  const imageStyle = await getImageStyle();
   const { prompt: systemPrompt, metadata } = buildContentGenerationPrompt(
-    rawProfile, rawStrategy, images.length, platform, contentType, targeting, accountHandle, product.name, product.llmInstructions || undefined
+    rawProfile, rawStrategy, images.length, platform, contentType, targeting, accountHandle, product.name, product.llmInstructions || undefined, imageStyle
   );
 
   const styleReminder = `\n\nREMINDER: Write like a real human. NEVER use em dashes (—), NEVER use AI cliché words (elevate, unlock, unleash, seamlessly, revolutionize, empower, leverage, game-changer, cutting-edge, next-level). Use casual, imperfect language. Be specific, not generic.`;
