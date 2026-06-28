@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import type { ImageProvider, ImageGenerationInput, ImageGenerationOutput } from "./types";
 
-const HF_API_BASE = "https://api-inference.huggingface.co/models";
+const HF_ROUTER_BASE = "https://router.huggingface.co/hf-inference/models";
 
 export function createHuggingFaceImageProvider(config: {
   apiKey: string;
@@ -12,7 +12,7 @@ export function createHuggingFaceImageProvider(config: {
     name: `huggingface/${config.model}`,
 
     async generate(input: ImageGenerationInput): Promise<ImageGenerationOutput> {
-      const url = `${HF_API_BASE}/${config.model}`;
+      const url = `${HF_ROUTER_BASE}/${config.model}`;
 
       const response = await fetch(url, {
         method: "POST",
