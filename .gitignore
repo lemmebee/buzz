@@ -16,6 +16,7 @@
 
 # next.js
 /.next/
+/.next-prod/
 /out/
 
 # production
@@ -33,6 +34,7 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.prod
 
 # database
 /data

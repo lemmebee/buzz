@@ -8,6 +8,6 @@ export default defineConfig({
   out: "./drizzle/migrations",
   dialect: "sqlite",
   dbCredentials: {
-    url: "./data/buzz.db",
+    url: process.env.DATABASE_PATH ?? "./data/buzz.db",
   },
 });

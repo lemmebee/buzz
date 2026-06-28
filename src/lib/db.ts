@@ -4,7 +4,7 @@ import * as schema from "../../drizzle/schema";
 import { existsSync, mkdirSync } from "fs";
 import { dirname } from "path";
 
-const dbPath = "./data/buzz.db";
+const dbPath = process.env.DATABASE_PATH ?? "./data/buzz.db";
 
 // Ensure data directory exists
 const dir = dirname(dbPath);

@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -65,14 +66,18 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onMobileClose
       >
         {/* Header */}
         <div className="flex h-14 items-center justify-between border-b border-border px-4">
-          <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="flex items-center gap-2"
+            onClick={onMobileClose}
+          >
             <img src="/icon.svg" alt="Buzz" width={24} height={24} />
             {!collapsed && (
               <span className="text-base font-semibold text-text-primary">
                 Buzz
               </span>
             )}
-          </div>
+          </Link>
           {/* Mobile close button */}
           <button
             onClick={onMobileClose}
@@ -115,6 +120,13 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onMobileClose
 
         {/* Footer */}
         <div className="border-t border-border p-2">
+          {/* Theme toggle - only show when expanded */}
+          {!collapsed && (
+            <div className="mb-2 flex justify-center">
+              <ThemeToggle />
+            </div>
+          )}
+
           {/* Collapse toggle (desktop only) */}
           <button
             onClick={onToggleCollapse}

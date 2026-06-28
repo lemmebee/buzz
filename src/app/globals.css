@@ -35,44 +35,43 @@
   --foreground: var(--color-text-primary);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Primary: slightly desaturated for dark mode */
-    --color-primary: oklch(60% 0.18 260);
-    --color-primary-hover: oklch(65% 0.18 260);
-    --color-primary-foreground: oklch(10% 0.01 260);
+.dark {
+  /* Primary: slightly desaturated for dark mode */
+  --color-primary: oklch(60% 0.18 260);
+  --color-primary-hover: oklch(65% 0.18 260);
+  --color-primary-foreground: oklch(10% 0.01 260);
 
-    /* Neutral: dark surfaces, lighter = higher elevation */
-    --color-bg: oklch(12% 0.01 260);
-    --color-surface: oklch(17% 0.012 260);
-    --color-border: oklch(25% 0.015 260);
-    --color-border-strong: oklch(32% 0.018 260);
+  /* Neutral: dark surfaces, lighter = higher elevation */
+  --color-bg: oklch(12% 0.01 260);
+  --color-surface: oklch(17% 0.012 260);
+  --color-border: oklch(25% 0.015 260);
+  --color-border-strong: oklch(32% 0.018 260);
 
-    /* Text: reduced weight perception on dark */
-    --color-text-primary: oklch(95% 0.005 260);
-    --color-text-secondary: oklch(80% 0.01 260);
-    --color-text-tertiary: oklch(65% 0.015 260);
-    --color-text-muted: oklch(50% 0.015 260);
+  /* Text: reduced weight perception on dark */
+  --color-text-primary: oklch(95% 0.005 260);
+  --color-text-secondary: oklch(80% 0.01 260);
+  --color-text-tertiary: oklch(65% 0.015 260);
+  --color-text-muted: oklch(50% 0.015 260);
 
-    /* Status: desaturated for dark mode */
-    --color-success: oklch(65% 0.14 145);
-    --color-success-bg: oklch(20% 0.04 145);
-    --color-error: oklch(65% 0.16 25);
-    --color-error-bg: oklch(20% 0.04 25);
-    --color-warning: oklch(75% 0.12 75);
-    --color-warning-bg: oklch(20% 0.04 75);
-    --color-info: oklch(65% 0.15 290);
-    --color-info-bg: oklch(20% 0.04 290);
+  /* Status: desaturated for dark mode */
+  --color-success: oklch(65% 0.14 145);
+  --color-success-bg: oklch(20% 0.04 145);
+  --color-error: oklch(65% 0.16 25);
+  --color-error-bg: oklch(20% 0.04 25);
+  --color-warning: oklch(75% 0.12 75);
+  --color-warning-bg: oklch(20% 0.04 75);
+  --color-info: oklch(65% 0.15 290);
+  --color-info-bg: oklch(20% 0.04 290);
 
-    --background: var(--color-bg);
-    --foreground: var(--color-text-primary);
-  }
+  --background: var(--color-bg);
+  --foreground: var(--color-text-primary);
 }
 
 body {
   color: var(--color-text-primary);
   background: var(--color-bg);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 @layer utilities {
