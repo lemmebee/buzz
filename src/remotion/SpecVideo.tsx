@@ -1,0 +1,239 @@
+import {
+  AbsoluteFill,
+  Audio,
+  Img,
+  interpolate,
+  spring,
+  staticFile,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
+import { TransitionSeries, linearTiming, springTiming, type TransitionPresentation } from "@remotion/transitions";
+import { fade } from "@remotion/transitions/fade";
+import { slide } from "@remotion/transitions/slide";
+import { wipe } from "@remotion/transitions/wipe";
+import { clockWipe } from "@remotion/transitions/clock-wipe";
+import { flip } from "@remotion/transitions/flip";
+import { Rect, Circle, Ellipse, Triangle } from "@remotion/shapes";
+import { Captions } from "./Captions";
+import { fontStack } from "./fonts";
+import { TRANSITION_FRAMES, type LayerT, type ResolvedScene, type SpecVideoProps } from "./spec";
+
+// ─── Background ───────────────────────────────────────────────────────────────
+function Background({ scene, palette }: { scene: ResolvedScene; palette: SpecVideoProps["palette"] }) {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+
+  if (scene.bgKind === "image" && scene.bgImageSrc) {
+    // Local assets resolve via staticFile(); a remote URL is passed straight to <Img>.
+    const imgSrc = /^https?:\/\//.test(scene.bgImageSrc) ? scene.bgImageSrc : staticFile(scene.bgImageSrc);
+    const max = 1.18;
+    const scale =
+      scene.kenBurns === "in"
+        ? interpolate(frame, [0, durationInFrames], [1, max], { extrapolateRight: "clamp" })
+        : scene.kenBurns === "out"
+        ? interpolate(frame, [0, durationInFrames], [max, 1], { extrapolateRight: "clamp" })
+        : 1;
+    return (
+      <AbsoluteFill style={{ backgroundColor: palette.bg }}>
+        <Img
+          src={imgSrc}
+          style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})` }}
+        />
+        {/* subtle scrim so overlaid text stays legible on any image */}
+        <AbsoluteFill
+          style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.55) 100%)" }}
+        />
+      </AbsoluteFill>
+    );
+  }
+  if (scene.bgKind === "gradient") {
+    return (
+      <AbsoluteFill
+        style={{ background: `linear-gradient(135deg, ${scene.bgColor} 0%, ${scene.bgColor2} 100%)` }}
+      />
+    );
+  }
+  return <AbsoluteFill style={{ backgroundColor: scene.bgColor }} />;
+}
+
+// ─── Entrance animation presets (closed set) ──────────────────────────────────
+function useEntrance(animation: LayerT["animation"]) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const s = spring({ frame, fps, config: { damping: 16, stiffness: 160, mass: 0.6 }, durationInFrames: 12 });
+  switch (animation) {
+    case "pop":
+      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `scale(${interpolate(s, [0, 1], [0.6, 1])})` };
+    case "slideLeft":
+      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `translateX(${interpolate(s, [0, 1], [80, 0])}px)` };
+    case "fadeUp":
+      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `translateY(${interpolate(s, [0, 1], [40, 0])}px)` };
+    case "typewriter": // approximated as a quick fade (per-char would need the text)
+    case "none":
+    default:
+      return { opacity: animation === "none" ? 1 : interpolate(s, [0, 1], [0, 1]), transform: "none" };
+  }
+}
+
+const POSITION_STYLE: Record<LayerT["position"], React.CSSProperties> = {
+  center: { alignItems: "center", justifyContent: "center" },
+  top: { alignItems: "center", justifyContent: "flex-start", paddingTop: "12%" },
+  bottom: { alignItems: "center", justifyContent: "flex-end", paddingBottom: "14%" },
+  "upper-third": { alignItems: "center", justifyContent: "flex-start", paddingTop: "22%" },
+  "lower-third": { alignItems: "center", justifyContent: "flex-end", paddingBottom: "22%" },
+};
+
+function TextLayerView({
+  layer,
+  palette,
+  height,
+}: {
+  layer: LayerT;
+  palette: SpecVideoProps["palette"];
+  height: number;
+}) {
+  const entrance = useEntrance(layer.animation);
+  const fontSize = Math.round((layer.sizePct / 100) * height);
+  const color = layer.accent ? palette.accent : layer.color;
+  return (
+    <AbsoluteFill style={{ ...POSITION_STYLE[layer.position], display: "flex", padding: "0 7%" }}>
+      <div
+        style={{
+          ...entrance,
+          textAlign: "center",
+          fontFamily: fontStack(layer.fontFamily),
+          fontWeight: 800,
+          fontSize,
+          lineHeight: 1.05,
+          color,
+          textTransform: layer.uppercase ? "uppercase" : "none",
+          textShadow: `0 ${Math.round(fontSize * 0.05)}px ${Math.round(fontSize * 0.16)}px rgba(0,0,0,0.5)`,
+          maxWidth: "100%",
+        }}
+      >
+        {layer.text}
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function ShapeLayerView({ layer, width, height }: { layer: LayerT; width: number; height: number }) {
+  const entrance = useEntrance(layer.animation);
+  const w = Math.round((layer.widthPct / 100) * width);
+  const h = Math.round((layer.heightPct / 100) * height);
+  const left = Math.round((layer.xPct / 100) * width);
+  const top = Math.round((layer.yPct / 100) * height);
+
+  let shape: React.ReactNode;
+  switch (layer.shape) {
+    case "circle":
+      shape = <Circle radius={Math.min(w, h) / 2} fill={layer.color} />;
+      break;
+    case "ellipse":
+      shape = <Ellipse rx={w / 2} ry={h / 2} fill={layer.color} />;
+      break;
+    case "triangle":
+      shape = <Triangle length={Math.min(w, h)} direction="up" fill={layer.color} />;
+      break;
+    case "rect":
+    default:
+      shape = <Rect width={w} height={h} fill={layer.color} cornerRadius={Math.round(Math.min(w, h) * 0.08)} />;
+      break;
+  }
+  return (
+    <AbsoluteFill>
+      {/* outer div positions (centered on x/y); inner div carries the entrance
+          animation so its transform/opacity don't clobber the positioning. */}
+      <div style={{ position: "absolute", left, top, transform: "translate(-50%, -50%)" }}>
+        <div style={{ ...entrance, opacity: (typeof entrance.opacity === "number" ? entrance.opacity : 1) * layer.opacity }}>
+          {shape}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function SceneView({
+  scene,
+  palette,
+  width,
+  height,
+}: {
+  scene: ResolvedScene;
+  palette: SpecVideoProps["palette"];
+  width: number;
+  height: number;
+}) {
+  return (
+    <AbsoluteFill>
+      <Background scene={scene} palette={palette} />
+      {scene.layers.map((layer, i) =>
+        layer.kind === "shape" ? (
+          <ShapeLayerView key={i} layer={layer} width={width} height={height} />
+        ) : (
+          <TextLayerView key={i} layer={layer} palette={palette} height={height} />
+        )
+      )}
+    </AbsoluteFill>
+  );
+}
+
+type AnyPresentation = TransitionPresentation<Record<string, unknown>>;
+
+function presentationFor(type: ResolvedScene["transition"], width: number, height: number): AnyPresentation {
+  switch (type) {
+    case "slide": return slide() as unknown as AnyPresentation;
+    case "wipe": return wipe() as unknown as AnyPresentation;
+    case "clockWipe": return clockWipe({ width, height }) as unknown as AnyPresentation;
+    case "flip": return flip() as unknown as AnyPresentation;
+    case "fade":
+    default: return fade() as unknown as AnyPresentation;
+  }
+}
+
+// The flexible renderer: interprets ANY validated VideoSpec. Scenes chained via
+// TransitionSeries; per-scene transition + Ken Burns + text/shape layers; a
+// root voiceover and whisper-synced caption track.
+export function SpecVideo({
+  scenes,
+  audioSrc,
+  captions,
+  caption,
+  palette,
+  width,
+  height,
+}: SpecVideoProps) {
+  return (
+    <AbsoluteFill style={{ backgroundColor: palette.bg }}>
+      <TransitionSeries>
+        {scenes.flatMap((scene, i) => {
+          const seq = (
+            <TransitionSeries.Sequence key={`s${i}`} durationInFrames={scene.durationInFrames}>
+              <SceneView scene={scene} palette={palette} width={width} height={height} />
+            </TransitionSeries.Sequence>
+          );
+          // Insert a transition before every scene except the first (skip "none").
+          if (i === 0 || scene.transition === "none") return [seq];
+          const timing = scene.transition === "flip" || scene.transition === "slide"
+            ? springTiming({ config: { damping: 200 }, durationInFrames: TRANSITION_FRAMES })
+            : linearTiming({ durationInFrames: TRANSITION_FRAMES });
+          return [
+            <TransitionSeries.Transition
+              key={`t${i}`}
+              presentation={presentationFor(scene.transition, width, height)}
+              timing={timing}
+            />,
+            seq,
+          ];
+        })}
+      </TransitionSeries>
+
+      {audioSrc ? <Audio src={staticFile(audioSrc)} /> : null}
+
+      {caption.show && captions.length > 0 ? (
+        <Captions captions={captions} accentColor={palette.accent} videoHeight={height} />
+      ) : null}
+    </AbsoluteFill>
+  );
+}
