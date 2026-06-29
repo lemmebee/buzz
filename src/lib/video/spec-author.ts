@@ -57,7 +57,10 @@ Author the full JSON spec now.`;
     generationConfig: {
       responseMimeType: "application/json",
       temperature: 0.95,
-      maxOutputTokens: 4096,
+      // Large enough to echo the full voiceover script verbatim AND author
+      // 2-6 scenes with detailed image prompts — 4096 truncated multi-scene
+      // specs, which jsonrepair salvaged into an empty/short scenes array.
+      maxOutputTokens: 8192,
     },
   });
 
@@ -83,8 +86,10 @@ Author the full JSON spec now.`;
 
   const result = VideoSpec.safeParse(parsed);
   if (!result.success) {
+    console.warn(`[spec] safeParse failed (raw ${raw.length} chars): ${result.error.message.slice(0, 300)}`);
     return { spec: null, raw, error: `schema validation failed: ${result.error.message.slice(0, 300)}` };
   }
+  console.log(`[spec] authored ${result.data.scenes.length} scenes, script ${result.data.script.length} chars (raw ${raw.length} chars)`);
 
   const spec: VideoSpecT = {
     ...result.data,

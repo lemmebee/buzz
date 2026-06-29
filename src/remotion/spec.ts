@@ -117,7 +117,11 @@ export const VideoSpec = z.object({
   // The voiceover narration. Drives TTS + whisper captions. The LLM writes it.
   script: z.string().catch(""),
   caption: Caption,
-  scenes: z.array(Scene).min(1).max(8).catch([]),
+  // NO .catch() here, unlike every other field: an empty/missing/malformed
+  // scenes array MUST fail safeParse so the caller falls back to the fixed
+  // composition. Healing it to [] would yield a valid-looking spec that renders
+  // a single 1-frame "video". Individual bad scenes still self-heal (Scene.catch).
+  scenes: z.array(Scene).min(1).max(8),
 });
 
 export type VideoSpecT = z.infer<typeof VideoSpec>;
