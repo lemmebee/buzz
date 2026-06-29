@@ -143,9 +143,12 @@ function SettingsContent() {
     const data = await res.json();
     if (data.TEXT_PROVIDER) {
       const val = data.TEXT_PROVIDER;
-      if (val.startsWith("antigravity:")) {
+      if (val === "antigravity" || val.startsWith("antigravity:")) {
         setTextProvider("antigravity");
-        setAntigravityModel(val.split(":").slice(1).join(":"));
+        if (val.startsWith("antigravity:")) {
+          setAntigravityModel(val.split(":").slice(1).join(":"));
+        }
+        fetchAntigravityModels();
       } else {
         setTextProvider(val);
       }
