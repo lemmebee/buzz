@@ -8,8 +8,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "jobId required" }, { status: 400 });
   }
 
-  // Process the job (this will take a while for video generation)
-  await processJob(jobId);
+  // Do NOT await: a video render can take minutes, and the fire-and-forget
+  // trigger from /api/generate would otherwise hit undici's headersTimeout
+  // (~300s) and log "fetch failed". processJob records status/result to the DB,
+  // which the client polls via /api/jobs/[jobId]. PM2 runs a long-lived node
+  // server, so the detached promise keeps running after this response returns.
+  processJob(jobId).catch((err) =>
+    console.error(`[jobs] processJob ${jobId} failed:`, err)
+  );
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ accepted: true, jobId });
 }

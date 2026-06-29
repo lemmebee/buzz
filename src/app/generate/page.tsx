@@ -180,9 +180,11 @@ export default function GeneratePage() {
 
       const { jobId } = await res.json();
 
-      // Poll for job completion
-      const maxAttempts = 300; // 5 minutes max
-      const pollInterval = 1000; // 1 second
+      // Poll for job completion. Creative Remotion renders can run several
+      // minutes (more with multiple variations), so the window must comfortably
+      // exceed render time — the job runs server-side regardless of polling.
+      const pollInterval = 2000; // 2 seconds
+      const maxAttempts = 450; // 15 minutes max
       let attempts = 0;
 
       while (attempts < maxAttempts) {

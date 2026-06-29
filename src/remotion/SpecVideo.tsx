@@ -84,6 +84,35 @@ const POSITION_STYLE: Record<LayerT["position"], React.CSSProperties> = {
   "lower-third": { alignItems: "center", justifyContent: "flex-end", paddingBottom: "22%" },
 };
 
+// Each text layer renders as its own full-screen positioned AbsoluteFill, so two
+// text layers in the same vertical BAND overlap completely (the "glitchy
+// doubled text" look). De-conflict bands per scene: keep the layer's position
+// when its band is free, else move it to a free band. Preserves good LLM
+// layouts and hard-guarantees no overlap even if the model collides positions.
+const BAND_OF: Record<LayerT["position"], "upper" | "middle" | "lower"> = {
+  top: "upper",
+  "upper-third": "upper",
+  center: "middle",
+  bottom: "lower",
+  "lower-third": "lower",
+};
+const FREE_POSITIONS: LayerT["position"][] = ["center", "upper-third", "lower-third", "top", "bottom"];
+
+function deconflictTextPositions(layers: ResolvedScene["layers"]): Record<number, LayerT["position"]> {
+  const used = new Set<string>();
+  const resolved: Record<number, LayerT["position"]> = {};
+  layers.forEach((l, i) => {
+    if (l.kind !== "text") return;
+    let pos = l.position;
+    if (used.has(BAND_OF[pos])) {
+      pos = FREE_POSITIONS.find((p) => !used.has(BAND_OF[p])) ?? pos;
+    }
+    used.add(BAND_OF[pos]);
+    resolved[i] = pos;
+  });
+  return resolved;
+}
+
 // Frames each word's entrance lags behind the previous one — the kinetic
 // "words snap in one-by-one" marketing-typography look.
 const WORD_STAGGER_FRAMES = 3;
@@ -140,7 +169,7 @@ function TextLayerView({
   const fontSize = Math.round(Math.min(requested, maxForFit));
   const color = layer.accent ? palette.accent : layer.color;
   return (
-    <AbsoluteFill style={{ ...POSITION_STYLE[layer.position], display: "flex", padding: "0 7%" }}>
+    <AbsoluteFill style={{ ...POSITION_STYLE[layer.position], display: "flex", paddingLeft: "7%", paddingRight: "7%" }}>
       <div
         style={{
           display: "flex",
@@ -216,6 +245,7 @@ function SceneView({
   width: number;
   height: number;
 }) {
+  const textPositions = deconflictTextPositions(scene.layers);
   return (
     <AbsoluteFill>
       <Background scene={scene} palette={palette} />
@@ -223,7 +253,13 @@ function SceneView({
         layer.kind === "shape" ? (
           <ShapeLayerView key={i} layer={layer} width={width} height={height} />
         ) : (
-          <TextLayerView key={i} layer={layer} palette={palette} width={width} height={height} />
+          <TextLayerView
+            key={i}
+            layer={{ ...layer, position: textPositions[i] ?? layer.position }}
+            palette={palette}
+            width={width}
+            height={height}
+          />
         )
       )}
     </AbsoluteFill>
