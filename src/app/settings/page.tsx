@@ -20,6 +20,87 @@ const TEXT_PROVIDERS = [
   { value: "antigravity", label: "Antigravity (local CLI)" },
 ];
 
+// A single API-key field. When a key is already saved it shows an unmistakable
+// "✓ Configured" badge (the value never leaves the server) with a Replace
+// action; otherwise it shows the input + Save.
+function ApiKeyField({
+  label,
+  configured,
+  value,
+  onChange,
+  onSave,
+  saving,
+  placeholder,
+}: {
+  label: string;
+  configured: boolean;
+  value: string;
+  onChange: (v: string) => void;
+  onSave: () => void;
+  saving: boolean;
+  placeholder: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const showInput = !configured || editing;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="block text-sm font-medium text-text-secondary">{label}</label>
+        {configured && (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+            ✓ Configured
+          </span>
+        )}
+      </div>
+      {showInput ? (
+        <>
+          <input
+            type="password"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={configured ? "Enter a new key to replace" : placeholder}
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          />
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                onSave();
+                setEditing(false);
+              }}
+              disabled={!value.trim() || saving}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            {configured && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("");
+                  setEditing(false);
+                }}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border-strong text-text-secondary hover:bg-primary/10"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="px-3 py-1.5 text-sm font-medium rounded-lg border border-border-strong text-text-secondary hover:bg-primary/10"
+        >
+          Replace key
+        </button>
+      )}
+    </div>
+  );
+}
+
 function SettingsContent() {
   const searchParams = useSearchParams();
   const [accounts, setAccounts] = useState<InstagramAccountWithProducts[]>([]);
@@ -32,6 +113,8 @@ function SettingsContent() {
   const [imageModel, setImageModel] = useState("black-forest-labs/FLUX.1-schnell");
   const [imageStyle, setImageStyle] = useState("product");
   const [imageProviderSaving, setImageProviderSaving] = useState(false);
+  const [videoProvider, setVideoProvider] = useState("ffmpeg");
+  const [videoProviderSaving, setVideoProviderSaving] = useState(false);
   const [googleAiKey, setGoogleAiKey] = useState("");
   const [huggingfaceKey, setHuggingfaceKey] = useState("");
   const [pollinationsKey, setPollinationsKey] = useState("");
@@ -75,6 +158,9 @@ function SettingsContent() {
     }
     if (data.IMAGE_STYLE) {
       setImageStyle(data.IMAGE_STYLE);
+    }
+    if (data.VIDEO_PROVIDER) {
+      setVideoProvider(data.VIDEO_PROVIDER);
     }
     if (data.GOOGLE_AI_API_KEY) {
       setGoogleAiKeySet(true);
@@ -167,6 +253,17 @@ function SettingsContent() {
     setImageProviderSaving(false);
   }
 
+  async function updateVideoProvider(value: string) {
+    setVideoProvider(value);
+    setVideoProviderSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "VIDEO_PROVIDER", value }),
+    });
+    setVideoProviderSaving(false);
+  }
+
   async function saveApiKey(keyName: string, value: string, setKeySet: (v: boolean) => void) {
     if (!value.trim()) return;
     setKeysSaving(true);
@@ -253,75 +350,42 @@ function SettingsContent() {
           API Keys
         </h2>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Google AI API Key
-            </label>
-            <input
-              type="password"
-              value={googleAiKey}
-              onChange={(e) => setGoogleAiKey(e.target.value)}
-              placeholder={googleAiKeySet ? "•••• set" : "Enter key"}
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                saveApiKey("GOOGLE_AI_API_KEY", googleAiKey, setGoogleAiKeySet);
-                setGoogleAiKey("");
-              }}
-              disabled={!googleAiKey.trim() || keysSaving}
-              className="mt-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {keysSaving ? "Saving..." : "Save"}
-            </button>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              HuggingFace API Key
-            </label>
-            <input
-              type="password"
-              value={huggingfaceKey}
-              onChange={(e) => setHuggingfaceKey(e.target.value)}
-              placeholder={huggingfaceKeySet ? "•••• set" : "Enter key"}
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                saveApiKey("HUGGINGFACE_API_KEY", huggingfaceKey, setHuggingfaceKeySet);
-                setHuggingfaceKey("");
-              }}
-              disabled={!huggingfaceKey.trim() || keysSaving}
-              className="mt-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {keysSaving ? "Saving..." : "Save"}
-            </button>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Pollinations API Key
-            </label>
-            <input
-              type="password"
-              value={pollinationsKey}
-              onChange={(e) => setPollinationsKey(e.target.value)}
-              placeholder={pollinationsKeySet ? "•••• set" : "Enter key (optional)"}
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                saveApiKey("POLLINATIONS_API_KEY", pollinationsKey, setPollinationsKeySet);
-                setPollinationsKey("");
-              }}
-              disabled={!pollinationsKey.trim() || keysSaving}
-              className="mt-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {keysSaving ? "Saving..." : "Save"}
-            </button>
-          </div>
+          <ApiKeyField
+            label="Google AI API Key"
+            configured={googleAiKeySet}
+            value={googleAiKey}
+            onChange={setGoogleAiKey}
+            onSave={() => {
+              saveApiKey("GOOGLE_AI_API_KEY", googleAiKey, setGoogleAiKeySet);
+              setGoogleAiKey("");
+            }}
+            saving={keysSaving}
+            placeholder="Enter key"
+          />
+          <ApiKeyField
+            label="HuggingFace API Key"
+            configured={huggingfaceKeySet}
+            value={huggingfaceKey}
+            onChange={setHuggingfaceKey}
+            onSave={() => {
+              saveApiKey("HUGGINGFACE_API_KEY", huggingfaceKey, setHuggingfaceKeySet);
+              setHuggingfaceKey("");
+            }}
+            saving={keysSaving}
+            placeholder="Enter key"
+          />
+          <ApiKeyField
+            label="Pollinations API Key"
+            configured={pollinationsKeySet}
+            value={pollinationsKey}
+            onChange={setPollinationsKey}
+            onSave={() => {
+              saveApiKey("POLLINATIONS_API_KEY", pollinationsKey, setPollinationsKeySet);
+              setPollinationsKey("");
+            }}
+            saving={keysSaving}
+            placeholder="Enter key (optional)"
+          />
         </div>
         <p className="mt-4 text-xs text-text-tertiary">
           API keys are stored securely in the database and used for AI generation. Leave Pollinations blank if using the free tier.
@@ -378,6 +442,28 @@ function SettingsContent() {
         )}
         <p className="mt-2 text-xs text-text-tertiary">
           Default image generation provider. Can be overridden per product.
+        </p>
+      </div>
+
+      {/* Default Video Engine */}
+      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+        <h2 className="text-lg font-medium text-text-primary mb-4">
+          Default Video Engine
+        </h2>
+        <select
+          value={videoProvider}
+          onChange={(e) => updateVideoProvider(e.target.value)}
+          className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="ffmpeg">FFmpeg — fast, lightweight (Ken Burns + burned captions)</option>
+          <option value="remotion">Remotion — animated kinetic captions, cross-fades, branded overlay</option>
+        </select>
+        {videoProviderSaving && (
+          <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
+        )}
+        <p className="mt-2 text-xs text-text-tertiary">
+          How reels/videos are rendered. Remotion renders via headless Chrome (slower, richer visuals) and
+          automatically falls back to FFmpeg if a render fails. Can be overridden per product.
         </p>
       </div>
 

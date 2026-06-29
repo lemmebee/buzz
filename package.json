@@ -15,10 +15,14 @@
     "test:provider": "npx tsx scripts/test-text-provider.ts",
     "test:bud": "npx tsx scripts/test-bud-generation.ts",
     "test:buzz": "npx tsx scripts/test-buzz-flow.ts",
-    "test:insta": "npx tsx scripts/test-insta-post.ts"
+    "test:insta": "npx tsx scripts/test-insta-post.ts",
+    "test:remotion": "npx tsx scripts/test-remotion.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@remotion/bundler": "4.0.484",
+    "@remotion/captions": "4.0.484",
+    "@remotion/renderer": "4.0.484",
     "@tailwindcss/typography": "^0.5.19",
     "@xenova/transformers": "^2.17.2",
     "better-sqlite3": "^12.6.0",
@@ -33,6 +37,7 @@
     "react-dom": "^18",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "remotion": "4.0.484",
     "sharp": "^0.34.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0"

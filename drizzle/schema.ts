@@ -17,6 +17,7 @@ export const products = sqliteTable("products", {
   attributionWebhookSecret: text("attribution_webhook_secret"), // HMAC secret for /api/conversions
   textProvider: text("text_provider"), // gemini | huggingface
   imageProvider: text("image_provider"), // pollinations | gemini | huggingface
+  videoProvider: text("video_provider"), // ffmpeg | remotion (null = global default)
   llmInstructions: text("llm_instructions"), // user-provided rules/guidance for LLM
   extractionStatus: text("extraction_status"), // pending | extracting | done | failed
   extractionError: text("extraction_error"), // human-readable reason when failed
@@ -103,6 +104,23 @@ export const brainstormIdeas = sqliteTable("brainstorm_ideas", {
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+export const jobs = sqliteTable("jobs", {
+  id: text("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  platform: text("platform").notNull(),
+  mediaType: text("media_type").notNull(),
+  targetSurface: text("target_surface").notNull(),
+  config: text("config"),
+  targeting: text("targeting"),
+  count: integer("count").notNull().default(1),
+  images: text("images"), // JSON array of base64
+  status: text("status").notNull().default("pending"), // pending | processing | completed | failed
+  result: text("result"), // JSON { posts, errors }
+  error: text("error"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   key: text("key").notNull().unique(),
@@ -121,3 +139,5 @@ export type GenerationSchedule = typeof generationSchedules.$inferSelect;
 export type NewGenerationSchedule = typeof generationSchedules.$inferInsert;
 export type BrainstormIdeaRow = typeof brainstormIdeas.$inferSelect;
 export type NewBrainstormIdea = typeof brainstormIdeas.$inferInsert;
+export type Job = typeof jobs.$inferSelect;
+export type NewJob = typeof jobs.$inferInsert;

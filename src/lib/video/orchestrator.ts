@@ -10,6 +10,7 @@ import {
   createVideoProvider,
 } from "@/lib/providers";
 import { transcribeToSrt } from "@/lib/captions";
+import { getVideoProvider } from "@/lib/settings";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
 import {
   sanitizeCaption,
@@ -210,7 +211,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
   }
 
   const audioProvider = createAudioProvider();
-  const videoProvider = createVideoProvider();
+  const videoProvider = createVideoProvider(product.videoProvider || (await getVideoProvider()));
   const imageProvider = await resolveImageProvider(product.imageProvider);
   const dims = aspectRatioToDims(config.aspectRatio);
 
@@ -297,6 +298,17 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
       captionsPath: captionsFsPath,
       durationSec: targetDuration,
       aspectRatio: config.aspectRatio,
+      // Optional branding consumed by the Remotion engine (ignored by ffmpeg):
+      // brand-color caption highlights + a logo/handle lower-third.
+      branding: {
+        colors: profile.visualIdentity?.colors,
+        mood: profile.visualIdentity?.mood,
+        style: profile.visualIdentity?.style,
+        handle: accountHandle,
+        logoDataUri: hasLogo && logoImages[0]
+          ? `data:image/jpeg;base64,${logoImages[0].base64}`
+          : undefined,
+      },
     });
 
     const videoUrlPath = videoResult.localPath

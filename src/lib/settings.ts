@@ -24,6 +24,14 @@ export async function getImageProviderName(): Promise<string> {
   );
 }
 
+export async function getVideoProvider(): Promise<string> {
+  return (
+    (await getSetting("VIDEO_PROVIDER")) ||
+    process.env.VIDEO_PROVIDER ||
+    "ffmpeg"
+  );
+}
+
 export async function getApiKey(name: string): Promise<string> {
   return (await getSetting(name)) || process.env[name] || "";
 }

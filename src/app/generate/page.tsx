@@ -178,15 +178,40 @@ export default function GeneratePage() {
         throw new Error(errData?.error || "Generation failed");
       }
 
-      const data = await res.json();
-      const posts = data.posts || [];
-      const genErrors = data.errors || [];
-      setGeneratedPosts(posts);
-      fetchSuggestions(productId);
-      toast.success(`Generated ${posts.length} posts`);
-      if (genErrors.length > 0) {
-        toast.error(`${genErrors.length} variation(s) failed: ${genErrors[0].message}`, { duration: 8000 });
+      const { jobId } = await res.json();
+
+      // Poll for job completion
+      const maxAttempts = 300; // 5 minutes max
+      const pollInterval = 1000; // 1 second
+      let attempts = 0;
+
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        attempts++;
+
+        const statusRes = await fetch(`/api/jobs/${jobId}`);
+        if (!statusRes.ok) continue;
+
+        const statusData = await statusRes.json();
+
+        if (statusData.status === "completed") {
+          const posts = statusData.posts || [];
+          const genErrors = statusData.errors || [];
+          setGeneratedPosts(posts);
+          fetchSuggestions(productId);
+          toast.success(`Generated ${posts.length} posts`);
+          if (genErrors.length > 0) {
+            toast.error(`${genErrors.length} variation(s) failed: ${genErrors[0].message}`, { duration: 8000 });
+          }
+          return;
+        }
+
+        if (statusData.status === "failed") {
+          throw new Error(statusData.error || "Generation failed");
+        }
       }
+
+      throw new Error("Generation timed out");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to generate content");
       console.error(e);
