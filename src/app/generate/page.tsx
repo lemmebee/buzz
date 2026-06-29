@@ -405,6 +405,24 @@ export default function GeneratePage() {
                           Burn-in captions
                         </label>
                       </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-sm text-text-tertiary mb-1">Video Style</label>
+                        <select
+                          value={config.videoStyle ?? "scenes"}
+                          onChange={(e) =>
+                            setConfig({ ...config, videoStyle: e.target.value as "scenes" | "typography" })
+                          }
+                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
+                        >
+                          <option value="scenes">Multi-scene — storyboard of AI scenes (default)</option>
+                          <option value="typography">Typography — single background + animated narration text</option>
+                        </select>
+                        {config.videoStyle === "typography" && (
+                          <p className="mt-1 text-xs text-text-tertiary">
+                            Best with the Remotion engine (Settings → Default Video Engine). Narration is shown as large animated text synced to the voiceover.
+                          </p>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>

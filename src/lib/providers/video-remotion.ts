@@ -66,7 +66,7 @@ export function createRemotionVideoProvider(): VideoProvider {
     name: "remotion",
 
     async generate(input: VideoGenerationInput): Promise<VideoGenerationOutput> {
-      const { scenes, audioPath, captionsPath, aspectRatio, durationSec, branding } = input;
+      const { scenes, audioPath, captionsPath, aspectRatio, durationSec, branding, style } = input;
       if (!scenes || scenes.length === 0) {
         throw new Error("remotion video provider requires non-empty scenes");
       }
@@ -87,6 +87,7 @@ export function createRemotionVideoProvider(): VideoProvider {
         audioSrc: toPublicRelative(audioPath),
         captions: parseCaptions(captionsPath),
         showCaptions: Boolean(captionsPath),
+        style: style === "typography" ? "typography" : "scenes",
         width,
         height,
         fps: FPS,

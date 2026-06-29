@@ -120,7 +120,10 @@ export async function generateVideoContent(
   const { productId, platform, targetSurface, config, targeting, count = 1, images = [] } = input;
   const generateCount = Math.min(Math.max(count, 1), 10);
   const targetDuration = config.durationSec ?? 15;
-  const wantCaptions = Boolean(config.captions);
+  const videoStyle = config.videoStyle === "typography" ? "typography" : "scenes";
+  // Typography mode renders the narration as on-screen text, so it always needs
+  // the synced SRT regardless of the burn-in-captions toggle.
+  const wantCaptions = videoStyle === "typography" ? true : Boolean(config.captions);
 
   const product = await db.query.products.findFirst({
     where: eq(schema.products.id, productId),
@@ -165,20 +168,29 @@ export async function generateVideoContent(
     hasLogo
   );
 
-  const sceneCount = Math.max(2, Math.min(6, Math.ceil(targetDuration / 4)));
-  const videoInstructions = `
+  const sceneCount = videoStyle === "typography"
+    ? 1
+    : Math.max(2, Math.min(6, Math.ceil(targetDuration / 4)));
 
-ADDITIONAL VIDEO REQUIREMENTS:
-- Output JSON with keys: caption, hashtags, script, scenes
-- "script": spoken narration only - what the voiceover SAYS, not the caption. Pace for ~${targetDuration} seconds at natural speaking rate. NO emojis, NO hashtags inside script.
-- "scenes": ARRAY of EXACTLY ${sceneCount} scene objects forming a STORYLINE that follows the script beat by beat:
+  const scenesStoryboardInstructions = `- "scenes": ARRAY of EXACTLY ${sceneCount} scene objects forming a STORYLINE that follows the script beat by beat:
   - Scene 1 = hook moment (the relatable opening tension/curiosity)
   - Middle scenes = progression (problem -> realization -> action)
   - Final scene = payoff/CTA visual
   - Each scene MUST depict a DIFFERENT concrete moment with DIFFERENT subject / location / action. NEVER repeat.
   - Prefer real-world relatable subjects: people in scenarios, hands using a phone, journals, nature, environments. Show humans, faces, hands, products. Concrete > abstract.
   - "description": cinematic shot description for AI image generation in ${config.aspectRatio} aspect ratio. Include: subject, action, location, lighting, framing, mood. Each description must read like a different storyboard panel.
-  - "durationSec": number, MUST sum across all ${sceneCount} scenes to ${targetDuration}
+  - "durationSec": number, MUST sum across all ${sceneCount} scenes to ${targetDuration}`;
+
+  const typographyInstructions = `- "scenes": ARRAY of EXACTLY 1 scene object - a single ATMOSPHERIC BACKGROUND that the narration text will be overlaid on top of:
+  - "description": one cinematic background image for AI image generation in ${config.aspectRatio} aspect ratio. Make it evocative and on-brand but CALM and UNCLUTTERED, with generous negative space and soft contrast so large text stays readable on top. Think: textured surface, soft-focus environment, gradient lighting, abstract scene - NOT a busy storyboard moment. NO people speaking, NO on-screen text.
+  - "durationSec": ${targetDuration}`;
+
+  const videoInstructions = `
+
+ADDITIONAL VIDEO REQUIREMENTS:
+- Output JSON with keys: caption, hashtags, script, scenes
+- "script": spoken narration only - what the voiceover SAYS, not the caption. Pace for ~${targetDuration} seconds at natural speaking rate. NO emojis, NO hashtags inside script.${videoStyle === "typography" ? "\n  The script is ALSO shown as large animated on-screen typography, so make it punchy and quotable - short, high-impact sentences." : ""}
+${videoStyle === "typography" ? typographyInstructions : scenesStoryboardInstructions}
 - Brand visual style hint (use sparingly, do NOT make every scene abstract): ${profile.visualIdentity.style}; colors: ${profile.visualIdentity.colors}; mood: ${profile.visualIdentity.mood}
 ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.visualDirection}` : ""}
 - IMPORTANT: caption is the IG caption shown under the post. script is the audio narration. They are DIFFERENT texts and serve different purposes - do not duplicate them.
@@ -298,6 +310,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
       captionsPath: captionsFsPath,
       durationSec: targetDuration,
       aspectRatio: config.aspectRatio,
+      style: videoStyle,
       // Optional branding consumed by the Remotion engine (ignored by ffmpeg):
       // brand-color caption highlights + a logo/handle lower-third.
       branding: {

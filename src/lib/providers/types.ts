@@ -67,6 +67,10 @@ export interface VideoGenerationInput {
   durationSec: number;
   aspectRatio: string; // "9:16" | "1:1" | "16:9" | "4:5"
   branding?: VideoBranding; // consumed by Remotion; ignored by ffmpeg
+  // "scenes" (default) = multi-scene storyboard; "typography" = single
+  // background still with animated narration text. Remotion-only; ffmpeg
+  // always renders scenes.
+  style?: "scenes" | "typography";
 }
 
 export interface VideoGenerationOutput {

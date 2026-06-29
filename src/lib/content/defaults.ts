@@ -4,6 +4,9 @@ export interface ContentConfig {
   durationSec?: number;
   aspectRatio: string;
   captions?: boolean;
+  // Video only: "scenes" = multi-scene storyboard (default), "typography" =
+  // single background image with animated narration text (Remotion only).
+  videoStyle?: "scenes" | "typography";
 }
 
 type DefaultsMap = {

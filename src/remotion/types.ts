@@ -32,6 +32,9 @@ export type BuzzVideoProps = {
   audioSrc: string; // staticFile-relative, e.g. "media/tts-123.mp3"
   captions: RemotionCaption[];
   showCaptions: boolean;
+  // "scenes" = multi-scene storyboard; "typography" = single background still
+  // with the narration animated as large on-screen text.
+  style: "scenes" | "typography";
   width: number;
   height: number;
   fps: number;
@@ -47,6 +50,7 @@ export const DEFAULT_PROPS: BuzzVideoProps = {
   audioSrc: "",
   captions: [],
   showCaptions: false,
+  style: "scenes",
   width: 1080,
   height: 1920,
   fps: 25,
