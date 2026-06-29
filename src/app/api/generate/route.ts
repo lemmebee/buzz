@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const posts = await generateContent({
+    const { posts, errors } = await generateContent({
       productId,
       platform,
       mediaType: media,
@@ -61,7 +61,15 @@ export async function POST(req: NextRequest) {
       count,
       images,
     });
-    return NextResponse.json({ posts });
+    // Nothing salvageable -> surface the failure. Otherwise return what succeeded
+    // alongside any per-variation errors so the UI can show both.
+    if (posts.length === 0) {
+      return NextResponse.json(
+        { error: errors[0]?.message ?? "Failed to generate content", errors },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ posts, errors });
   } catch (error) {
     console.error("Generation error:", error);
     return NextResponse.json({ error: classifyProviderError(error) }, { status: 500 });

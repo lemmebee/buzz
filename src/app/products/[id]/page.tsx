@@ -146,6 +146,17 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
+          {product.logo && (
+            <Image
+              src={product.logo}
+              alt=""
+              width={0}
+              height={0}
+              sizes="40px"
+              unoptimized
+              className="w-10 h-10 rounded-lg object-contain border border-border"
+            />
+          )}
           <h1 className="text-2xl font-semibold text-text-primary flex-1 truncate">
             {product.name}
           </h1>
@@ -204,7 +215,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
           <IntelligenceTab product={product} onUpdate={setProduct} />
         )}
         {activeTab === "ideas" && <IdeasTab product={product} />}
-        {activeTab === "content" && <ContentTab productId={product.id} />}
+        {activeTab === "content" && <ContentTab productId={product.id} productName={product.name} />}
       </main>
       <ConfirmDialog isOpen={isOpen} onClose={close} onConfirm={onConfirm} title={title} description={description} variant={variant} />
     </div>
@@ -744,7 +755,7 @@ function IdeasTab({ product }: { product: Product }) {
   );
 }
 
-function ContentTab({ productId }: { productId: number }) {
+function ContentTab({ productId, productName }: { productId: number; productName?: string }) {
   const [posts, setPosts] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -865,6 +876,7 @@ function ContentTab({ productId }: { productId: number }) {
             <ContentCard
               key={post.id}
               post={post}
+              productName={productName}
               onDelete={handleDelete}
               onStatusChange={handleStatusChange}
             />

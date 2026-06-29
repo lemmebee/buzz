@@ -225,6 +225,7 @@ export function ContentCard({
           content={post.content}
           hashtags={hashtags}
           mediaUrl={post.mediaUrl}
+          productName={productName}
           onClose={() => setShowInstagramPreview(false)}
         />
       )}

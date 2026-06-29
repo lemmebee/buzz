@@ -32,7 +32,7 @@ async function runScheduledGeneration() {
 
     try {
       console.log(`[Cron] Generating for schedule ${schedule.id} (product ${schedule.productId})`);
-      const posts = await generateContent({
+      const { posts, errors } = await generateContent({
         productId: schedule.productId,
         platform: schedule.platform as "instagram" | "twitter",
         mediaType: schedule.mediaType as "image" | "video",
@@ -40,6 +40,12 @@ async function runScheduledGeneration() {
         config: schedule.config ? JSON.parse(schedule.config) : undefined,
         count: schedule.count,
       });
+
+      // Total failure -> throw so lastRunAt isn't advanced and it retries next cycle.
+      if (posts.length === 0 && errors.length > 0) throw new Error(errors[0].message);
+      if (errors.length > 0) {
+        console.warn(`[Cron] Schedule ${schedule.id}: ${errors.length}/${posts.length + errors.length} variation(s) failed: ${errors[0].message}`);
+      }
 
       for (const post of posts) {
         const [saved] = await db.insert(schema.content).values({

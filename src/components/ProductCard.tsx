@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Product } from "../../drizzle/schema";
 import { InstagramLinkModal } from "./InstagramLinkModal";
 
@@ -46,9 +47,20 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
         <div className="flex justify-between items-start mb-2">
           <Link
             href={`/products/${product.id}`}
-            className="font-medium text-text-primary hover:text-primary transition-colors"
+            className="flex items-center gap-2 font-medium text-text-primary hover:text-primary transition-colors min-w-0"
           >
-            {product.name}
+            {product.logo && (
+              <Image
+                src={product.logo}
+                alt=""
+                width={0}
+                height={0}
+                sizes="24px"
+                unoptimized
+                className="w-6 h-6 rounded object-contain shrink-0"
+              />
+            )}
+            <span className="truncate">{product.name}</span>
           </Link>
           <div className="relative">
             <button

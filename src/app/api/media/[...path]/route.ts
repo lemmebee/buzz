@@ -23,6 +23,7 @@ export async function GET(
   const ext = segments.at(-1)?.split(".").pop()?.toLowerCase();
   const contentType =
     ext === "png" ? "image/png" :
+    ext === "svg" ? "image/svg+xml" :
     ext === "webp" ? "image/webp" :
     ext === "mp4" ? "video/mp4" :
     ext === "webm" ? "video/webm" :

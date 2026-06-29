@@ -14,6 +14,7 @@ export function ProductForm({ product }: ProductFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const screenshotInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [reExtracting, setReExtracting] = useState(false);
   const [extractionStatus, setExtractionStatus] = useState(product?.extractionStatus || null);
@@ -40,6 +41,10 @@ export function ProductForm({ product }: ProductFormProps) {
   );
   const [newScreenshots, setNewScreenshots] = useState<File[]>([]);
   const [newScreenshotPreviews, setNewScreenshotPreviews] = useState<string[]>([]);
+
+  const [existingLogo, setExistingLogo] = useState<string | null>(product?.logo || null);
+  const [newLogo, setNewLogo] = useState<File | null>(null);
+  const [newLogoPreview, setNewLogoPreview] = useState<string | null>(null);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -114,6 +119,22 @@ export function ProductForm({ product }: ProductFormProps) {
     setNewScreenshotPreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (newLogoPreview) URL.revokeObjectURL(newLogoPreview);
+    setNewLogo(file);
+    setNewLogoPreview(URL.createObjectURL(file));
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  }
+
+  function removeLogo() {
+    if (newLogoPreview) URL.revokeObjectURL(newLogoPreview);
+    setNewLogo(null);
+    setNewLogoPreview(null);
+    setExistingLogo(null);
+  }
+
   async function handleReExtract() {
     if (!product) return;
     setReExtracting(true);
@@ -162,16 +183,18 @@ export function ProductForm({ product }: ProductFormProps) {
       replaceScreenshots: true,
     };
 
-    const useFormData = newScreenshots.length > 0 || existingScreenshots.length !== (product?.screenshots ? JSON.parse(product.screenshots).length : 0);
+    const useFormData = newScreenshots.length > 0 || newLogo !== null || existingLogo !== (product?.logo || null) || existingScreenshots.length !== (product?.screenshots ? JSON.parse(product.screenshots).length : 0);
 
     let res: Response;
 
     if (useFormData) {
       const formData = new FormData();
-      // Pass existing kept paths so API knows what to preserve
-      formData.append("data", JSON.stringify({ ...data, existingScreenshots }));
+      formData.append("data", JSON.stringify({ ...data, existingScreenshots, removeLogo: existingLogo === null && product?.logo !== null }));
       for (const file of newScreenshots) {
         formData.append("screenshots", file);
+      }
+      if (newLogo) {
+        formData.append("logo", newLogo);
       }
       res = product
         ? await fetch(`/api/products/${product.id}`, { method: "PUT", body: formData })
@@ -225,6 +248,42 @@ export function ProductForm({ product }: ProductFormProps) {
           rows={3}
           className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          Logo
+        </label>
+        {(existingLogo || newLogoPreview) && (
+          <div className="flex items-center gap-3 mb-3">
+            <div className="relative group">
+              <Image
+                src={newLogoPreview || existingLogo!}
+                alt="Product logo"
+                width={0}
+                height={0}
+                sizes="64px"
+                unoptimized
+                className="w-16 h-16 object-contain rounded-lg border border-border"
+              />
+              <button
+                type="button"
+                onClick={removeLogo}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                x
+              </button>
+            </div>
+          </div>
+        )}
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleLogoUpload}
+          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-hover"
+        />
+        <p className="text-xs text-text-tertiary mt-1">Product logo used in generated content</p>
       </div>
 
       <div>

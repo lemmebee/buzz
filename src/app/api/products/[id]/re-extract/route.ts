@@ -39,6 +39,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     description: product.description,
     planFileContent: product.planFile,
     screenshotPaths,
+    logoPath: product.logo,
     textProvider: product.textProvider || undefined,
     llmInstructions: product.llmInstructions || undefined,
   }).catch(console.error);

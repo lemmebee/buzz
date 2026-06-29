@@ -162,6 +162,39 @@ Screenshots are PRIMARY evidence — they reveal what the brief can't say. Analy
 
 If NO screenshots are provided, derive visual identity from the brief's tone and category. State assumptions.
 
+## LOGO ANALYSIS (if the first image is a logo)
+
+The first attached image is the product's logo/mark. Study it carefully and extract:
+
+**Brand Colors (→ profile.visualIdentity.colors)**
+- Exact hex values of ALL colors in the logo (background, foreground, accent colors)
+- Primary brand color (the most dominant/prominent)
+- Secondary colors used sparingly
+
+**Mark Style (→ profile.visualIdentity.style)**
+- Type: icon/symbol, wordmark (text only), lettermark (initials), emblem (badge/seal), combination mark
+- If icon: what does it represent? Abstract shape, object, animal, person, etc.
+- Complexity: minimal/simple, moderate detail, intricate/ornate
+
+**Typography (if text present)**
+- Font style: serif, sans-serif, script/handwritten, display/decorative, monospace
+- Weight: light, regular, medium, bold, black
+- Character: geometric, humanist, rounded, angular, condensed, extended
+- Custom lettering or unique modifications
+
+**Shape Language**
+- Geometric: circles, squares, triangles, clean lines
+- Organic: curves, flowing lines, natural forms
+- Angular: sharp corners, dynamic angles
+- Rounded: soft corners, friendly feel
+
+**Brand Personality (→ profile.brandPersonality)**
+- What does the logo communicate? Premium/luxury, playful/fun, technical/professional, organic/natural, bold/aggressive, elegant/sophisticated
+- Target audience implied by the logo style
+- Industry/category signals
+
+Use the logo as PRIMARY evidence for visualIdentity and brandPersonality. The logo is the brand's visual anchor — extract every detail.
+
 Return ONLY valid JSON with this exact structure:
 {
   "profile": {
@@ -275,7 +308,8 @@ export function buildContentGenerationPrompt(
   accountHandle?: string,
   productName?: string,
   llmInstructions?: string,
-  imageStyle?: string
+  imageStyle?: string,
+  hasLogo?: boolean
 ): { prompt: string; metadata: GenerationMetadata } {
   const profile = normalizeProfile(rawProfile);
   const strategy = normalizeStrategy(rawStrategy);
@@ -438,6 +472,11 @@ export function buildContentGenerationPrompt(
   sections.push("");
   sections.push(CONTENT_FORMULAS[contentType]);
   sections.push("");
+
+  if (hasLogo) {
+    sections.push(`The FIRST attached image is the product's logo. Study it for exact brand colors, mark style, and visual personality. Use these insights when crafting the image prompt — weave logo colors into "brandColorUsage" and align the mood with the logo's feel. The remaining ${screenshotCount} image(s) are product screenshots to classify as described below.`);
+    sections.push("");
+  }
 
   if (screenshotCount > 0) {
     sections.push(`You have ${screenshotCount} uploaded image(s) attached.

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
@@ -11,6 +11,7 @@ import { snapshotChangedFields } from "@/lib/revisions";
 type Params = { params: Promise<{ id: string }> };
 
 const SCREENSHOTS_DIR = join(process.cwd(), "public/media/screenshots");
+const LOGOS_DIR = join(process.cwd(), "public/media/logos");
 
 async function saveScreenshots(files: File[]): Promise<string[]> {
   if (!existsSync(SCREENSHOTS_DIR)) {
@@ -26,6 +27,18 @@ async function saveScreenshots(files: File[]): Promise<string[]> {
     paths.push(`/api/media/screenshots/${filename}`);
   }
   return paths;
+}
+
+async function saveLogo(file: File): Promise<string> {
+  if (!existsSync(LOGOS_DIR)) {
+    await mkdir(LOGOS_DIR, { recursive: true });
+  }
+  const ext = file.name.split(".").pop() || "png";
+  const filename = `${randomUUID()}.${ext}`;
+  const filepath = join(LOGOS_DIR, filename);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await writeFile(filepath, buffer);
+  return `/api/media/logos/${filename}`;
 }
 
 // GET single product
@@ -79,6 +92,7 @@ async function updateProduct(id: number, updateData: Record<string, unknown>) {
       description: updated.description,
       planFileContent: updated.planFile!,
       screenshotPaths,
+      logoPath: updated.logo,
       textProvider: updated.textProvider || undefined,
       llmInstructions: updated.llmInstructions || undefined,
     }).catch(console.error);
@@ -111,6 +125,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
       imageProvider: body.imageProvider || null,
       llmInstructions: body.llmInstructions || null,
     };
+
+    const logoFile = formData.get("logo") as File | null;
+    if (logoFile && logoFile.size > 0) {
+      updateData.logo = await saveLogo(logoFile);
+    } else if (body.removeLogo) {
+      updateData.logo = null;
+    }
+
     if (body.profile !== undefined) updateData.profile = body.profile;
     if (body.marketingStrategy !== undefined) updateData.marketingStrategy = body.marketingStrategy;
 
@@ -146,6 +168,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // DELETE product
 export async function DELETE(req: NextRequest, { params }: Params) {
   const { id } = await params;
+
+  const product = await db.select().from(schema.products).where(eq(schema.products.id, parseInt(id))).get();
+  if (product?.logo) {
+    const logoPath = join(process.cwd(), "public", product.logo.replace(/^\/api\/media\//, "media/"));
+    if (existsSync(logoPath)) {
+      await unlink(logoPath).catch(() => {});
+    }
+  }
 
   await db.delete(schema.products).where(eq(schema.products.id, parseInt(id)));
 

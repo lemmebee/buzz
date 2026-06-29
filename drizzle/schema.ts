@@ -7,6 +7,7 @@ export const products = sqliteTable("products", {
   planFile: text("plan_file"), // markdown content
   planFileName: text("plan_file_name"), // original filename
   screenshots: text("screenshots"), // JSON array of file paths
+  logo: text("logo"), // file path to product logo
   profile: text("profile"), // JSON extracted profile
   marketingStrategy: text("marketing_strategy"), // JSON extracted strategy
   icp: text("icp", { mode: "json" }), // JSON ICP persona (see brain/types.ts ICP)

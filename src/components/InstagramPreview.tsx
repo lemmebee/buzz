@@ -8,10 +8,12 @@ interface InstagramPreviewProps {
   content: string;
   hashtags?: string[];
   mediaUrl?: string | null;
+  productName?: string;
   onClose: () => void;
 }
 
-export function InstagramPreview({ content, hashtags = [], mediaUrl, onClose }: InstagramPreviewProps) {
+export function InstagramPreview({ content, hashtags = [], mediaUrl, productName, onClose }: InstagramPreviewProps) {
+  const handle = productName ? productName.toLowerCase().replace(/\s+/g, ".") : "your.brand";
   const [liked, setLiked] = useState(false);
 
   const fullCaption = hashtags.length > 0
@@ -26,7 +28,7 @@ export function InstagramPreview({ content, hashtags = [], mediaUrl, onClose }: 
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
-            <span className="text-sm font-medium text-text-primary">your.brand</span>
+            <span className="text-sm font-medium text-text-primary">{handle}</span>
           </div>
           <button onClick={onClose} className="text-text-tertiary hover:text-text-primary">
             <X className="h-5 w-5" />
@@ -59,7 +61,7 @@ export function InstagramPreview({ content, hashtags = [], mediaUrl, onClose }: 
           <div className="flex gap-2">
             <div className="h-6 w-6 flex-shrink-0 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
             <div className="flex-1">
-              <span className="text-sm font-medium text-text-primary">your.brand</span>
+              <span className="text-sm font-medium text-text-primary">{handle}</span>
               <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap break-words">
                 {fullCaption}
               </p>

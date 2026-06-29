@@ -10,8 +10,16 @@ import {
   createVideoProvider,
 } from "@/lib/providers";
 import { transcribeToSrt } from "@/lib/captions";
-import { sanitizeCaption, type GenerateContentInput, type GeneratedPost } from "@/lib/generate";
+import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
+import {
+  sanitizeCaption,
+  type GenerateContentInput,
+  type GeneratedPost,
+  type GenerateContentResult,
+  type GenerationFailure,
+} from "@/lib/generate";
 import type { ContentConfig } from "@/lib/content/defaults";
+import { prepareImages } from "@/lib/images";
 
 const MEDIA_URL_PREFIX = "/api/media/";
 
@@ -107,7 +115,7 @@ function urlPathToFs(urlPath: string): string {
 
 export async function generateVideoContent(
   input: GenerateContentInput & { config: ContentConfig }
-): Promise<GeneratedPost[]> {
+): Promise<GenerateContentResult> {
   const { productId, platform, targetSurface, config, targeting, count = 1, images = [] } = input;
   const generateCount = Math.min(Math.max(count, 1), 10);
   const targetDuration = config.durationSec ?? 15;
@@ -135,6 +143,13 @@ export async function generateVideoContent(
   }
 
   const textProvider = await resolveTextProvider(product.textProvider);
+
+  const logoImages = product.logo
+    ? await prepareImages([product.logo], { maxImages: 1, maxWidth: 512, maxHeight: 512, quality: 80 })
+    : [];
+  const allImages = [...logoImages.map((l) => l.base64), ...images];
+  const hasLogo = logoImages.length > 0;
+
   const { prompt: basePrompt, metadata } = buildContentGenerationPrompt(
     rawProfile,
     rawStrategy,
@@ -144,7 +159,9 @@ export async function generateVideoContent(
     targeting,
     accountHandle,
     product.name,
-    product.llmInstructions || undefined
+    product.llmInstructions || undefined,
+    undefined,
+    hasLogo
   );
 
   const sceneCount = Math.max(2, Math.min(6, Math.ceil(targetDuration / 4)));
@@ -175,7 +192,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
   const textResult = await textProvider.generate({
     systemPrompt,
     userPrompt,
-    images: images.length > 0 ? images : undefined,
+    images: allImages.length > 0 ? allImages : undefined,
     maxTokens: 4096 * generateCount,
     temperature: 0.9,
   });
@@ -197,9 +214,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
   const imageProvider = await resolveImageProvider(product.imageProvider);
   const dims = aspectRatioToDims(config.aspectRatio);
 
-  const posts: GeneratedPost[] = [];
-
-  for (const item of items) {
+  const buildVideoPost = async (item: VideoGenerated): Promise<GeneratedPost> => {
     const scriptText = coerceText(item.script).trim() || coerceText(item.caption).trim() || product.name;
     const captionText = coerceText(item.caption).trim() || product.name;
 
@@ -288,7 +303,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
       ? `${MEDIA_URL_PREFIX}${basename(videoResult.localPath)}`
       : videoResult.url;
 
-    posts.push({
+    return {
       content: sanitizeCaption(coerceText(item.caption)),
       hashtags: (item.hashtags || []).map((t) => coerceText(t).replace(/^#+/, "")),
       mediaUrl: videoUrlPath,
@@ -299,9 +314,24 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
       captionsUrl,
       config,
       metadata,
-    });
+    };
+  };
+
+  const posts: GeneratedPost[] = [];
+  const errors: GenerationFailure[] = [];
+  for (let i = 0; i < items.length; i++) {
+    try {
+      posts.push(await buildVideoPost(items[i]));
+    } catch (err) {
+      const terminal = isTerminalProviderError(err);
+      console.error(
+        `[video] variation ${i + 1}/${items.length} failed:`,
+        err instanceof Error ? err.message : err
+      );
+      errors.push({ index: i, message: classifyProviderError(err), terminal });
+      if (terminal) break; // credits/quota/auth gone — the rest will fail too
+    }
   }
 
-  if (posts.length === 0) throw new Error("Failed to generate any video content");
-  return posts;
+  return { posts, errors };
 }

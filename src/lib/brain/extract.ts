@@ -12,6 +12,7 @@ interface ExtractionParams {
   description: string;
   planFileContent: string;
   screenshotPaths: string[];
+  logoPath?: string | null;
   textProvider?: string;
   llmInstructions?: string;
 }
@@ -26,6 +27,7 @@ export async function extractProfileAndStrategy({
   description,
   planFileContent,
   screenshotPaths,
+  logoPath,
   textProvider,
   llmInstructions,
 }: ExtractionParams): Promise<void> {
@@ -38,15 +40,28 @@ export async function extractProfileAndStrategy({
     const provider = await resolveTextProvider(textProvider);
     const systemPrompt = buildProfileAndStrategyPrompt({ name, description, planFileContent, llmInstructions });
 
-    // Load, resize, compress, and limit screenshots
     const prepared = await prepareImages(screenshotPaths);
     const images = prepared.map((p) => p.base64);
 
+    let hasLogo = false;
+    if (logoPath) {
+      const logoPrepared = await prepareImages([logoPath], { maxImages: 1, maxWidth: 512, maxHeight: 512, quality: 80 });
+      if (logoPrepared.length > 0) {
+        images.unshift(logoPrepared[0].base64);
+        hasLogo = true;
+      }
+    }
+
+    const totalImages = images.length;
+    const userPrompt = hasLogo
+      ? `The first image is the product logo. Study it for brand colors, mark style, and visual identity. The remaining ${totalImages - 1} image(s) are product screenshots. Screenshots are your PRIMARY source of truth — the brief fills gaps. Study every pixel: colors, typography, spacing, UI elements, microcopy, navigation, feature screens. Extract exact hex colors, real feature names from labels, and actual brand voice from button text and copy. If the brief and screenshots contradict, trust the screenshots.`
+      : totalImages > 0
+        ? `I've attached ${totalImages} product screenshot${totalImages > 1 ? "s" : ""}. Screenshots are your PRIMARY source of truth — the brief fills gaps. Study every pixel: colors, typography, spacing, UI elements, microcopy, navigation, feature screens. Extract exact hex colors, real feature names from labels, and actual brand voice from button text and copy. If the brief and screenshots contradict, trust the screenshots.`
+        : "Analyze the marketing brief and extract the profile and strategy. Since no screenshots are provided, make explicit assumptions about visual identity based on the product category and tone.";
+
     const result = await provider.generate({
       systemPrompt,
-      userPrompt: images.length > 0
-        ? `I've attached ${images.length} product screenshot${images.length > 1 ? "s" : ""}. Screenshots are your PRIMARY source of truth — the brief fills gaps. Study every pixel: colors, typography, spacing, UI elements, microcopy, navigation, feature screens. Extract exact hex colors, real feature names from labels, and actual brand voice from button text and copy. If the brief and screenshots contradict, trust the screenshots.`
-        : "Analyze the marketing brief and extract the profile and strategy. Since no screenshots are provided, make explicit assumptions about visual identity based on the product category and tone.",
+      userPrompt,
       images: images.length > 0 ? images : undefined,
       maxTokens: 8192,
       temperature: 0.4,

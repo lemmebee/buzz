@@ -8,6 +8,7 @@ import { extractProfileAndStrategy } from "@/lib/brain/extract";
 import { normalizeChannelHints, normalizeICP, normalizeJTBDList } from "@/lib/brain/types";
 
 const SCREENSHOTS_DIR = join(process.cwd(), "public/media/screenshots");
+const LOGOS_DIR = join(process.cwd(), "public/media/logos");
 
 async function saveScreenshots(files: File[]): Promise<string[]> {
   if (!existsSync(SCREENSHOTS_DIR)) {
@@ -23,6 +24,18 @@ async function saveScreenshots(files: File[]): Promise<string[]> {
     paths.push(`/api/media/screenshots/${filename}`);
   }
   return paths;
+}
+
+async function saveLogo(file: File): Promise<string> {
+  if (!existsSync(LOGOS_DIR)) {
+    await mkdir(LOGOS_DIR, { recursive: true });
+  }
+  const ext = file.name.split(".").pop() || "png";
+  const filename = `${randomUUID()}.${ext}`;
+  const filepath = join(LOGOS_DIR, filename);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await writeFile(filepath, buffer);
+  return `/api/media/logos/${filename}`;
 }
 
 // GET all products
@@ -45,16 +58,14 @@ interface ProductBody {
   llmInstructions?: string | null;
 }
 
-// Insert a product from a parsed request body + screenshot paths, kicking off
-// profile/strategy extraction when a brief is present. Shared by both the
-// multipart and JSON POST paths.
-async function createProduct(body: ProductBody, screenshotPaths: string[]) {
+async function createProduct(body: ProductBody, screenshotPaths: string[], logoPath: string | null) {
   const result = await db.insert(schema.products).values({
     name: body.name,
     description: body.description,
     planFile: body.planFile || null,
     planFileName: body.planFileName || null,
     screenshots: screenshotPaths.length > 0 ? JSON.stringify(screenshotPaths) : null,
+    logo: logoPath,
     icp: normalizeICP(body.icp),
     jtbd: normalizeJTBDList(body.jtbd),
     channelHints: normalizeChannelHints(body.channelHints),
@@ -68,7 +79,6 @@ async function createProduct(body: ProductBody, screenshotPaths: string[]) {
 
   const created = result[0];
 
-  // Extract profile + strategy if brief exists
   if (created.planFile) {
     extractProfileAndStrategy({
       productId: created.id,
@@ -76,6 +86,7 @@ async function createProduct(body: ProductBody, screenshotPaths: string[]) {
       description: created.description,
       planFileContent: created.planFile,
       screenshotPaths,
+      logoPath: created.logo,
       textProvider: created.textProvider || undefined,
       llmInstructions: created.llmInstructions || undefined,
     }).catch(console.error);
@@ -92,13 +103,14 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const screenshotFiles = formData.getAll("screenshots") as File[];
     const screenshotPaths = screenshotFiles.length > 0 ? await saveScreenshots(screenshotFiles) : [];
+    const logoFile = formData.get("logo") as File | null;
+    const logoPath = logoFile && logoFile.size > 0 ? await saveLogo(logoFile) : null;
     const body = JSON.parse(formData.get("data") as string || "{}");
-    const created = await createProduct(body, screenshotPaths);
+    const created = await createProduct(body, screenshotPaths, logoPath);
     return NextResponse.json(created, { status: 201 });
   }
 
-  // JSON fallback (no screenshots)
   const body = await req.json();
-  const created = await createProduct(body, []);
+  const created = await createProduct(body, [], null);
   return NextResponse.json(created, { status: 201 });
 }

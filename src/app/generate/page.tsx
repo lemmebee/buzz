@@ -180,9 +180,13 @@ export default function GeneratePage() {
 
       const data = await res.json();
       const posts = data.posts || [];
+      const genErrors = data.errors || [];
       setGeneratedPosts(posts);
       fetchSuggestions(productId);
       toast.success(`Generated ${posts.length} posts`);
+      if (genErrors.length > 0) {
+        toast.error(`${genErrors.length} variation(s) failed: ${genErrors[0].message}`, { duration: 8000 });
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to generate content");
       console.error(e);

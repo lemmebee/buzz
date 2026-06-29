@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const posts = await generateContent({
+        const { posts, errors: genErrors } = await generateContent({
           productId: schedule.productId,
           platform: schedule.platform as "instagram" | "twitter",
           mediaType: schedule.mediaType as "image" | "video",
@@ -51,6 +51,12 @@ export async function POST(req: NextRequest) {
           config: schedule.config ? JSON.parse(schedule.config) : undefined,
           count: schedule.count,
         });
+
+        // Total failure -> throw to reuse the retry/backoff + error accounting below.
+        if (posts.length === 0 && genErrors.length > 0) throw new Error(genErrors[0].message);
+        if (genErrors.length > 0) {
+          console.warn(`Schedule ${schedule.id}: ${genErrors.length}/${posts.length + genErrors.length} variation(s) failed: ${genErrors[0].message}`);
+        }
 
         for (const post of posts) {
           const [saved] = await db.insert(schema.content).values({

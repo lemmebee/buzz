@@ -5,8 +5,10 @@ import { buildFluxPrompt } from "@/lib/brain/imagePromptBuilder";
 import type { Platform, ContentPurpose, ContentTargeting, ImagePrompt, GenerationMetadata, MediaType } from "@/lib/brain/types";
 import { normalizeProfile, normalizeStrategy } from "@/lib/brain/types";
 import { resolveTextProvider, resolveImageProvider } from "@/lib/providers";
+import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
 import { getImageStyle } from "@/lib/settings";
 import { getDefaults, type ContentConfig } from "@/lib/content/defaults";
+import { prepareImages } from "@/lib/images";
 
 export interface GenerateContentInput {
   productId: number;
@@ -32,6 +34,17 @@ export interface GeneratedPost {
   metadata: GenerationMetadata;
 }
 
+export interface GenerationFailure {
+  index: number; // 0-based variation that failed
+  message: string; // user-friendly, classified
+  terminal: boolean; // true if it stopped the rest of the batch (quota/credits/auth)
+}
+
+export interface GenerateContentResult {
+  posts: GeneratedPost[];
+  errors: GenerationFailure[];
+}
+
 export function sanitizeCaption(text: string): string {
   let s = text;
   s = s.replace(/—/g, ",");
@@ -42,7 +55,7 @@ export function sanitizeCaption(text: string): string {
   return s;
 }
 
-export async function generateContent(input: GenerateContentInput): Promise<GeneratedPost[]> {
+export async function generateContent(input: GenerateContentInput): Promise<GenerateContentResult> {
   const { productId, platform, mediaType, targetSurface, config: userConfig, targeting, count = 1, images = [] } = input;
   const generateCount = Math.min(Math.max(count, 1), 10);
   const config: ContentConfig = { ...getDefaults(targetSurface, mediaType), ...(userConfig || {}) };
@@ -78,8 +91,15 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
 
   const textProvider = await resolveTextProvider(product.textProvider);
   const imageStyle = await getImageStyle();
+
+  const logoImages = product.logo
+    ? await prepareImages([product.logo], { maxImages: 1, maxWidth: 512, maxHeight: 512, quality: 80 })
+    : [];
+  const allImages = [...logoImages.map((l) => l.base64), ...images];
+  const hasLogo = logoImages.length > 0;
+
   const { prompt: systemPrompt, metadata } = buildContentGenerationPrompt(
-    rawProfile, rawStrategy, images.length, platform, contentType, targeting, accountHandle, product.name, product.llmInstructions || undefined, imageStyle
+    rawProfile, rawStrategy, images.length, platform, contentType, targeting, accountHandle, product.name, product.llmInstructions || undefined, imageStyle, hasLogo
   );
 
   const styleReminder = `\n\nREMINDER: Write like a real human. NEVER use em dashes (—), NEVER use AI cliché words (elevate, unlock, unleash, seamlessly, revolutionize, empower, leverage, game-changer, cutting-edge, next-level). Use casual, imperfect language. Be specific, not generic.`;
@@ -90,7 +110,7 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
   const textResult = await textProvider.generate({
     systemPrompt,
     userPrompt,
-    images: images.length > 0 ? images : undefined,
+    images: allImages.length > 0 ? allImages : undefined,
     maxTokens: 4096 * generateCount,
     temperature: 0.9,
   });
@@ -109,44 +129,55 @@ export async function generateContent(input: GenerateContentInput): Promise<Gene
   }
 
   const posts: GeneratedPost[] = [];
+  const errors: GenerationFailure[] = [];
   const ENABLE_IMAGE_GENERATION = true;
   const visualIdentity = profile.visualIdentity;
   const visualDirection = marketingStrategy.visualDirection;
 
-  for (const generated of generatedItems) {
-    let mediaUrl: string | null = null;
-    let publicMediaUrl: string | null = null;
-    if (ENABLE_IMAGE_GENERATION && generated.imagePrompt?.scene) {
-      const imageProvider = await resolveImageProvider(product.imageProvider);
-      const aspectRatio = generated.imagePrompt.aspectRatio || "1:1 square";
-      const isVertical = aspectRatio.includes("9:16");
+  for (let i = 0; i < generatedItems.length; i++) {
+    const generated = generatedItems[i];
+    try {
+      let mediaUrl: string | null = null;
+      let publicMediaUrl: string | null = null;
+      if (ENABLE_IMAGE_GENERATION && generated.imagePrompt?.scene) {
+        const imageProvider = await resolveImageProvider(product.imageProvider);
+        const aspectRatio = generated.imagePrompt.aspectRatio || "1:1 square";
+        const isVertical = aspectRatio.includes("9:16");
 
-      const fluxPrompt = buildFluxPrompt({
-        imagePrompt: generated.imagePrompt,
-        visualIdentity,
-        visualDirection,
-      });
-      console.log("[Flux prompt]", fluxPrompt);
+        const fluxPrompt = buildFluxPrompt({
+          imagePrompt: generated.imagePrompt,
+          visualIdentity,
+          visualDirection,
+        });
+        console.log("[Flux prompt]", fluxPrompt);
 
-      const imageResult = await imageProvider.generate({
-        prompt: fluxPrompt,
-        width: isVertical ? 768 : 1024,
-        height: isVertical ? 1365 : 1024,
+        const imageResult = await imageProvider.generate({
+          prompt: fluxPrompt,
+          width: isVertical ? 768 : 1024,
+          height: isVertical ? 1365 : 1024,
+        });
+        mediaUrl = imageResult.localPath || imageResult.url;
+        publicMediaUrl = imageResult.url;
+      }
+
+      posts.push({
+        content: sanitizeCaption(generated.caption),
+        hashtags: (generated.hashtags || []).map((t) => t.replace(/^#+/, "")),
+        mediaUrl,
+        publicMediaUrl,
+        config,
+        metadata,
       });
-      mediaUrl = imageResult.localPath || imageResult.url;
-      publicMediaUrl = imageResult.url;
+    } catch (err) {
+      const terminal = isTerminalProviderError(err);
+      console.error(
+        `[generate] variation ${i + 1}/${generatedItems.length} failed:`,
+        err instanceof Error ? err.message : err
+      );
+      errors.push({ index: i, message: classifyProviderError(err), terminal });
+      if (terminal) break; // credits/quota/auth gone — the rest will fail too
     }
-
-    posts.push({
-      content: sanitizeCaption(generated.caption),
-      hashtags: (generated.hashtags || []).map((t) => t.replace(/^#+/, "")),
-      mediaUrl,
-      publicMediaUrl,
-      config,
-      metadata,
-    });
   }
 
-  if (posts.length === 0) throw new Error("Failed to generate any content");
-  return posts;
+  return { posts, errors };
 }
