@@ -46,10 +46,12 @@ export function getRemotionBundle(): Promise<string> {
       // copy for a live symlink so per-render assets resolve (see its comment).
       publicDir: path.join(process.cwd(), "public"),
       // Disable webpack's persistent filesystem cache for this one-time bundle.
-      // It runs once per process and a stale/corrupt pack cache produces noisy
-      // "PackFileCacheStrategy ... Expected end of object" warnings in the
-      // server log. In-memory compile is clean and still fast for one bundle.
-      webpackOverride: (config) => ({ ...config, cache: false }),
+      // It runs once per process; a stale/corrupt pack cache (node_modules/.cache/
+      // webpack) spews "PackFileCacheStrategy ... Expected end of object" warnings
+      // every render. MUST use enableCaching:false — Remotion's
+      // computeHashAndFinalConfig forcibly sets `cache` from this flag and CLOBBERS
+      // any `cache:false` set via webpackOverride. In-memory compile is clean+fast.
+      enableCaching: false,
     })
       .then(linkLivePublicDir)
       .catch((err) => {
