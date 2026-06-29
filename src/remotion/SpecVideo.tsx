@@ -84,6 +84,39 @@ const POSITION_STYLE: Record<LayerT["position"], React.CSSProperties> = {
   "lower-third": { alignItems: "center", justifyContent: "flex-end", paddingBottom: "22%" },
 };
 
+// Frames each word's entrance lags behind the previous one — the kinetic
+// "words snap in one-by-one" marketing-typography look.
+const WORD_STAGGER_FRAMES = 3;
+
+// Pure (NOT a hook): per-word entrance style for the given animation, offset by
+// the word's index so words cascade in. spring/interpolate are pure functions.
+function wordEntrance(
+  animation: LayerT["animation"],
+  frame: number,
+  fps: number,
+  index: number
+): React.CSSProperties {
+  const s = spring({
+    frame: frame - index * WORD_STAGGER_FRAMES,
+    fps,
+    config: { damping: 16, stiffness: 160, mass: 0.6 },
+    durationInFrames: 12,
+  });
+  switch (animation) {
+    case "pop":
+      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `scale(${interpolate(s, [0, 1], [0.5, 1])})` };
+    case "slideLeft":
+      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `translateX(${interpolate(s, [0, 1], [60, 0])}px)` };
+    case "typewriter": // sharp per-word reveal
+      return { opacity: s < 0.001 ? 0 : 1 };
+    case "fadeUp":
+      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `translateY(${interpolate(s, [0, 1], [40, 0])}px)` };
+    case "none":
+    default:
+      return { opacity: 1 };
+  }
+}
+
 function TextLayerView({
   layer,
   palette,
@@ -95,12 +128,14 @@ function TextLayerView({
   width: number;
   height: number;
 }) {
-  const entrance = useEntrance(layer.animation);
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
   // Auto-fit: cap the font so the longest word fits the text column on one line
   // (long words can't wrap). Approx uppercase advance ≈ 0.62em.
   const requested = (layer.sizePct / 100) * height;
   const innerWidth = width * 0.86; // matches the 7% horizontal padding each side
-  const longestWordLen = Math.max(1, ...layer.text.split(/\s+/).map((w) => w.length));
+  const words = layer.text.split(/\s+/).filter(Boolean);
+  const longestWordLen = Math.max(1, ...words.map((w) => w.length));
   const maxForFit = innerWidth / (longestWordLen * 0.62);
   const fontSize = Math.round(Math.min(requested, maxForFit));
   const color = layer.accent ? palette.accent : layer.color;
@@ -108,7 +143,11 @@ function TextLayerView({
     <AbsoluteFill style={{ ...POSITION_STYLE[layer.position], display: "flex", padding: "0 7%" }}>
       <div
         style={{
-          ...entrance,
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: `${Math.round(fontSize * 0.06)}px ${Math.round(fontSize * 0.28)}px`,
           textAlign: "center",
           fontFamily: fontStack(layer.fontFamily),
           fontWeight: 800,
@@ -120,7 +159,11 @@ function TextLayerView({
           maxWidth: "100%",
         }}
       >
-        {layer.text}
+        {words.map((word, i) => (
+          <span key={i} style={{ display: "inline-block", willChange: "transform, opacity", ...wordEntrance(layer.animation, frame, fps, i) }}>
+            {word}
+          </span>
+        ))}
       </div>
     </AbsoluteFill>
   );

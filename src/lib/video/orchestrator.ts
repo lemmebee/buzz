@@ -20,6 +20,7 @@ import {
   type GenerationFailure,
 } from "@/lib/generate";
 import type { ContentConfig } from "@/lib/content/defaults";
+import type { VideoSpecT } from "@/remotion/spec";
 import { prepareImages } from "@/lib/images";
 
 const MEDIA_URL_PREFIX = "/api/media/";
@@ -97,6 +98,16 @@ function buildVideoFluxPrompt(
   if (brandColors) parts.push(`Subtle color accents: ${brandColors}.`);
   parts.push("No on-screen text, no captions, no logos, no watermarks.");
   return parts.join(" ");
+}
+
+// Pull a usable hex palette out of the brand's free-text color description for
+// the deterministic typography fallback (which has no LLM to choose colors).
+// First two #RRGGBB found become accent/bg-ish; sensible dark defaults otherwise.
+function derivePalette(colors: string | undefined): { bg: string; accent: string; text: string } {
+  const hexes = (colors?.match(/#[0-9a-fA-F]{6}/g) ?? []).map((h) => h.toLowerCase());
+  const accent = hexes[0] ?? "#ffd60a";
+  const bg = hexes[1] ?? "#0b0b0f";
+  return { bg, accent, text: "#ffffff" };
 }
 
 function aspectRatioToDims(ratio: string): { w: number; h: number } {
@@ -351,31 +362,45 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
   // fixed scene composition so a post is always produced.
   const buildCreativePost = async (item: VideoGenerated): Promise<GeneratedPost | null> => {
     const apiKey = await getApiKey("GOOGLE_AI_API_KEY");
-    if (!apiKey) return null;
     const scriptText = coerceText(item.script).trim() || coerceText(item.caption).trim() || product.name;
     const vibe =
       [profile.visualIdentity?.mood, profile.visualIdentity?.style, marketingStrategy.visualDirection]
         .filter(Boolean)
         .join("; ") || "modern, bold, on-brand";
 
-    const { authorVideoSpec } = await import("@/lib/video/spec-author");
+    const { authorVideoSpec, buildFallbackSpec } = await import("@/lib/video/spec-author");
     const { renderSpecVideo } = await import("@/lib/video/render-spec");
 
-    const authored = await authorVideoSpec({
-      apiKey,
-      productName: product.name,
-      profile: rawProfile,
-      strategy: rawStrategy,
-      vibe,
-      aspectRatio: config.aspectRatio,
-      durationSec: targetDuration,
-      script: scriptText,
-    });
-    if (!authored.spec) {
-      console.warn(`[video] creative authoring failed: ${authored.error}`);
-      return null;
+    // LLM authors the bespoke spec. If there's no key or authoring fails, we
+    // DON'T degrade to the captionless slideshow — we render a deterministic
+    // typography spec built from the script + brand palette instead, so creative
+    // always produces a real typography video.
+    let spec: VideoSpecT | null = null;
+    if (apiKey) {
+      const authored = await authorVideoSpec({
+        apiKey,
+        productName: product.name,
+        profile: rawProfile,
+        strategy: rawStrategy,
+        vibe,
+        aspectRatio: config.aspectRatio,
+        durationSec: targetDuration,
+        script: scriptText,
+      });
+      if (authored.spec) spec = authored.spec;
+      else console.warn(`[video] creative authoring failed, using deterministic typography fallback: ${authored.error}`);
+    } else {
+      console.warn(`[video] no GOOGLE_AI_API_KEY — using deterministic typography fallback spec`);
     }
-    const r = await renderSpecVideo(authored.spec, { imageProviderName: product.imageProvider });
+    if (!spec) {
+      spec = buildFallbackSpec({
+        script: scriptText,
+        palette: derivePalette(profile.visualIdentity?.colors),
+        aspectRatio: config.aspectRatio,
+        durationSec: targetDuration,
+      });
+    }
+    const r = await renderSpecVideo(spec, { imageProviderName: product.imageProvider });
     return {
       content: sanitizeCaption(coerceText(item.caption)),
       hashtags: (item.hashtags || []).map((t) => coerceText(t).replace(/^#+/, "")),

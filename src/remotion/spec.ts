@@ -176,7 +176,9 @@ export const DEFAULT_SPEC_PROPS: SpecVideoProps = {
 
 // Auto-generated knowledge pack injected into the LLM prompt — the "catalog"
 // the creative director may use. Kept in lockstep with the schema above.
-export const CATALOG_PROMPT = `You are the CREATIVE DIRECTOR of a short vertical social video. Output ONE JSON object matching this spec. You design the whole video: pacing, scenes, motion, text, color. Be bold and on-brand — this is not a template.
+export const CATALOG_PROMPT = `You are the CREATIVE DIRECTOR of a short vertical social video — a TYPOGRAPHY-LED marketing motion-graphics ad, NOT a captioned slideshow. Output ONE JSON object matching this spec. You design the whole video: pacing, scenes, motion, text, color. Be bold and on-brand — this is not a template.
+
+THE WORDS ARE THE ART. Every scene puts bold, punchy, product-relevant typography on screen as designed layers (hero lines, kickers, an accent word, a CTA). Do NOT rely on voiceover captions — set caption.show=false. A scene with no text layer is a failure.
 
 TOP-LEVEL:
 - aspectRatio: "9:16" | "1:1" | "16:9" | "4:5"  (default "9:16")
@@ -193,7 +195,7 @@ EACH SCENE:
 - bgColor / bgColor2: hex
 - kenBurns: "in" | "out" | "none"  (slow zoom on image backgrounds)
 - transition: how this scene enters — "fade" | "slide" | "wipe" | "clockWipe" | "flip" | "none"
-- layers: 0-5 elements drawn on top:
+- layers: 1-5 elements drawn on top. EVERY scene MUST include at least one bold TEXT layer (this is the whole point — typography is the art). Add SHAPE layers as accents around it.
   - TEXT layer: { kind:"text", text, position:("center"|"top"|"bottom"|"upper-third"|"lower-third"), animation:("fadeUp"|"pop"|"typewriter"|"slideLeft"|"none"), fontFamily, sizePct:(2-18, % of height; hero text ~9-14), color, accent:(true=use palette.accent), uppercase }
   - SHAPE layer: { kind:"shape", shape:("rect"|"circle"|"ellipse"|"triangle"), color, xPct,yPct (center, 0-100), widthPct,heightPct, opacity } — for accent bars, badges, backing cards behind text
 
@@ -203,7 +205,7 @@ LAYOUT RULES (critical — keep it clean):
 - AT MOST ONE hero text per scene (sizePct 9-14). Any additional text in the same scene must be a small kicker/label (sizePct 3-5) placed in a DIFFERENT zone. NEVER stack two large texts — they overlap.
 - Use the position zones to separate elements: a scene's hero goes in ONE of center / upper-third / lower-third; a kicker goes in a different zone (e.g. hero center + kicker top).
 - Keep hero lines SHORT (2-5 words). Long sentences belong in the voiceover/captions, not as hero text.
-- caption.show: set FALSE when your scenes already display the key words as text (the captions would just duplicate them). Set TRUE only for image-led scenes with little/no on-screen text.
+- caption.show: ALWAYS set FALSE. This style shows its own designed typography on every scene; raw voiceover captions are off-brand here.
 
 MOTION-DESIGN PRINCIPLES:
 - Timing is in FRAMES (30fps → 30 frames = 1 second). Give each scene enough time to read its text (~0.4s per word, minimum ~45 frames).

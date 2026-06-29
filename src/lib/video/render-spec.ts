@@ -90,13 +90,13 @@ export async function renderSpecVideo(
     }
   }
 
-  // 3. Whisper captions from the voiceover (treatment from the spec).
-  //    De-dup: if scenes already carry hero text, suppress the caption track so
-  //    the same words don't appear twice on screen.
-  const hasHeroText = resolvedScenes.some((s) =>
-    s.layers.some((l) => l.kind === "text" && l.sizePct >= 8 && l.text.trim().length > 0)
-  );
-  const showCaptions = spec.caption.show && !hasHeroText;
+  // 3. Whisper captions from the voiceover.
+  //    This is a typography-led art video: the designed text layers ARE the
+  //    on-screen words, so we never burn voiceover captions on top. The
+  //    typography guarantee (spec-author) ensures every scene already carries
+  //    its own bold text, and pins caption.show=false. We still respect the flag
+  //    defensively so captions can't sneak in over the designed type.
+  const showCaptions = spec.caption.show;
 
   let captions: SpecVideoProps["captions"] = [];
   let captionsUrl: string | null = null;
