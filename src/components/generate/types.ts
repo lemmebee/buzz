@@ -6,7 +6,7 @@ export interface FormConfig {
   durationSec?: number;
   aspectRatio: string;
   captions?: boolean;
-  videoStyle?: "scenes" | "typography";
+  videoStyle?: "scenes" | "typography" | "creative";
 }
 
 export const CONFIG_DEFAULTS: Record<ContentType, Record<MediaTypeUi, FormConfig>> = {

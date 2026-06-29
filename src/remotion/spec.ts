@@ -195,7 +195,17 @@ EACH SCENE:
 
 FONTS allowed: ${FONTS.join(", ")}.
 
-RULES:
-- Use the brand palette consistently. Put hero text in big sizePct with accent or strong contrast over a backing shape for legibility.
-- Vary scenes: different backgrounds, different layouts/animations. Make it feel designed.
+LAYOUT RULES (critical — keep it clean):
+- AT MOST ONE hero text per scene (sizePct 9-14). Any additional text in the same scene must be a small kicker/label (sizePct 3-5) placed in a DIFFERENT zone. NEVER stack two large texts — they overlap.
+- Use the position zones to separate elements: a scene's hero goes in ONE of center / upper-third / lower-third; a kicker goes in a different zone (e.g. hero center + kicker top).
+- Keep hero lines SHORT (2-5 words). Long sentences belong in the voiceover/captions, not as hero text.
+- caption.show: set FALSE when your scenes already display the key words as text (the captions would just duplicate them). Set TRUE only for image-led scenes with little/no on-screen text.
+
+MOTION-DESIGN PRINCIPLES:
+- Timing is in FRAMES (30fps → 30 frames = 1 second). Give each scene enough time to read its text (~0.4s per word, minimum ~45 frames).
+- Establish a clear visual hierarchy: one focal element per scene. Use size + the accent color + contrast (light text on dark/dimmed bg, or a backing shape) for legibility.
+- Use the brand palette consistently across scenes so it feels like one piece.
+- Vary scene to scene: alternate image / gradient / color backgrounds and animations so it feels designed, not repetitive. Open with a hook, end with the CTA.
+- Respect safe margins — never push text to the very edge.
+
 - Output ONLY the JSON object. No prose, no markdown fences.`;

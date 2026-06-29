@@ -87,14 +87,22 @@ const POSITION_STYLE: Record<LayerT["position"], React.CSSProperties> = {
 function TextLayerView({
   layer,
   palette,
+  width,
   height,
 }: {
   layer: LayerT;
   palette: SpecVideoProps["palette"];
+  width: number;
   height: number;
 }) {
   const entrance = useEntrance(layer.animation);
-  const fontSize = Math.round((layer.sizePct / 100) * height);
+  // Auto-fit: cap the font so the longest word fits the text column on one line
+  // (long words can't wrap). Approx uppercase advance ≈ 0.62em.
+  const requested = (layer.sizePct / 100) * height;
+  const innerWidth = width * 0.86; // matches the 7% horizontal padding each side
+  const longestWordLen = Math.max(1, ...layer.text.split(/\s+/).map((w) => w.length));
+  const maxForFit = innerWidth / (longestWordLen * 0.62);
+  const fontSize = Math.round(Math.min(requested, maxForFit));
   const color = layer.accent ? palette.accent : layer.color;
   return (
     <AbsoluteFill style={{ ...POSITION_STYLE[layer.position], display: "flex", padding: "0 7%" }}>
@@ -172,7 +180,7 @@ function SceneView({
         layer.kind === "shape" ? (
           <ShapeLayerView key={i} layer={layer} width={width} height={height} />
         ) : (
-          <TextLayerView key={i} layer={layer} palette={palette} height={height} />
+          <TextLayerView key={i} layer={layer} palette={palette} width={width} height={height} />
         )
       )}
     </AbsoluteFill>

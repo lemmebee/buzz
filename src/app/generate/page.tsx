@@ -416,10 +416,13 @@ export default function GeneratePage() {
                         >
                           <option value="scenes">Multi-scene — storyboard of AI scenes (default)</option>
                           <option value="typography">Typography — single background + animated narration text</option>
+                          <option value="creative">Creative — AI designs the whole video (unique each time)</option>
                         </select>
-                        {config.videoStyle === "typography" && (
+                        {(config.videoStyle === "typography" || config.videoStyle === "creative") && (
                           <p className="mt-1 text-xs text-text-tertiary">
-                            Best with the Remotion engine (Settings → Default Video Engine). Narration is shown as large animated text synced to the voiceover.
+                            {config.videoStyle === "creative"
+                              ? "Requires the Remotion engine (Settings → Default Video Engine). The AI composes a bespoke video — scenes, motion, text, color — per product. Falls back to multi-scene if it can't."
+                              : "Best with the Remotion engine (Settings → Default Video Engine). Narration is shown as large animated text synced to the voiceover."}
                           </p>
                         )}
                       </div>

@@ -10,7 +10,7 @@ import {
   createVideoProvider,
 } from "@/lib/providers";
 import { transcribeToSrt } from "@/lib/captions";
-import { getVideoProvider } from "@/lib/settings";
+import { getVideoProvider, getApiKey } from "@/lib/settings";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
 import {
   sanitizeCaption,
@@ -120,7 +120,8 @@ export async function generateVideoContent(
   const { productId, platform, targetSurface, config, targeting, count = 1, images = [] } = input;
   const generateCount = Math.min(Math.max(count, 1), 10);
   const targetDuration = config.durationSec ?? 15;
-  const videoStyle = config.videoStyle === "typography" ? "typography" : "scenes";
+  const videoStyle =
+    config.videoStyle === "typography" ? "typography" : config.videoStyle === "creative" ? "creative" : "scenes";
   // Typography mode renders the narration as on-screen text, so it always needs
   // the synced SRT regardless of the burn-in-captions toggle.
   const wantCaptions = videoStyle === "typography" ? true : Boolean(config.captions);
@@ -310,7 +311,9 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
       captionsPath: captionsFsPath,
       durationSec: targetDuration,
       aspectRatio: config.aspectRatio,
-      style: videoStyle,
+      // The fixed composition only knows scenes/typography; "creative" reaches
+      // here only as the fallback, which renders as scenes.
+      style: videoStyle === "typography" ? "typography" : "scenes",
       // Optional branding consumed by the Remotion engine (ignored by ffmpeg):
       // brand-color caption highlights + a logo/handle lower-third.
       branding: {
@@ -342,11 +345,70 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
     };
   };
 
+  // "creative" style: the LLM authors a bespoke video spec from the (already
+  // written) script + brand, rendered by the flexible Remotion composition.
+  // Any failure (no key, authoring invalid, render error) falls back to the
+  // fixed scene composition so a post is always produced.
+  const buildCreativePost = async (item: VideoGenerated): Promise<GeneratedPost | null> => {
+    const apiKey = await getApiKey("GOOGLE_AI_API_KEY");
+    if (!apiKey) return null;
+    const scriptText = coerceText(item.script).trim() || coerceText(item.caption).trim() || product.name;
+    const vibe =
+      [profile.visualIdentity?.mood, profile.visualIdentity?.style, marketingStrategy.visualDirection]
+        .filter(Boolean)
+        .join("; ") || "modern, bold, on-brand";
+
+    const { authorVideoSpec } = await import("@/lib/video/spec-author");
+    const { renderSpecVideo } = await import("@/lib/video/render-spec");
+
+    const authored = await authorVideoSpec({
+      apiKey,
+      productName: product.name,
+      profile: rawProfile,
+      strategy: rawStrategy,
+      vibe,
+      aspectRatio: config.aspectRatio,
+      durationSec: targetDuration,
+      script: scriptText,
+    });
+    if (!authored.spec) {
+      console.warn(`[video] creative authoring failed: ${authored.error}`);
+      return null;
+    }
+    const r = await renderSpecVideo(authored.spec, { imageProviderName: product.imageProvider });
+    return {
+      content: sanitizeCaption(coerceText(item.caption)),
+      hashtags: (item.hashtags || []).map((t) => coerceText(t).replace(/^#+/, "")),
+      mediaUrl: r.url,
+      publicMediaUrl: r.url,
+      script: scriptText || null,
+      duration: r.duration,
+      audioUrl: r.audioUrl,
+      captionsUrl: r.captionsUrl,
+      config,
+      metadata,
+    };
+  };
+
+  const buildPost = async (item: VideoGenerated): Promise<GeneratedPost> => {
+    if (videoStyle === "creative") {
+      try {
+        const post = await buildCreativePost(item);
+        if (post) return post;
+      } catch (err) {
+        console.warn(
+          `[video] creative render failed, falling back to scenes: ${err instanceof Error ? err.message : err}`
+        );
+      }
+    }
+    return buildVideoPost(item);
+  };
+
   const posts: GeneratedPost[] = [];
   const errors: GenerationFailure[] = [];
   for (let i = 0; i < items.length; i++) {
     try {
-      posts.push(await buildVideoPost(items[i]));
+      posts.push(await buildPost(items[i]));
     } catch (err) {
       const terminal = isTerminalProviderError(err);
       console.error(

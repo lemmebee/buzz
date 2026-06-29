@@ -33,6 +33,8 @@ export interface RenderSpecResult {
   duration: number;
   width: number;
   height: number;
+  audioUrl: string | null;
+  captionsUrl: string | null;
 }
 
 // Turns an authored VideoSpec into a rendered mp4: generates each scene's
@@ -89,16 +91,26 @@ export async function renderSpecVideo(
   }
 
   // 3. Whisper captions from the voiceover (treatment from the spec).
+  //    De-dup: if scenes already carry hero text, suppress the caption track so
+  //    the same words don't appear twice on screen.
+  const hasHeroText = resolvedScenes.some((s) =>
+    s.layers.some((l) => l.kind === "text" && l.sizePct >= 8 && l.text.trim().length > 0)
+  );
+  const showCaptions = spec.caption.show && !hasHeroText;
+
   let captions: SpecVideoProps["captions"] = [];
-  if (spec.caption.show && audioFsPath) {
+  let captionsUrl: string | null = null;
+  if (showCaptions && audioFsPath) {
     const srtPath = await transcribeToSrt(audioFsPath);
     if (srtPath) {
       const { readFileSync } = await import("fs");
+      const { basename } = await import("path");
       try {
         const parsed = parseSrt({ input: readFileSync(srtPath, "utf-8") });
         captions = parsed.captions
           .filter((c) => c.text.trim().length > 0)
           .map((c) => ({ text: c.text.trim(), startMs: c.startMs, endMs: c.endMs }));
+        captionsUrl = `/api/media/${basename(srtPath)}`;
       } catch (err) {
         console.warn(`[spec] caption parse failed: ${err instanceof Error ? err.message : err}`);
       }
@@ -116,7 +128,7 @@ export async function renderSpecVideo(
     scenes: resolvedScenes,
     audioSrc,
     captions,
-    caption: { show: spec.caption.show, position: spec.caption.position, fontFamily: spec.caption.fontFamily },
+    caption: { show: showCaptions, position: spec.caption.position, fontFamily: spec.caption.fontFamily },
     palette: spec.palette,
     width,
     height,
@@ -145,5 +157,13 @@ export async function renderSpecVideo(
     concurrency: 1,
   });
 
-  return { url: `/api/media/${filename}`, localPath: outputPath, duration: durationInFrames / fps, width, height };
+  return {
+    url: `/api/media/${filename}`,
+    localPath: outputPath,
+    duration: durationInFrames / fps,
+    width,
+    height,
+    audioUrl: audioSrc ? `/api/media/${audioSrc.replace(/^media\//, "")}` : null,
+    captionsUrl,
+  };
 }

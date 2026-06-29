@@ -5,8 +5,9 @@ export interface ContentConfig {
   aspectRatio: string;
   captions?: boolean;
   // Video only: "scenes" = multi-scene storyboard (default), "typography" =
-  // single background image with animated narration text (Remotion only).
-  videoStyle?: "scenes" | "typography";
+  // single background image with animated narration text, "creative" =
+  // LLM-authored bespoke composition (Remotion only).
+  videoStyle?: "scenes" | "typography" | "creative";
 }
 
 type DefaultsMap = {
