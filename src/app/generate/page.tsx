@@ -410,7 +410,7 @@ export default function GeneratePage() {
                         <select
                           value={config.videoStyle ?? "scenes"}
                           onChange={(e) =>
-                            setConfig({ ...config, videoStyle: e.target.value as "scenes" | "typography" })
+                            setConfig({ ...config, videoStyle: e.target.value as "scenes" | "typography" | "creative" })
                           }
                           className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
                         >
