@@ -8,9 +8,11 @@ import {
   resolveImageProvider,
   createAudioProvider,
   createVideoProvider,
+  listImageProviderNames,
+  imagesAvailable,
 } from "@/lib/providers";
 import { transcribeToSrt } from "@/lib/captions";
-import { getVideoProvider, getApiKey } from "@/lib/settings";
+import { getVideoProvider } from "@/lib/settings";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
 import {
   sanitizeCaption,
@@ -20,7 +22,6 @@ import {
   type GenerationFailure,
 } from "@/lib/generate";
 import type { ContentConfig } from "@/lib/content/defaults";
-import type { VideoSpecT } from "@/remotion/spec";
 import { prepareImages } from "@/lib/images";
 
 const MEDIA_URL_PREFIX = "/api/media/";
@@ -361,45 +362,40 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
   // Any failure (no key, authoring invalid, render error) falls back to the
   // fixed scene composition so a post is always produced.
   const buildCreativePost = async (item: VideoGenerated): Promise<GeneratedPost | null> => {
-    const apiKey = await getApiKey("GOOGLE_AI_API_KEY");
     const scriptText = coerceText(item.script).trim() || coerceText(item.caption).trim() || product.name;
     const vibe =
       [profile.visualIdentity?.mood, profile.visualIdentity?.style, marketingStrategy.visualDirection]
         .filter(Boolean)
         .join("; ") || "modern, bold, on-brand";
 
-    const { authorVideoSpec, buildFallbackSpec } = await import("@/lib/video/spec-author");
+    const { authorBestSpec } = await import("@/lib/video/spec-author");
     const { renderSpecVideo } = await import("@/lib/video/render-spec");
 
-    // LLM authors the bespoke spec. If there's no key or authoring fails, we
-    // DON'T degrade to the captionless slideshow — we render a deterministic
-    // typography spec built from the script + brand palette instead, so creative
-    // always produces a real typography video.
-    let spec: VideoSpecT | null = null;
-    if (apiKey) {
-      const authored = await authorVideoSpec({
-        apiKey,
-        productName: product.name,
-        profile: rawProfile,
-        strategy: rawStrategy,
-        vibe,
-        aspectRatio: config.aspectRatio,
-        durationSec: targetDuration,
-        script: scriptText,
-      });
-      if (authored.spec) spec = authored.spec;
-      else console.warn(`[video] creative authoring failed, using deterministic typography fallback: ${authored.error}`);
-    } else {
-      console.warn(`[video] no GOOGLE_AI_API_KEY — using deterministic typography fallback spec`);
-    }
-    if (!spec) {
-      spec = buildFallbackSpec({
-        script: scriptText,
-        palette: derivePalette(profile.visualIdentity?.colors),
-        aspectRatio: config.aspectRatio,
-        durationSec: targetDuration,
-      });
-    }
+    // Pre-flight: if every configured image provider is out of credits, tell the
+    // creative director to design a cohesive text-only video instead of an image
+    // video whose every scene silently degrades to flat color.
+    const imageNames = await listImageProviderNames(product.imageProvider);
+    const imagesAvail = imagesAvailable(imageNames);
+
+    // The creative director is the USER'S selected text provider (resolved at the
+    // top of generateContent) — never hardcoded. Best-of-N + judge with a
+    // deterministic typography floor so a creative run is never lost.
+    const { spec, source, valid } = await authorBestSpec({
+      provider: textProvider,
+      productName: product.name,
+      profile: rawProfile,
+      strategy: rawStrategy,
+      vibe,
+      aspectRatio: config.aspectRatio,
+      durationSec: targetDuration,
+      script: scriptText,
+      imagesAvailable: imagesAvail,
+      fallbackPalette: derivePalette(profile.visualIdentity?.colors),
+      n: 3,
+    });
+    console.log(
+      `[video] creative spec via ${source} (${valid} valid) from ${textProvider.name}, ${spec.scenes.length} scenes, images=${imagesAvail}`
+    );
     const r = await renderSpecVideo(spec, { imageProviderName: product.imageProvider });
     return {
       content: sanitizeCaption(coerceText(item.caption)),

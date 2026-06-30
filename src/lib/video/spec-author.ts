@@ -1,6 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { jsonrepair } from "jsonrepair";
-import { CATALOG_PROMPT, VideoSpec, type VideoSpecT, type LayerT } from "@/remotion/spec";
+import type { TextProvider } from "@/lib/providers/types";
+import { buildCatalogPrompt, VideoSpec, type VideoSpecT, type LayerT } from "@/remotion/spec";
 
 // Bold display faces that read as marketing typography, not body text.
 const DISPLAY_FONTS = ["Anton", "Bebas Neue", "Archivo Black", "Montserrat", "Oswald"] as const;
@@ -123,8 +123,6 @@ export function buildFallbackSpec(input: {
 }
 
 export interface AuthorInput {
-  apiKey: string;
-  model?: string;
   productName: string;
   profile: unknown; // brand profile JSON
   strategy: unknown; // marketing strategy JSON
@@ -132,6 +130,7 @@ export interface AuthorInput {
   aspectRatio: string;
   durationSec: number;
   script?: string; // optional pre-written narration to design the video around
+  imagesAvailable: boolean; // false when ALL image providers are out → design text-only
 }
 
 export interface AuthorResult {
@@ -140,24 +139,15 @@ export interface AuthorResult {
   error?: string;
 }
 
-// The LLM as creative director: emits a full VideoSpec. Reliability pipeline:
-// Gemini JSON mode (responseMimeType:application/json — reliably valid JSON
-// without the creativity-flattening that a strict responseSchema causes, since
-// the model otherwise just satisfies minItems/required literally) → jsonrepair
-// (syntax salvage) → Zod safeParse (auto-heals every field via .catch/.default/
-// clamp). spec=null only when even repair+safeParse can't yield a renderable
-// spec — the caller then falls back to the fixed composition.
-export async function authorVideoSpec(input: AuthorInput): Promise<AuthorResult> {
-  const ai = new GoogleGenerativeAI(input.apiKey);
-  const modelName = input.model || "gemini-2.5-flash";
+const FPS = 30;
 
-  const fps = 30;
-  const totalFrames = Math.round(input.durationSec * fps);
+function buildUserPrompt(input: AuthorInput, angleHint?: string): string {
+  const totalFrames = Math.round(input.durationSec * FPS);
   const scriptDirective = input.script
     ? `\n\nUSE THIS EXACT VOICEOVER SCRIPT (set spec.script to it verbatim and design the scenes to match it beat-by-beat):\n"${input.script}"`
     : "";
-
-  const userPrompt = `Design a ${input.durationSec}-second ${input.aspectRatio} vertical video for "${input.productName}".
+  const angle = angleHint ? `\n\nCREATIVE ANGLE FOR THIS VARIANT: ${angleHint}` : "";
+  return `Design a ${input.durationSec}-second ${input.aspectRatio} vertical video for "${input.productName}".
 
 VIBE / CREATIVE DIRECTION: ${input.vibe}
 
@@ -167,57 +157,203 @@ ${JSON.stringify(input.profile)}
 MARKETING STRATEGY:
 ${JSON.stringify(input.strategy)}
 
-Set aspectRatio="${input.aspectRatio}", fps=${fps}. The scene durations should total about ${totalFrames} frames.${scriptDirective}
+Set aspectRatio="${input.aspectRatio}", fps=${FPS}. The scene durations should total about ${totalFrames} frames.${scriptDirective}${angle}
 
-Author the full JSON spec now.`;
+Output ONLY the JSON object — no prose, no markdown fences.`;
+}
 
-  const model = ai.getGenerativeModel({
-    model: modelName,
-    systemInstruction: CATALOG_PROMPT,
-    generationConfig: {
-      responseMimeType: "application/json",
-      temperature: 0.95,
-      // Large enough to echo the full voiceover script verbatim AND author
-      // 2-6 scenes with detailed image prompts — 4096 truncated multi-scene
-      // specs, which jsonrepair salvaged into an empty/short scenes array.
-      maxOutputTokens: 8192,
-    },
-  });
+// Extract a JSON object from free-form model text. Unlike Gemini's JSON mode,
+// a generic text provider may wrap the spec in ```json fences or add prose, so
+// strip fences and clamp to the outermost {...}.
+function extractJson(text: string): string {
+  let t = text.trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  const first = t.indexOf("{");
+  const last = t.lastIndexOf("}");
+  if (first >= 0 && last > first) t = t.slice(first, last + 1);
+  return t;
+}
 
-  let raw = "";
+function parseToObject(raw: string): { value: unknown } | { error: string } {
+  const t = extractJson(raw);
   try {
-    const result = await model.generateContent(userPrompt);
-    raw = result.response.text();
-  } catch (err) {
-    return { spec: null, raw, error: err instanceof Error ? err.message : String(err) };
-  }
-
-  // Parse → repair-on-failure → validate+auto-heal.
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
+    return { value: JSON.parse(t) };
   } catch {
     try {
-      parsed = JSON.parse(jsonrepair(raw));
+      return { value: JSON.parse(jsonrepair(t)) };
     } catch (err) {
-      return { spec: null, raw, error: `unparseable JSON: ${err instanceof Error ? err.message : err}` };
+      return { error: `unparseable JSON: ${err instanceof Error ? err.message : err}` };
     }
   }
+}
 
-  const result = VideoSpec.safeParse(parsed);
-  if (!result.success) {
-    console.warn(`[spec] safeParse failed (raw ${raw.length} chars): ${result.error.message.slice(0, 300)}`);
-    return { spec: null, raw, error: `schema validation failed: ${result.error.message.slice(0, 300)}` };
-  }
-  console.log(`[spec] authored ${result.data.scenes.length} scenes, script ${result.data.script.length} chars (raw ${raw.length} chars)`);
-
-  const spec: VideoSpecT = guaranteeTypography({
-    ...result.data,
-    // Force the requested geometry; pin the narration to the pre-written script.
-    aspectRatio: (["9:16", "1:1", "16:9", "4:5"].includes(input.aspectRatio)
-      ? input.aspectRatio
-      : "9:16") as VideoSpecT["aspectRatio"],
-    script: input.script?.trim() ? input.script.trim() : result.data.script,
+// Force the requested geometry, pin the narration, and (when no image provider
+// is available) downgrade any image background to a brand gradient so a
+// text-only run never references a still it can't generate. Then guarantee
+// typography (hero per scene, captions off).
+function finalizeSpec(data: VideoSpecT, input: AuthorInput): VideoSpecT {
+  const aspectRatio = (["9:16", "1:1", "16:9", "4:5"].includes(input.aspectRatio)
+    ? input.aspectRatio
+    : "9:16") as VideoSpecT["aspectRatio"];
+  const scenes = input.imagesAvailable
+    ? data.scenes
+    : data.scenes.map((s) =>
+        s.bgKind === "image" ? { ...s, bgKind: "gradient" as const, bgImagePrompt: "" } : s
+      );
+  return guaranteeTypography({
+    ...data,
+    aspectRatio,
+    script: input.script?.trim() ? input.script.trim() : data.script,
+    scenes,
   });
-  return { spec, raw };
+}
+
+// One authoring call through ANY text provider (the user's selected creative
+// director — never hardcoded), with a single self-repair retry: if the output
+// isn't valid JSON or fails the schema, feed the error back and ask for a fix.
+async function authorOnce(provider: TextProvider, input: AuthorInput, angleHint?: string): Promise<AuthorResult> {
+  const systemPrompt = buildCatalogPrompt({ imagesAvailable: input.imagesAvailable });
+  const baseUser = buildUserPrompt(input, angleHint);
+  let lastError = "";
+  let raw = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const userPrompt =
+      attempt === 0
+        ? baseUser
+        : `${baseUser}\n\nYOUR PREVIOUS OUTPUT WAS REJECTED: ${lastError}\nReturn the corrected JSON object only.`;
+    try {
+      const res = await provider.generate({ systemPrompt, userPrompt });
+      raw = res.text;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      continue;
+    }
+    const parsed = parseToObject(raw);
+    if ("error" in parsed) {
+      lastError = parsed.error;
+      continue;
+    }
+    const result = VideoSpec.safeParse(parsed.value);
+    if (!result.success) {
+      lastError = `schema validation failed: ${result.error.message.slice(0, 200)}`;
+      continue;
+    }
+    return { spec: finalizeSpec(result.data, input), raw };
+  }
+  return { spec: null, raw, error: lastError };
+}
+
+// Distinct creative angles so best-of-N variants actually diverge — text-only
+// providers have no temperature knob, so diversity comes from the brief.
+const ANGLES = [
+  "Lead with the sharpest pattern-interrupt hook — provoke a belief, then resolve it. Punchy and kinetic.",
+  "Lead with the core transformation/benefit — paint the after-state and make the value undeniable.",
+  "Lead with a bold visual metaphor and minimal words — let typography and color carry it.",
+  "Treat it like a premium brand film — restrained, confident, elegant pacing and negative space.",
+];
+
+interface SceneSummary { i: number; bg: string; hero: string; kicker: string }
+function summarizeForJudge(spec: VideoSpecT): { scenes: number; palette: VideoSpecT["palette"]; beats: SceneSummary[] } {
+  const beats = spec.scenes.map((s, i) => {
+    const texts = s.layers.filter((l) => l.kind === "text" && l.text.trim());
+    const hero = texts.find((l) => l.sizePct >= 8)?.text ?? texts[0]?.text ?? "";
+    const kicker = texts.find((l) => l.sizePct < 8)?.text ?? "";
+    return { i, bg: s.bgKind, hero, kicker };
+  });
+  return { scenes: spec.scenes.length, palette: spec.palette, beats };
+}
+
+// Deterministic tie-breaker / judge fallback: rewards good pacing, one-hero
+// scenes, punchy hero lines, and background variety.
+function heuristicBestIndex(specs: VideoSpecT[]): number {
+  const score = (spec: VideoSpecT): number => {
+    let s = 0;
+    const n = spec.scenes.length;
+    if (n >= 3 && n <= 6) s += 2;
+    for (const scene of spec.scenes) {
+      const texts = scene.layers.filter((l) => l.kind === "text" && l.text.trim());
+      const heroes = texts.filter((l) => l.sizePct >= 8);
+      if (heroes.length === 1) s += 1;
+      if (heroes.some((h) => h.text.trim().split(/\s+/).length <= 5)) s += 0.5;
+    }
+    s += new Set(spec.scenes.map((sc) => sc.bgKind)).size * 0.5;
+    return s;
+  };
+  let best = 0;
+  let bestScore = -Infinity;
+  specs.forEach((spec, i) => {
+    const sc = score(spec);
+    if (sc > bestScore) {
+      bestScore = sc;
+      best = i;
+    }
+  });
+  return best;
+}
+
+// The judge: the SAME creative director picks the strongest candidate. Falls
+// back to a deterministic heuristic if the judge call fails or returns junk.
+async function judgeSpecs(provider: TextProvider, input: AuthorInput, specs: VideoSpecT[]): Promise<number> {
+  const candidates = specs.map((s, i) => ({ index: i, ...summarizeForJudge(s) }));
+  const systemPrompt =
+    "You are a ruthless creative director reviewing candidate short-video designs. Pick the ONE that would perform best as a social ad — judge on hook strength, on-brand fit, clarity/legibility, pacing, and visual hierarchy. Respond with ONLY a JSON object: {\"winner\": <index>, \"reason\": \"<one line>\"}.";
+  const userPrompt = `Product: ${input.productName}\nVibe: ${input.vibe}\nScript: ${input.script ?? ""}\n\nCANDIDATES (JSON):\n${JSON.stringify(candidates)}\n\nReturn the winning index as JSON.`;
+  try {
+    const res = await provider.generate({ systemPrompt, userPrompt });
+    const parsed = parseToObject(res.text);
+    if (!("error" in parsed) && parsed.value && typeof parsed.value === "object") {
+      const w = (parsed.value as { winner?: unknown }).winner;
+      if (typeof w === "number" && w >= 0 && w < specs.length) {
+        console.log(`[spec] judge picked variant ${w} of ${specs.length}`);
+        return w;
+      }
+    }
+  } catch (err) {
+    console.warn(`[spec] judge failed, using heuristic: ${err instanceof Error ? err.message : err}`);
+  }
+  return heuristicBestIndex(specs);
+}
+
+export interface AuthorBestInput extends AuthorInput {
+  provider: TextProvider; // the user's selected text provider — the creative director
+  n?: number; // how many variants to author (default 3, capped to the angle pool)
+  fallbackPalette?: { bg: string; accent: string; text: string }; // brand palette for the deterministic floor
+}
+
+export interface AuthorBestResult {
+  spec: VideoSpecT;
+  source: "judged" | "single" | "deterministic";
+  valid: number;
+}
+
+// Best-of-N + judge with a deterministic floor. The user's selected text
+// provider is the creative director (NO provider is hardcoded): author N diverse
+// variants in parallel, keep the valid ones, let the same director judge the
+// winner, and if NOTHING valid survives, fall back to a deterministic typography
+// spec so a creative run is NEVER lost.
+export async function authorBestSpec(input: AuthorBestInput): Promise<AuthorBestResult> {
+  const n = Math.max(1, Math.min(input.n ?? 3, ANGLES.length));
+  const variants = await Promise.all(
+    Array.from({ length: n }, (_, i) => authorOnce(input.provider, input, ANGLES[i]))
+  );
+  const valid = variants.map((v) => v.spec).filter((s): s is VideoSpecT => s !== null);
+  console.log(`[spec] best-of-${n} via ${input.provider.name}: ${valid.length} valid variant(s)`);
+
+  if (valid.length === 0) {
+    return {
+      spec: buildFallbackSpec({
+        script: input.script?.trim() || input.productName,
+        palette: input.fallbackPalette ?? { bg: "#0b0b0f", accent: "#ffd60a", text: "#ffffff" },
+        aspectRatio: input.aspectRatio,
+        durationSec: input.durationSec,
+      }),
+      source: "deterministic",
+      valid: 0,
+    };
+  }
+  if (valid.length === 1) return { spec: valid[0], source: "single", valid: 1 };
+
+  const winner = await judgeSpecs(input.provider, input, valid);
+  return { spec: valid[winner], source: "judged", valid: valid.length };
 }

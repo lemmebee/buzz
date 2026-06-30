@@ -215,3 +215,16 @@ MOTION-DESIGN PRINCIPLES:
 - Respect safe margins — never push text to the very edge.
 
 - Output ONLY the JSON object. No prose, no markdown fences.`;
+
+// Appended to the catalog when NO image provider is available this run (all out
+// of credits). The creative director then designs a cohesive text-only piece
+// instead of an image video whose every scene silently degrades to flat color.
+const NO_IMAGES_DIRECTIVE = `
+
+⚠ IMAGE BACKGROUNDS ARE UNAVAILABLE THIS RUN. Every scene MUST set bgKind to "gradient" or "color" (NEVER "image"); leave bgImagePrompt empty. Lean entirely into bold typography, the brand palette, rich gradients, and backing shapes (rect/circle/ellipse) to carry each scene. Design it as a premium kinetic-typography piece — confident, varied, and intentional — not a slideshow waiting for photos.`;
+
+// Capability-aware system prompt for the creative director. Pass imagesAvailable
+// from the image-health pre-flight so the LLM designs within what we can render.
+export function buildCatalogPrompt(opts: { imagesAvailable: boolean }): string {
+  return opts.imagesAvailable ? CATALOG_PROMPT : CATALOG_PROMPT + NO_IMAGES_DIRECTIVE;
+}

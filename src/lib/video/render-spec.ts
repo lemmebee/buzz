@@ -61,8 +61,8 @@ export async function renderSpecVideo(
         // fall back to a remote url which the renderer passes straight to <Img>.
         bgImageSrc = img.localPath ? urlToStaticRel(img.localPath) : img.url;
       } catch (err) {
-        console.warn(`[spec] scene image failed, using color: ${err instanceof Error ? err.message : err}`);
-        bgKind = "color";
+        console.warn(`[spec] scene image failed, using gradient: ${err instanceof Error ? err.message : err}`);
+        bgKind = "gradient";
       }
     }
     resolvedScenes.push({
