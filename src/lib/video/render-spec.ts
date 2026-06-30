@@ -1,5 +1,7 @@
 import { mkdirSync } from "fs";
 import path from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { selectComposition, renderMedia } from "@remotion/renderer";
 import { parseSrt } from "@remotion/captions";
 import { resolveImageProvider, createAudioProvider } from "@/lib/providers";
@@ -12,6 +14,22 @@ import {
   type ResolvedScene,
   type SpecVideoProps,
 } from "@/remotion/spec";
+
+const execFileP = promisify(execFile);
+
+// Best-effort audio duration in seconds (ffprobe is on PATH on the render box).
+async function probeAudioSeconds(file: string): Promise<number | null> {
+  try {
+    const { stdout } = await execFileP("ffprobe", [
+      "-v", "error", "-show_entries", "format=duration",
+      "-of", "default=noprint_wrappers=1:nokey=1", file,
+    ]);
+    const sec = parseFloat(stdout.trim());
+    return Number.isFinite(sec) && sec > 0 ? sec : null;
+  } catch {
+    return null;
+  }
+}
 
 function dimsFor(aspectRatio: string): { width: number; height: number } {
   switch (aspectRatio) {
@@ -42,19 +60,32 @@ export interface RenderSpecResult {
 // flexible SpecVideo composition. Reuses buzz's existing provider pipeline.
 export async function renderSpecVideo(
   spec: VideoSpecT,
-  opts: { imageProviderName?: string | null }
+  opts: { imageProviderName?: string | null; productShots?: string[] }
 ): Promise<RenderSpecResult> {
   const { width, height } = dimsFor(spec.aspectRatio);
   const fps = spec.fps;
 
-  // 1. Resolve each scene's background. Image scenes generate a still; on
-  //    failure the scene auto-degrades to a solid color so the render proceeds.
+  // 1. Resolve each scene's background:
+  //    - "product"  → a REAL product screenshot (credit-free, on-brand) — never
+  //      a generated still, so the video shows the ACTUAL app, not a fake one.
+  //    - "image"    → generate a still from the prompt; on failure → gradient.
+  //    - color/gradient → as-is.
+  const productShots = (opts.productShots ?? []).filter(Boolean);
+  let productShotIdx = 0;
   const imageProvider = await resolveImageProvider(opts.imageProviderName);
   const resolvedScenes: ResolvedScene[] = [];
   for (const scene of spec.scenes) {
     let bgImageSrc: string | undefined;
-    let bgKind = scene.bgKind;
-    if (scene.bgKind === "image" && scene.bgImagePrompt.trim()) {
+    // "product" renders as an image (a real screenshot); everything else maps 1:1.
+    let bgKind: ResolvedScene["bgKind"] = scene.bgKind === "product" ? "image" : scene.bgKind;
+    if (scene.bgKind === "product") {
+      if (productShots.length > 0) {
+        bgImageSrc = productShots[productShotIdx % productShots.length];
+        productShotIdx++;
+      } else {
+        bgKind = "gradient"; // no screenshots available — don't generate a fake one
+      }
+    } else if (scene.bgKind === "image" && scene.bgImagePrompt.trim()) {
       try {
         const img = await imageProvider.generate({ prompt: scene.bgImagePrompt, width, height });
         // Prefer the downloaded local copy (localPath is an /api/media/ path);
@@ -117,8 +148,27 @@ export async function renderSpecVideo(
     }
   }
 
-  // 4. Total duration = sum(scenes) minus each inserted transition's overlap.
+  // 3.5 Fit the video to the voiceover so narration is NEVER cut off (and there
+  //     is no long silent tail): scale every scene's duration so the total covers
+  //     the full audio + a short tail. With a duration-sized script this is ~1.0
+  //     and only corrects drift; a too-long script stretches the video to fit.
   const transitionsInserted = resolvedScenes.filter((s, i) => i > 0 && s.transition !== "none").length;
+  if (audioFsPath) {
+    const audioSec = await probeAudioSeconds(audioFsPath);
+    if (audioSec) {
+      const tail = Math.round(0.4 * fps);
+      const targetVideoFrames = Math.ceil(audioSec * fps) + tail;
+      const sceneTotal = resolvedScenes.reduce((sum, s) => sum + s.durationInFrames, 0);
+      const desiredSceneTotal = targetVideoFrames + transitionsInserted * TRANSITION_FRAMES;
+      const scale = desiredSceneTotal / sceneTotal;
+      if (Number.isFinite(scale) && scale > 0 && Math.abs(scale - 1) > 0.02) {
+        for (const s of resolvedScenes) s.durationInFrames = Math.max(20, Math.round(s.durationInFrames * scale));
+        console.log(`[spec] fit video to voiceover ${audioSec.toFixed(1)}s (scaled scenes ×${scale.toFixed(2)})`);
+      }
+    }
+  }
+
+  // 4. Total duration = sum(scenes) minus each inserted transition's overlap.
   const durationInFrames = Math.max(
     1,
     resolvedScenes.reduce((sum, s) => sum + s.durationInFrames, 0) - transitionsInserted * TRANSITION_FRAMES

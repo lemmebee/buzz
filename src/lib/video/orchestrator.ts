@@ -185,6 +185,13 @@ export async function generateVideoContent(
     ? 1
     : Math.max(2, Math.min(6, Math.ceil(targetDuration / 4)));
 
+  // ~2.5 words/sec natural TTS pace (cap a bit higher). An LLM can't gauge
+  // speaking time from "~N seconds", so give it an explicit WORD budget —
+  // otherwise the narration overruns the chosen duration and the voiceover gets
+  // cut off at render time.
+  const scriptWordBudget = Math.round(targetDuration * 2.5);
+  const scriptWordMax = Math.round(targetDuration * 2.9);
+
   const scenesStoryboardInstructions = `- "scenes": ARRAY of EXACTLY ${sceneCount} scene objects forming a STORYLINE that follows the script beat by beat:
   - Scene 1 = hook moment (the relatable opening tension/curiosity)
   - Middle scenes = progression (problem -> realization -> action)
@@ -202,7 +209,7 @@ export async function generateVideoContent(
 
 ADDITIONAL VIDEO REQUIREMENTS:
 - Output JSON with keys: caption, hashtags, script, scenes
-- "script": spoken narration only - what the voiceover SAYS, not the caption. Pace for ~${targetDuration} seconds at natural speaking rate. NO emojis, NO hashtags inside script.${videoStyle === "typography" ? "\n  The script is ALSO shown as large animated on-screen typography, so make it punchy and quotable - short, high-impact sentences." : ""}
+- "script": spoken narration only - what the voiceover SAYS, not the caption. It MUST fit ${targetDuration} seconds of natural speech: aim for ~${scriptWordBudget} words, HARD MAXIMUM ${scriptWordMax} words. Going over makes the voiceover get cut off. NO emojis, NO hashtags inside script.${videoStyle === "typography" ? "\n  The script is ALSO shown as large animated on-screen typography, so make it punchy and quotable - short, high-impact sentences." : ""}
 ${videoStyle === "typography" ? typographyInstructions : scenesStoryboardInstructions}
 - Brand visual style hint (use sparingly, do NOT make every scene abstract): ${profile.visualIdentity.style}; colors: ${profile.visualIdentity.colors}; mood: ${profile.visualIdentity.mood}
 ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.visualDirection}` : ""}
@@ -377,6 +384,20 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
     const imageNames = await listImageProviderNames(product.imageProvider);
     const imagesAvail = imagesAvailable(imageNames);
 
+    // Real product screenshots (credit-free), as staticFile-relative paths. The
+    // director can show the ACTUAL app via bgKind:"product" instead of FLUX
+    // hallucinating a wrong one.
+    const productShots: string[] = (() => {
+      try {
+        const arr = JSON.parse(product.screenshots || "[]");
+        return Array.isArray(arr)
+          ? arr.map((s: unknown) => String(s).replace(/^\/api\/media\//, "media/")).filter(Boolean)
+          : [];
+      } catch {
+        return [];
+      }
+    })();
+
     // The creative director is the USER'S selected text provider (resolved at the
     // top of generateContent) — never hardcoded. Best-of-N + judge with a
     // deterministic typography floor so a creative run is never lost.
@@ -390,13 +411,14 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
       durationSec: targetDuration,
       script: scriptText,
       imagesAvailable: imagesAvail,
+      productShots: productShots.length,
       fallbackPalette: derivePalette(profile.visualIdentity?.colors),
       n: 3,
     });
     console.log(
-      `[video] creative spec via ${source} (${valid} valid) from ${textProvider.name}, ${spec.scenes.length} scenes, images=${imagesAvail}`
+      `[video] creative spec via ${source} (${valid} valid) from ${textProvider.name}, ${spec.scenes.length} scenes, images=${imagesAvail}, productShots=${productShots.length}`
     );
-    const r = await renderSpecVideo(spec, { imageProviderName: product.imageProvider });
+    const r = await renderSpecVideo(spec, { imageProviderName: product.imageProvider, productShots });
     return {
       content: sanitizeCaption(coerceText(item.caption)),
       hashtags: (item.hashtags || []).map((t) => coerceText(t).replace(/^#+/, "")),

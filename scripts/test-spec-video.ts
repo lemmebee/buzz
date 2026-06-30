@@ -23,10 +23,18 @@ async function main() {
   const provider = await resolveTextProvider(product.textProvider);
   const imageNames = await listImageProviderNames(product.imageProvider);
   const imagesAvail = imagesAvailable(imageNames);
+  const productShots: string[] = (() => {
+    try {
+      const a = JSON.parse(product.screenshots || "[]");
+      return Array.isArray(a) ? a.map((s: unknown) => String(s).replace(/^\/api\/media\//, "media/")).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  })();
 
   console.log(`Product: ${product.name}`);
   console.log(`Creative director (text provider): ${provider.name} [setting: ${await getTextProvider()}]`);
-  console.log(`Image providers: [${imageNames.join(", ")}] → available=${imagesAvail}`);
+  console.log(`Image providers: [${imageNames.join(", ")}] → available=${imagesAvail} | productShots=${productShots.length}`);
   console.log(`Vibe: ${vibe}\n`);
 
   console.log("1/2 Authoring spec (best-of-N + judge) via the selected provider...");
@@ -40,6 +48,7 @@ async function main() {
     aspectRatio: "9:16",
     durationSec: 15,
     imagesAvailable: imagesAvail,
+    productShots: productShots.length,
     n: 3,
   });
   console.log(`✅ spec via ${source} (${valid} valid) in ${((Date.now() - t0) / 1000).toFixed(1)}s, ${spec.scenes.length} scenes, palette=${JSON.stringify(spec.palette)}`);
@@ -51,7 +60,7 @@ async function main() {
 
   console.log("2/2 Rendering (images + TTS + captions + Remotion)...");
   const t1 = Date.now();
-  const result = await renderSpecVideo(spec, { imageProviderName: product.imageProvider });
+  const result = await renderSpecVideo(spec, { imageProviderName: product.imageProvider, productShots });
   const secs = ((Date.now() - t1) / 1000).toFixed(1);
   const size = statSync(result.localPath).size;
 

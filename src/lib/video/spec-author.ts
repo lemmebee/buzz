@@ -131,6 +131,7 @@ export interface AuthorInput {
   durationSec: number;
   script?: string; // optional pre-written narration to design the video around
   imagesAvailable: boolean; // false when ALL image providers are out → design text-only
+  productShots: number; // count of real product screenshots available (bgKind:"product")
 }
 
 export interface AuthorResult {
@@ -196,11 +197,26 @@ function finalizeSpec(data: VideoSpecT, input: AuthorInput): VideoSpecT {
   const aspectRatio = (["9:16", "1:1", "16:9", "4:5"].includes(input.aspectRatio)
     ? input.aspectRatio
     : "9:16") as VideoSpecT["aspectRatio"];
-  const scenes = input.imagesAvailable
+  const downgraded = input.imagesAvailable
     ? data.scenes
     : data.scenes.map((s) =>
         s.bgKind === "image" ? { ...s, bgKind: "gradient" as const, bgImagePrompt: "" } : s
       );
+  // On product (real-screenshot) scenes the APP is the hero, so shrink any text
+  // to a small supporting label pinned low — a giant headline would bury the
+  // screenshot the whole point of the scene is to show.
+  const scenes = downgraded.map((s) =>
+    s.bgKind !== "product"
+      ? s
+      : {
+          ...s,
+          layers: s.layers.map((l) =>
+            l.kind === "text"
+              ? { ...l, sizePct: Math.min(l.sizePct, 6), position: "lower-third" as const, uppercase: true }
+              : l
+          ),
+        }
+  );
   return guaranteeTypography({
     ...data,
     aspectRatio,
@@ -213,7 +229,7 @@ function finalizeSpec(data: VideoSpecT, input: AuthorInput): VideoSpecT {
 // director — never hardcoded), with a single self-repair retry: if the output
 // isn't valid JSON or fails the schema, feed the error back and ask for a fix.
 async function authorOnce(provider: TextProvider, input: AuthorInput, angleHint?: string): Promise<AuthorResult> {
-  const systemPrompt = buildCatalogPrompt({ imagesAvailable: input.imagesAvailable });
+  const systemPrompt = buildCatalogPrompt({ imagesAvailable: input.imagesAvailable, productShots: input.productShots });
   const baseUser = buildUserPrompt(input, angleHint);
   let lastError = "";
   let raw = "";

@@ -79,7 +79,7 @@ export const Layer = z
 export const Scene = z
   .object({
     durationInFrames: z.number().min(15).max(450).catch(90),
-    bgKind: z.enum(["image", "color", "gradient"]).catch("image"),
+    bgKind: z.enum(["image", "color", "gradient", "product"]).catch("image"), // "product" = a REAL product screenshot
     bgImagePrompt: z.string().catch(""), // buzz generates the still from this
     bgColor: Hex,
     bgColor2: Hex, // second stop for gradient backgrounds
@@ -216,15 +216,28 @@ MOTION-DESIGN PRINCIPLES:
 
 - Output ONLY the JSON object. No prose, no markdown fences.`;
 
-// Appended to the catalog when NO image provider is available this run (all out
-// of credits). The creative director then designs a cohesive text-only piece
-// instead of an image video whose every scene silently degrades to flat color.
+// Appended when NO image provider is available this run (all out of credits).
+// GENERATED stills are off, but real product screenshots (bgKind:"product") and
+// gradients/colors still work — so the director designs a cohesive piece from
+// those instead of an image video whose every scene degrades to flat color.
 const NO_IMAGES_DIRECTIVE = `
 
-⚠ IMAGE BACKGROUNDS ARE UNAVAILABLE THIS RUN. Every scene MUST set bgKind to "gradient" or "color" (NEVER "image"); leave bgImagePrompt empty. Lean entirely into bold typography, the brand palette, rich gradients, and backing shapes (rect/circle/ellipse) to carry each scene. Design it as a premium kinetic-typography piece — confident, varied, and intentional — not a slideshow waiting for photos.`;
+⚠ GENERATED IMAGE BACKGROUNDS ARE UNAVAILABLE THIS RUN. Do NOT use bgKind "image" (it will fail). Use "gradient" or "color" backgrounds, plus bgKind "product" for any real product screenshots offered below. Lean into bold typography, the brand palette, rich gradients, and backing shapes (rect/circle/ellipse). Make it a premium kinetic-typography piece — confident and varied, not a slideshow waiting for photos.`;
 
-// Capability-aware system prompt for the creative director. Pass imagesAvailable
-// from the image-health pre-flight so the LLM designs within what we can render.
-export function buildCatalogPrompt(opts: { imagesAvailable: boolean }): string {
-  return opts.imagesAvailable ? CATALOG_PROMPT : CATALOG_PROMPT + NO_IMAGES_DIRECTIVE;
+// Appended when the product has real screenshots. Steers the director to show
+// the ACTUAL app via bgKind:"product" rather than describing a UI in a
+// bgImagePrompt — text-to-image can't render the real app and fakes a wrong one.
+function productShotsDirective(count: number): string {
+  return `
+
+PRODUCT SHOTS: there are ${count} real screenshots of the ACTUAL product UI available. To show the app/product on screen, set a scene's bgKind to "product" (leave bgImagePrompt empty) — this uses a REAL screenshot. Use it for the "here's how it works" / proof moments. NEVER describe the app, its screen, or its UI in a bgImagePrompt — image generation will invent a WRONG, fake-looking app. Keep any text overlay on product scenes short so the screenshot stays visible.`;
+}
+
+// Capability-aware system prompt for the creative director. imagesAvailable and
+// productShots come from the orchestrator's pre-flight so the LLM only designs
+// with backgrounds we can actually render.
+export function buildCatalogPrompt(opts: { imagesAvailable: boolean; productShots?: number }): string {
+  let prompt = opts.imagesAvailable ? CATALOG_PROMPT : CATALOG_PROMPT + NO_IMAGES_DIRECTIVE;
+  if (opts.productShots && opts.productShots > 0) prompt += productShotsDirective(opts.productShots);
+  return prompt;
 }
