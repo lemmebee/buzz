@@ -1,5 +1,6 @@
 import { jsonrepair } from "jsonrepair";
 import type { TextProvider } from "@/lib/providers/types";
+import { composeSkillSection } from "@/lib/skills";
 import { buildCatalogPrompt, VideoSpec, type VideoSpecT, type LayerT } from "@/remotion/spec";
 
 // Bold display faces that read as marketing typography, not body text.
@@ -229,7 +230,11 @@ function finalizeSpec(data: VideoSpecT, input: AuthorInput): VideoSpecT {
 // director — never hardcoded), with a single self-repair retry: if the output
 // isn't valid JSON or fails the schema, feed the error back and ask for a fix.
 async function authorOnce(provider: TextProvider, input: AuthorInput, angleHint?: string): Promise<AuthorResult> {
-  const systemPrompt = buildCatalogPrompt({ imagesAvailable: input.imagesAvailable, productShots: input.productShots });
+  // The creative-director + ad-creative knowledge packs raise idea quality and
+  // craft for ANY provider (injected into the system prompt, nothing installed).
+  const systemPrompt =
+    buildCatalogPrompt({ imagesAvailable: input.imagesAvailable, productShots: input.productShots }) +
+    composeSkillSection("video-direction");
   const baseUser = buildUserPrompt(input, angleHint);
   let lastError = "";
   let raw = "";
@@ -263,10 +268,10 @@ async function authorOnce(provider: TextProvider, input: AuthorInput, angleHint?
 // Distinct creative angles so best-of-N variants actually diverge — text-only
 // providers have no temperature knob, so diversity comes from the brief.
 const ANGLES = [
-  "Lead with the sharpest pattern-interrupt hook — provoke a belief, then resolve it. Punchy and kinetic.",
-  "Lead with the core transformation/benefit — paint the after-state and make the value undeniable.",
-  "Lead with a bold visual metaphor and minimal words — let typography and color carry it.",
-  "Treat it like a premium brand film — restrained, confident, elegant pacing and negative space.",
+  "PAIN angle: open on the felt frustration the audience lives with, in their own words, then resolve it with a pattern-interrupt hook.",
+  "OUTCOME angle: paint the after-state. Show the transformation and make the value undeniable.",
+  "CONTRARIAN angle: challenge a belief the category treats as settled, then flip it.",
+  "IDENTITY angle: speak to who the viewer becomes and who this is plainly for. Make them see themselves.",
 ];
 
 interface SceneSummary { i: number; bg: string; hero: string; kicker: string }
@@ -313,7 +318,8 @@ function heuristicBestIndex(specs: VideoSpecT[]): number {
 async function judgeSpecs(provider: TextProvider, input: AuthorInput, specs: VideoSpecT[]): Promise<number> {
   const candidates = specs.map((s, i) => ({ index: i, ...summarizeForJudge(s) }));
   const systemPrompt =
-    "You are a ruthless creative director reviewing candidate short-video designs. Pick the ONE that would perform best as a social ad — judge on hook strength, on-brand fit, clarity/legibility, pacing, and visual hierarchy. Respond with ONLY a JSON object: {\"winner\": <index>, \"reason\": \"<one line>\"}.";
+    "You are a ruthless creative director reviewing candidate short-video designs. Pick the ONE that would perform best as a social ad. Apply the evaluation rubric in the expert knowledge below (idea/originality, relevance/clarity, craft/execution); when candidates tie on clarity, the braver idea wins. Respond with ONLY a JSON object: {\"winner\": <index>, \"reason\": \"<one line>\"}." +
+    composeSkillSection("video-judge");
   const userPrompt = `Product: ${input.productName}\nVibe: ${input.vibe}\nScript: ${input.script ?? ""}\n\nCANDIDATES (JSON):\n${JSON.stringify(candidates)}\n\nReturn the winning index as JSON.`;
   try {
     const res = await provider.generate({ systemPrompt, userPrompt });

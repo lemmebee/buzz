@@ -12,4 +12,6 @@ export const ENGINE_PACKS: Record<EngineId, string[]> = {
   content: ["copywriting", "social-content"],
   brainstorming: ["brainstorming", "marketing-strategy"],
   "plan-generation": ["product-plan", "product-brief", "marketing-strategy"],
+  "video-direction": ["creative-director", "ad-creative", "copywriting"],
+  "video-judge": ["creative-director"],
 };
