@@ -246,22 +246,26 @@ function SceneView({
   height: number;
 }) {
   const textPositions = deconflictTextPositions(scene.layers);
+  const indexed = scene.layers.map((layer, i) => ({ layer, i }));
+  // Shapes are accents / backing cards, so they ALWAYS render BEHIND text —
+  // otherwise a shape placed after a text layer covers it (muddy, unreadable).
+  const shapes = indexed.filter((x) => x.layer.kind === "shape");
+  const texts = indexed.filter((x) => x.layer.kind === "text");
   return (
     <AbsoluteFill>
       <Background scene={scene} palette={palette} />
-      {scene.layers.map((layer, i) =>
-        layer.kind === "shape" ? (
-          <ShapeLayerView key={i} layer={layer} width={width} height={height} />
-        ) : (
-          <TextLayerView
-            key={i}
-            layer={{ ...layer, position: textPositions[i] ?? layer.position }}
-            palette={palette}
-            width={width}
-            height={height}
-          />
-        )
-      )}
+      {shapes.map(({ layer, i }) => (
+        <ShapeLayerView key={`s${i}`} layer={layer} width={width} height={height} />
+      ))}
+      {texts.map(({ layer, i }) => (
+        <TextLayerView
+          key={`t${i}`}
+          layer={{ ...layer, position: textPositions[i] ?? layer.position }}
+          palette={palette}
+          width={width}
+          height={height}
+        />
+      ))}
     </AbsoluteFill>
   );
 }
