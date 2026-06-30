@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Platform, ContentPurpose, ContentTargeting, MediaType } from "@/lib/brain/types";
-import { generateContent } from "@/lib/generate";
+import { createJob } from "@/lib/jobQueue";
 import { classifyProviderError } from "@/lib/providers/errors";
 import type { ContentConfig } from "@/lib/content/defaults";
 
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     platform,
     mediaType,
     targetSurface,
-    contentType, // legacy alias for targetSurface
+    contentType,
     config,
     targeting,
     count = 1,
@@ -51,25 +51,24 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { posts, errors } = await generateContent({
+    const jobId = await createJob({
       productId,
       platform,
       mediaType: media,
       targetSurface: surface,
-      config,
+      config: config as ContentConfig,
       targeting,
       count,
       images,
     });
-    // Nothing salvageable -> surface the failure. Otherwise return what succeeded
-    // alongside any per-variation errors so the UI can show both.
-    if (posts.length === 0) {
-      return NextResponse.json(
-        { error: errors[0]?.message ?? "Failed to generate content", errors },
-        { status: 500 }
-      );
-    }
-    return NextResponse.json({ posts, errors });
+
+    // Fire-and-forget: trigger processing via a separate request
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3004";
+    fetch(`${baseUrl}/api/jobs/process?jobId=${jobId}`).catch(err =>
+      console.error("Failed to trigger job processing:", err)
+    );
+
+    return NextResponse.json({ jobId, status: "pending" });
   } catch (error) {
     console.error("Generation error:", error);
     return NextResponse.json({ error: classifyProviderError(error) }, { status: 500 });

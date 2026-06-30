@@ -5,7 +5,9 @@ export type EngineId =
   | "profile-strategy"
   | "content"
   | "brainstorming"
-  | "plan-generation";
+  | "plan-generation"
+  | "video-direction" // the creative director authoring a video spec
+  | "video-judge"; // the director judging best-of-N video specs
 
 // A knowledge pack: the body is injected into a prompt; tokenEstimate drives budget math.
 export interface Pack {

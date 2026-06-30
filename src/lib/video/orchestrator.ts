@@ -8,8 +8,11 @@ import {
   resolveImageProvider,
   createAudioProvider,
   createVideoProvider,
+  listImageProviderNames,
+  imagesAvailable,
 } from "@/lib/providers";
 import { transcribeToSrt } from "@/lib/captions";
+import { getVideoProvider } from "@/lib/settings";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
 import {
   sanitizeCaption,
@@ -98,6 +101,16 @@ function buildVideoFluxPrompt(
   return parts.join(" ");
 }
 
+// Pull a usable hex palette out of the brand's free-text color description for
+// the deterministic typography fallback (which has no LLM to choose colors).
+// First two #RRGGBB found become accent/bg-ish; sensible dark defaults otherwise.
+function derivePalette(colors: string | undefined): { bg: string; accent: string; text: string } {
+  const hexes = (colors?.match(/#[0-9a-fA-F]{6}/g) ?? []).map((h) => h.toLowerCase());
+  const accent = hexes[0] ?? "#ffd60a";
+  const bg = hexes[1] ?? "#0b0b0f";
+  return { bg, accent, text: "#ffffff" };
+}
+
 function aspectRatioToDims(ratio: string): { w: number; h: number } {
   switch (ratio) {
     case "9:16": return { w: 1080, h: 1920 };
@@ -119,7 +132,11 @@ export async function generateVideoContent(
   const { productId, platform, targetSurface, config, targeting, count = 1, images = [] } = input;
   const generateCount = Math.min(Math.max(count, 1), 10);
   const targetDuration = config.durationSec ?? 15;
-  const wantCaptions = Boolean(config.captions);
+  const videoStyle =
+    config.videoStyle === "typography" ? "typography" : config.videoStyle === "creative" ? "creative" : "scenes";
+  // Typography mode renders the narration as on-screen text, so it always needs
+  // the synced SRT regardless of the burn-in-captions toggle.
+  const wantCaptions = videoStyle === "typography" ? true : Boolean(config.captions);
 
   const product = await db.query.products.findFirst({
     where: eq(schema.products.id, productId),
@@ -164,20 +181,36 @@ export async function generateVideoContent(
     hasLogo
   );
 
-  const sceneCount = Math.max(2, Math.min(6, Math.ceil(targetDuration / 4)));
-  const videoInstructions = `
+  const sceneCount = videoStyle === "typography"
+    ? 1
+    : Math.max(2, Math.min(6, Math.ceil(targetDuration / 4)));
 
-ADDITIONAL VIDEO REQUIREMENTS:
-- Output JSON with keys: caption, hashtags, script, scenes
-- "script": spoken narration only - what the voiceover SAYS, not the caption. Pace for ~${targetDuration} seconds at natural speaking rate. NO emojis, NO hashtags inside script.
-- "scenes": ARRAY of EXACTLY ${sceneCount} scene objects forming a STORYLINE that follows the script beat by beat:
+  // ~2.5 words/sec natural TTS pace (cap a bit higher). An LLM can't gauge
+  // speaking time from "~N seconds", so give it an explicit WORD budget —
+  // otherwise the narration overruns the chosen duration and the voiceover gets
+  // cut off at render time.
+  const scriptWordBudget = Math.round(targetDuration * 2.5);
+  const scriptWordMax = Math.round(targetDuration * 2.9);
+
+  const scenesStoryboardInstructions = `- "scenes": ARRAY of EXACTLY ${sceneCount} scene objects forming a STORYLINE that follows the script beat by beat:
   - Scene 1 = hook moment (the relatable opening tension/curiosity)
   - Middle scenes = progression (problem -> realization -> action)
   - Final scene = payoff/CTA visual
   - Each scene MUST depict a DIFFERENT concrete moment with DIFFERENT subject / location / action. NEVER repeat.
   - Prefer real-world relatable subjects: people in scenarios, hands using a phone, journals, nature, environments. Show humans, faces, hands, products. Concrete > abstract.
   - "description": cinematic shot description for AI image generation in ${config.aspectRatio} aspect ratio. Include: subject, action, location, lighting, framing, mood. Each description must read like a different storyboard panel.
-  - "durationSec": number, MUST sum across all ${sceneCount} scenes to ${targetDuration}
+  - "durationSec": number, MUST sum across all ${sceneCount} scenes to ${targetDuration}`;
+
+  const typographyInstructions = `- "scenes": ARRAY of EXACTLY 1 scene object - a single ATMOSPHERIC BACKGROUND that the narration text will be overlaid on top of:
+  - "description": one cinematic background image for AI image generation in ${config.aspectRatio} aspect ratio. Make it evocative and on-brand but CALM and UNCLUTTERED, with generous negative space and soft contrast so large text stays readable on top. Think: textured surface, soft-focus environment, gradient lighting, abstract scene - NOT a busy storyboard moment. NO people speaking, NO on-screen text.
+  - "durationSec": ${targetDuration}`;
+
+  const videoInstructions = `
+
+ADDITIONAL VIDEO REQUIREMENTS:
+- Output JSON with keys: caption, hashtags, script, scenes
+- "script": spoken narration only - what the voiceover SAYS, not the caption. It MUST fit ${targetDuration} seconds of natural speech: aim for ~${scriptWordBudget} words, HARD MAXIMUM ${scriptWordMax} words. Going over makes the voiceover get cut off. NO emojis, NO hashtags inside script.${videoStyle === "typography" ? "\n  The script is ALSO shown as large animated on-screen typography, so make it punchy and quotable - short, high-impact sentences." : ""}
+${videoStyle === "typography" ? typographyInstructions : scenesStoryboardInstructions}
 - Brand visual style hint (use sparingly, do NOT make every scene abstract): ${profile.visualIdentity.style}; colors: ${profile.visualIdentity.colors}; mood: ${profile.visualIdentity.mood}
 ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.visualDirection}` : ""}
 - IMPORTANT: caption is the IG caption shown under the post. script is the audio narration. They are DIFFERENT texts and serve different purposes - do not duplicate them.
@@ -210,7 +243,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
   }
 
   const audioProvider = createAudioProvider();
-  const videoProvider = createVideoProvider();
+  const videoProvider = createVideoProvider(product.videoProvider || (await getVideoProvider()));
   const imageProvider = await resolveImageProvider(product.imageProvider);
   const dims = aspectRatioToDims(config.aspectRatio);
 
@@ -297,6 +330,20 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
       captionsPath: captionsFsPath,
       durationSec: targetDuration,
       aspectRatio: config.aspectRatio,
+      // The fixed composition only knows scenes/typography; "creative" reaches
+      // here only as the fallback, which renders as scenes.
+      style: videoStyle === "typography" ? "typography" : "scenes",
+      // Optional branding consumed by the Remotion engine (ignored by ffmpeg):
+      // brand-color caption highlights + a logo/handle lower-third.
+      branding: {
+        colors: profile.visualIdentity?.colors,
+        mood: profile.visualIdentity?.mood,
+        style: profile.visualIdentity?.style,
+        handle: accountHandle,
+        logoDataUri: hasLogo && logoImages[0]
+          ? `data:image/jpeg;base64,${logoImages[0].base64}`
+          : undefined,
+      },
     });
 
     const videoUrlPath = videoResult.localPath
@@ -317,11 +364,94 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
     };
   };
 
+  // "creative" style: the LLM authors a bespoke video spec from the (already
+  // written) script + brand, rendered by the flexible Remotion composition.
+  // Any failure (no key, authoring invalid, render error) falls back to the
+  // fixed scene composition so a post is always produced.
+  const buildCreativePost = async (item: VideoGenerated): Promise<GeneratedPost | null> => {
+    const scriptText = coerceText(item.script).trim() || coerceText(item.caption).trim() || product.name;
+    const vibe =
+      [profile.visualIdentity?.mood, profile.visualIdentity?.style, marketingStrategy.visualDirection]
+        .filter(Boolean)
+        .join("; ") || "modern, bold, on-brand";
+
+    const { authorBestSpec } = await import("@/lib/video/spec-author");
+    const { renderSpecVideo } = await import("@/lib/video/render-spec");
+
+    // Pre-flight: if every configured image provider is out of credits, tell the
+    // creative director to design a cohesive text-only video instead of an image
+    // video whose every scene silently degrades to flat color.
+    const imageNames = await listImageProviderNames(product.imageProvider);
+    const imagesAvail = imagesAvailable(imageNames);
+
+    // Real product screenshots (credit-free), as staticFile-relative paths. The
+    // director can show the ACTUAL app via bgKind:"product" instead of FLUX
+    // hallucinating a wrong one.
+    const productShots: string[] = (() => {
+      try {
+        const arr = JSON.parse(product.screenshots || "[]");
+        return Array.isArray(arr)
+          ? arr.map((s: unknown) => String(s).replace(/^\/api\/media\//, "media/")).filter(Boolean)
+          : [];
+      } catch {
+        return [];
+      }
+    })();
+
+    // The creative director is the USER'S selected text provider (resolved at the
+    // top of generateContent) — never hardcoded. Best-of-N + judge with a
+    // deterministic typography floor so a creative run is never lost.
+    const { spec, source, valid } = await authorBestSpec({
+      provider: textProvider,
+      productName: product.name,
+      profile: rawProfile,
+      strategy: rawStrategy,
+      vibe,
+      aspectRatio: config.aspectRatio,
+      durationSec: targetDuration,
+      script: scriptText,
+      imagesAvailable: imagesAvail,
+      productShots: productShots.length,
+      fallbackPalette: derivePalette(profile.visualIdentity?.colors),
+      n: 3,
+    });
+    console.log(
+      `[video] creative spec via ${source} (${valid} valid) from ${textProvider.name}, ${spec.scenes.length} scenes, images=${imagesAvail}, productShots=${productShots.length}`
+    );
+    const r = await renderSpecVideo(spec, { imageProviderName: product.imageProvider, productShots });
+    return {
+      content: sanitizeCaption(coerceText(item.caption)),
+      hashtags: (item.hashtags || []).map((t) => coerceText(t).replace(/^#+/, "")),
+      mediaUrl: r.url,
+      publicMediaUrl: r.url,
+      script: scriptText || null,
+      duration: r.duration,
+      audioUrl: r.audioUrl,
+      captionsUrl: r.captionsUrl,
+      config,
+      metadata,
+    };
+  };
+
+  const buildPost = async (item: VideoGenerated): Promise<GeneratedPost> => {
+    if (videoStyle === "creative") {
+      try {
+        const post = await buildCreativePost(item);
+        if (post) return post;
+      } catch (err) {
+        console.warn(
+          `[video] creative render failed, falling back to scenes: ${err instanceof Error ? err.message : err}`
+        );
+      }
+    }
+    return buildVideoPost(item);
+  };
+
   const posts: GeneratedPost[] = [];
   const errors: GenerationFailure[] = [];
   for (let i = 0; i < items.length; i++) {
     try {
-      posts.push(await buildVideoPost(items[i]));
+      posts.push(await buildPost(items[i]));
     } catch (err) {
       const terminal = isTerminalProviderError(err);
       console.error(

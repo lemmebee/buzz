@@ -178,15 +178,42 @@ export default function GeneratePage() {
         throw new Error(errData?.error || "Generation failed");
       }
 
-      const data = await res.json();
-      const posts = data.posts || [];
-      const genErrors = data.errors || [];
-      setGeneratedPosts(posts);
-      fetchSuggestions(productId);
-      toast.success(`Generated ${posts.length} posts`);
-      if (genErrors.length > 0) {
-        toast.error(`${genErrors.length} variation(s) failed: ${genErrors[0].message}`, { duration: 8000 });
+      const { jobId } = await res.json();
+
+      // Poll for job completion. Creative Remotion renders can run several
+      // minutes (more with multiple variations), so the window must comfortably
+      // exceed render time — the job runs server-side regardless of polling.
+      const pollInterval = 2000; // 2 seconds
+      const maxAttempts = 450; // 15 minutes max
+      let attempts = 0;
+
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        attempts++;
+
+        const statusRes = await fetch(`/api/jobs/${jobId}`);
+        if (!statusRes.ok) continue;
+
+        const statusData = await statusRes.json();
+
+        if (statusData.status === "completed") {
+          const posts = statusData.posts || [];
+          const genErrors = statusData.errors || [];
+          setGeneratedPosts(posts);
+          fetchSuggestions(productId);
+          toast.success(`Generated ${posts.length} posts`);
+          if (genErrors.length > 0) {
+            toast.error(`${genErrors.length} variation(s) failed: ${genErrors[0].message}`, { duration: 8000 });
+          }
+          return;
+        }
+
+        if (statusData.status === "failed") {
+          throw new Error(statusData.error || "Generation failed");
+        }
       }
+
+      throw new Error("Generation timed out");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to generate content");
       console.error(e);
@@ -379,6 +406,27 @@ export default function GeneratePage() {
                           />
                           Burn-in captions
                         </label>
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-sm text-text-tertiary mb-1">Video Style</label>
+                        <select
+                          value={config.videoStyle ?? "scenes"}
+                          onChange={(e) =>
+                            setConfig({ ...config, videoStyle: e.target.value as "scenes" | "typography" | "creative" })
+                          }
+                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
+                        >
+                          <option value="scenes">Multi-scene — storyboard of AI scenes (default)</option>
+                          <option value="typography">Typography — single background + animated narration text</option>
+                          <option value="creative">Creative — AI designs the whole video (unique each time)</option>
+                        </select>
+                        {(config.videoStyle === "typography" || config.videoStyle === "creative") && (
+                          <p className="mt-1 text-xs text-text-tertiary">
+                            {config.videoStyle === "creative"
+                              ? "Requires the Remotion engine (Settings → Default Video Engine). The AI composes a bespoke video — scenes, motion, text, color — per product. Falls back to multi-scene if it can't."
+                              : "Best with the Remotion engine (Settings → Default Video Engine). Narration is shown as large animated text synced to the voiceover."}
+                          </p>
+                        )}
                       </div>
                     </>
                   )}

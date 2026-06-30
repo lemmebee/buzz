@@ -46,6 +46,19 @@ export interface SceneSpec {
   durationSec: number;
 }
 
+// Optional branding fed to richer video engines (e.g. Remotion) for animated
+// captions, lower-thirds, and color theming. The ffmpeg provider ignores these,
+// so they are always optional and additive.
+export interface VideoBranding {
+  colors?: string; // free-text brand colors, e.g. "navy and gold"
+  mood?: string;
+  style?: string;
+  handle?: string; // "@username" for a lower-third
+  caption?: string;
+  hashtags?: string[];
+  logoDataUri?: string; // data:image/...;base64,... for a logo overlay
+}
+
 export interface VideoGenerationInput {
   prompt?: string;
   scenes: SceneSpec[];
@@ -53,6 +66,11 @@ export interface VideoGenerationInput {
   captionsPath?: string; // absolute filesystem path to SRT
   durationSec: number;
   aspectRatio: string; // "9:16" | "1:1" | "16:9" | "4:5"
+  branding?: VideoBranding; // consumed by Remotion; ignored by ffmpeg
+  // "scenes" (default) = multi-scene storyboard; "typography" = single
+  // background still with animated narration text. Remotion-only; ffmpeg
+  // always renders scenes.
+  style?: "scenes" | "typography";
 }
 
 export interface VideoGenerationOutput {
