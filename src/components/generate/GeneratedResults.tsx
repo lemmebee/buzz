@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import Image from "next/image";
 import type { GeneratedPost, ContentType } from "./types";
@@ -14,6 +14,20 @@ interface GeneratedResultsProps {
 
 export function GeneratedResults({ posts, productId, contentType }: GeneratedResultsProps) {
   const [selected, setSelected] = useState<Set<number>>(new Set(posts.map((_, i) => i)));
+
+  // Posts stream in incrementally during generation — auto-select each new
+  // arrival while preserving any manual deselections the user already made.
+  const prevLen = useRef(posts.length);
+  useEffect(() => {
+    if (posts.length > prevLen.current) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (let i = prevLen.current; i < posts.length; i++) next.add(i);
+        return next;
+      });
+    }
+    prevLen.current = posts.length;
+  }, [posts.length]);
   const [mixMode, setMixMode] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [selectedTextIndex, setSelectedTextIndex] = useState<number | null>(null);

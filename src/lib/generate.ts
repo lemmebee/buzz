@@ -36,6 +36,15 @@ export interface GenerateContentResult {
   errors: GenerationFailure[];
 }
 
+// Optional hooks so callers can stream partial results and cancel mid-batch.
+// onPost fires after each variation finishes (with the full accumulated arrays
+// so far). shouldCancel is polled before each variation; returning true stops
+// the batch and returns whatever finished — already-generated posts are kept.
+export interface GenerationHooks {
+  onPost?: (posts: GeneratedPost[], errors: GenerationFailure[]) => void | Promise<void>;
+  shouldCancel?: () => boolean | Promise<boolean>;
+}
+
 export function sanitizeCaption(text: string): string {
   let s = text;
   s = s.replace(/—/g, ",");
@@ -46,15 +55,18 @@ export function sanitizeCaption(text: string): string {
   return s;
 }
 
-export async function generateContent(input: GenerateContentInput): Promise<GenerateContentResult> {
+export async function generateContent(
+  input: GenerateContentInput,
+  hooks?: GenerationHooks
+): Promise<GenerateContentResult> {
   const { mediaType, targetSurface, config: userConfig } = input;
   const config: ContentConfig = { ...getDefaults(targetSurface, mediaType), ...(userConfig || {}) };
 
   if (mediaType === "video") {
     const { generateVideoContent } = await import("@/lib/video/orchestrator");
-    return generateVideoContent({ ...input, config });
+    return generateVideoContent({ ...input, config }, hooks);
   }
 
   const { generateImageContent } = await import("@/lib/image/orchestrator");
-  return generateImageContent({ ...input, config });
+  return generateImageContent({ ...input, config }, hooks);
 }

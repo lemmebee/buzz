@@ -39,19 +39,39 @@ export async function processJob(jobId: string) {
   await db.update(jobs).set({ status: "processing", updatedAt: new Date() }).where(eq(jobs.id, jobId));
 
   try {
-    const { posts, errors } = await generateContent({
-      productId: job.productId,
-      platform: job.platform as Platform,
-      mediaType: job.mediaType as MediaType,
-      targetSurface: job.targetSurface as ContentPurpose,
-      config: job.config ? JSON.parse(job.config) : undefined,
-      targeting: job.targeting ? JSON.parse(job.targeting) : undefined,
-      count: job.count,
-      images: job.images ? JSON.parse(job.images) : [],
-    });
+    const { posts, errors } = await generateContent(
+      {
+        productId: job.productId,
+        platform: job.platform as Platform,
+        mediaType: job.mediaType as MediaType,
+        targetSurface: job.targetSurface as ContentPurpose,
+        config: job.config ? JSON.parse(job.config) : undefined,
+        targeting: job.targeting ? JSON.parse(job.targeting) : undefined,
+        count: job.count,
+        images: job.images ? JSON.parse(job.images) : [],
+      },
+      {
+        // Persist partial results as each variation finishes so the client can
+        // render them immediately (status stays "processing" until the batch ends).
+        onPost: async (posts, errors) => {
+          await db.update(jobs).set({
+            result: JSON.stringify({ posts, errors }),
+            updatedAt: new Date(),
+          }).where(eq(jobs.id, jobId));
+        },
+        // Poll the cancel flag between variations. A cancel keeps whatever
+        // already finished and stops the rest.
+        shouldCancel: async () => {
+          const row = await db.query.jobs.findFirst({ where: eq(jobs.id, jobId) });
+          return Boolean(row?.cancelRequested);
+        },
+      }
+    );
 
+    // If cancel was requested, mark cancelled but keep the finished posts.
+    const row = await db.query.jobs.findFirst({ where: eq(jobs.id, jobId) });
     await db.update(jobs).set({
-      status: "completed",
+      status: row?.cancelRequested ? "cancelled" : "completed",
       result: JSON.stringify({ posts, errors }),
       updatedAt: new Date(),
     }).where(eq(jobs.id, jobId));

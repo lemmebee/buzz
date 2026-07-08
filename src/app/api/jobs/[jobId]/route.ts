@@ -11,14 +11,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
-  if (job.status === "completed" && job.result) {
-    const { posts, errors } = JSON.parse(job.result);
-    return NextResponse.json({ jobId: job.id, status: job.status, posts, errors });
-  }
-
   if (job.status === "failed") {
     return NextResponse.json({ jobId: job.id, status: job.status, error: job.error });
   }
 
-  return NextResponse.json({ jobId: job.id, status: job.status });
+  // Return whatever posts have finished so far — the result is written
+  // incrementally, so processing/completed/cancelled all carry partial or full posts.
+  const { posts = [], errors = [] } = job.result ? JSON.parse(job.result) : {};
+  return NextResponse.json({ jobId: job.id, status: job.status, posts, errors });
 }

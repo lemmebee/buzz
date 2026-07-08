@@ -17,6 +17,7 @@ import {
   type GeneratedPost,
   type GenerateContentResult,
   type GenerationFailure,
+  type GenerationHooks,
 } from "@/lib/generate";
 
 interface ImageGenerated {
@@ -71,7 +72,8 @@ function saveUploadedImages(images: string[]): string[] {
 }
 
 export async function generateImageContent(
-  input: GenerateContentInput & { config: ContentConfig }
+  input: GenerateContentInput & { config: ContentConfig },
+  hooks?: GenerationHooks
 ): Promise<GenerateContentResult> {
   const { productId, platform, targetSurface, config, targeting, count = 1, images = [] } = input;
   const generateCount = Math.min(Math.max(count, 1), 10);
@@ -232,6 +234,10 @@ export async function generateImageContent(
   const errors: GenerationFailure[] = [];
 
   for (let i = 0; i < generatedItems.length; i++) {
+    if (await hooks?.shouldCancel?.()) {
+      console.log(`[image] cancel requested — stopping after ${posts.length}/${generatedItems.length}`);
+      break;
+    }
     try {
       let post: GeneratedPost | null = null;
 
@@ -254,6 +260,7 @@ export async function generateImageContent(
       }
 
       posts.push(post);
+      await hooks?.onPost?.(posts, errors);
     } catch (err) {
       const terminal = isTerminalProviderError(err);
       console.error(
@@ -261,6 +268,7 @@ export async function generateImageContent(
         err instanceof Error ? err.message : err
       );
       errors.push({ index: i, message: classifyProviderError(err), terminal });
+      await hooks?.onPost?.(posts, errors);
       if (terminal) break;
     }
   }

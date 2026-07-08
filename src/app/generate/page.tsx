@@ -28,6 +28,8 @@ export default function GeneratePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const jobIdRef = useRef<string | null>(null);
 
   // Form
   const [productId, setProductId] = useState<number | null>(null);
@@ -179,10 +181,12 @@ export default function GeneratePage() {
       }
 
       const { jobId } = await res.json();
+      jobIdRef.current = jobId;
 
-      // Poll for job completion. Creative Remotion renders can run several
-      // minutes (more with multiple variations), so the window must comfortably
-      // exceed render time — the job runs server-side regardless of polling.
+      // Poll for job progress. Results are written incrementally, so we render
+      // each variation as soon as it finishes rather than waiting for the batch.
+      // Creative Remotion renders can run several minutes, so the window must
+      // comfortably exceed render time — the job runs server-side regardless.
       const pollInterval = 2000; // 2 seconds
       const maxAttempts = 450; // 15 minutes max
       let attempts = 0;
@@ -196,12 +200,21 @@ export default function GeneratePage() {
 
         const statusData = await statusRes.json();
 
-        if (statusData.status === "completed") {
+        // Stream partial posts to the UI on every poll.
+        if (Array.isArray(statusData.posts)) {
+          setGeneratedPosts(statusData.posts);
+        }
+
+        if (statusData.status === "completed" || statusData.status === "cancelled") {
           const posts = statusData.posts || [];
           const genErrors = statusData.errors || [];
           setGeneratedPosts(posts);
           fetchSuggestions(productId);
-          toast.success(`Generated ${posts.length} posts`);
+          if (statusData.status === "cancelled") {
+            toast.success(`Cancelled — kept ${posts.length} generated`);
+          } else {
+            toast.success(`Generated ${posts.length} posts`);
+          }
           if (genErrors.length > 0) {
             toast.error(`${genErrors.length} variation(s) failed: ${genErrors[0].message}`, { duration: 8000 });
           }
@@ -219,6 +232,21 @@ export default function GeneratePage() {
       console.error(e);
     } finally {
       setGenerating(false);
+      setCancelling(false);
+      jobIdRef.current = null;
+    }
+  }
+
+  async function handleCancel() {
+    const jobId = jobIdRef.current;
+    if (!jobId) return;
+    setCancelling(true);
+    try {
+      await fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
+      toast.info("Cancelling — finishing the current one, keeping what's done");
+    } catch {
+      setCancelling(false);
+      toast.error("Failed to cancel");
     }
   }
 
@@ -501,14 +529,25 @@ export default function GeneratePage() {
               </div>
             )}
 
-            {/* Generate Button */}
-            <button
-              onClick={handleGenerate}
-              disabled={generating || !productId}
-              className="mt-6 w-full rounded-md bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50 transition-colors"
-            >
-              {generating ? "Generating..." : "Generate"}
-            </button>
+            {/* Generate / Cancel Buttons */}
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={handleGenerate}
+                disabled={generating || !productId}
+                className="flex-1 rounded-md bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50 transition-colors"
+              >
+                {generating ? "Generating..." : "Generate"}
+              </button>
+              {generating && (
+                <button
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                  className="rounded-md border border-error px-4 py-3 text-sm font-medium text-error hover:bg-error/10 disabled:opacity-50 transition-colors"
+                >
+                  {cancelling ? "Cancelling..." : "Cancel"}
+                </button>
+              )}
+            </div>
 
             {/* Progress */}
             <GenerationProgress isGenerating={generating} />

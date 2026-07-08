@@ -114,8 +114,9 @@ export const jobs = sqliteTable("jobs", {
   targeting: text("targeting"),
   count: integer("count").notNull().default(1),
   images: text("images"), // JSON array of base64
-  status: text("status").notNull().default("pending"), // pending | processing | completed | failed
-  result: text("result"), // JSON { posts, errors }
+  status: text("status").notNull().default("pending"), // pending | processing | completed | failed | cancelled
+  result: text("result"), // JSON { posts, errors } — written incrementally as each variation finishes
+  cancelRequested: integer("cancel_requested", { mode: "boolean" }).notNull().default(false),
   error: text("error"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
