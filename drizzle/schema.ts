@@ -116,7 +116,10 @@ export const jobs = sqliteTable("jobs", {
   images: text("images"), // JSON array of base64
   status: text("status").notNull().default("pending"), // pending | processing | completed | failed | cancelled
   result: text("result"), // JSON { posts, errors } — written incrementally as each variation finishes
-  cancelRequested: integer("cancel_requested", { mode: "boolean" }).notNull().default(false),
+  // Nullable on purpose: adding a NOT NULL column forces SQLite to rewrite the
+  // whole table (drizzle-kit flags that as data-loss). A nullable add is a plain
+  // ALTER TABLE ADD COLUMN; existing rows get NULL, which reads as falsy.
+  cancelRequested: integer("cancel_requested", { mode: "boolean" }),
   error: text("error"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
