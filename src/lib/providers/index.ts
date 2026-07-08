@@ -36,6 +36,7 @@ export {
 export { createHuggingFaceTextProvider } from "./text";
 export { createGeminiTextProvider } from "./gemini";
 export { createAntigravityTextProvider, listAntigravityModels } from "./antigravity";
+export { createClaudeCodeTextProvider, listClaudeCodeModels } from "./claude-code";
 
 // Image provider implementations
 export { createPollinationsImageProvider } from "./image";

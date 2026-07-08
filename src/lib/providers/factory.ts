@@ -2,6 +2,7 @@ import type { TextProvider, AudioProvider, VideoProvider, ImageProvider } from "
 import { createHuggingFaceTextProvider } from "./text";
 import { createGeminiTextProvider } from "./gemini";
 import { createAntigravityTextProvider } from "./antigravity";
+import { createClaudeCodeTextProvider } from "./claude-code";
 import { createMsEdgeTtsAudioProvider } from "./audio";
 import { createFfmpegVideoProvider } from "./video";
 import { createPollinationsImageProvider } from "./image";
@@ -17,6 +18,11 @@ export function createTextProvider(providerName?: string, config?: { apiKey?: st
   if (provider.startsWith("antigravity")) {
     const model = provider.includes(":") ? provider.split(":").slice(1).join(":") : undefined;
     return createAntigravityTextProvider(model ? { model } : {});
+  }
+
+  if (provider.startsWith("claude-code")) {
+    const model = provider.includes(":") ? provider.split(":").slice(1).join(":") : undefined;
+    return createClaudeCodeTextProvider(model ? { model } : {});
   }
 
   switch (provider) {

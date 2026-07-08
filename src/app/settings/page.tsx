@@ -18,6 +18,7 @@ const TEXT_PROVIDERS = [
   { value: "gemini-flash-lite", label: "Gemini — gemini-2.5-flash-lite" },
   { value: "huggingface", label: "HuggingFace — GLM-4.5V" },
   { value: "antigravity", label: "Antigravity (local CLI)" },
+  { value: "claude-code", label: "Claude Code (local CLI)" },
 ];
 
 // A single API-key field. When a key is already saved it shows an unmistakable
@@ -108,6 +109,8 @@ function SettingsContent() {
   const [textProvider, setTextProvider] = useState("gemini");
   const [antigravityModel, setAntigravityModel] = useState("");
   const [antigravityModels, setAntigravityModels] = useState<string[]>([]);
+  const [claudeCodeModel, setClaudeCodeModel] = useState("");
+  const [claudeCodeModels, setClaudeCodeModels] = useState<string[]>([]);
   const [providerSaving, setProviderSaving] = useState(false);
   const [imageProvider, setImageProvider] = useState("pollinations");
   const [imageModel, setImageModel] = useState("black-forest-labs/FLUX.1-schnell");
@@ -149,6 +152,12 @@ function SettingsContent() {
           setAntigravityModel(val.split(":").slice(1).join(":"));
         }
         fetchAntigravityModels();
+      } else if (val === "claude-code" || val.startsWith("claude-code:")) {
+        setTextProvider("claude-code");
+        if (val.startsWith("claude-code:")) {
+          setClaudeCodeModel(val.split(":").slice(1).join(":"));
+        }
+        fetchClaudeCodeModels();
       } else {
         setTextProvider(val);
       }
@@ -188,6 +197,18 @@ function SettingsContent() {
     }
   }
 
+  async function fetchClaudeCodeModels() {
+    try {
+      const res = await fetch("/api/settings/claude-code-models");
+      if (res.ok) {
+        const models = await res.json();
+        setClaudeCodeModels(models);
+      }
+    } catch {
+      // silently fail
+    }
+  }
+
   async function updateTextProvider(value: string) {
     setTextProvider(value);
     setProviderSaving(true);
@@ -196,6 +217,16 @@ function SettingsContent() {
       const modelValue = antigravityModel
         ? `antigravity:${antigravityModel}`
         : "antigravity";
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "TEXT_PROVIDER", value: modelValue }),
+      });
+    } else if (value === "claude-code") {
+      await fetchClaudeCodeModels();
+      const modelValue = claudeCodeModel
+        ? `claude-code:${claudeCodeModel}`
+        : "claude-code";
       await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -215,6 +246,18 @@ function SettingsContent() {
     setAntigravityModel(model);
     setProviderSaving(true);
     const value = model ? `antigravity:${model}` : "antigravity";
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "TEXT_PROVIDER", value }),
+    });
+    setProviderSaving(false);
+  }
+
+  async function updateClaudeCodeModel(model: string) {
+    setClaudeCodeModel(model);
+    setProviderSaving(true);
+    const value = model ? `claude-code:${model}` : "claude-code";
     await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -338,6 +381,18 @@ function SettingsContent() {
           >
             <option value="">Default model</option>
             {antigravityModels.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        )}
+        {textProvider === "claude-code" && (
+          <select
+            value={claudeCodeModel}
+            onChange={(e) => updateClaudeCodeModel(e.target.value)}
+            className="w-full mt-2 bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">Default model</option>
+            {claudeCodeModels.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>

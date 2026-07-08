@@ -26,7 +26,9 @@ export function ProductForm({ product }: ProductFormProps) {
   const [llmInstructions, setLlmInstructions] = useState(product?.llmInstructions || "");
   const [textProvider, setTextProvider] = useState(() => {
     const tp = product?.textProvider || "gemini";
-    return tp.startsWith("antigravity") ? "antigravity" : tp;
+    if (tp.startsWith("antigravity")) return "antigravity";
+    if (tp.startsWith("claude-code")) return "claude-code";
+    return tp;
   });
   const [imageProvider, setImageProvider] = useState(product?.imageProvider || "");
   const [antigravityModel, setAntigravityModel] = useState(() => {
@@ -34,6 +36,11 @@ export function ProductForm({ product }: ProductFormProps) {
     return tp.startsWith("antigravity:") ? tp.split(":").slice(1).join(":") : "";
   });
   const [antigravityModels, setAntigravityModels] = useState<string[]>([]);
+  const [claudeCodeModel, setClaudeCodeModel] = useState(() => {
+    const tp = product?.textProvider || "";
+    return tp.startsWith("claude-code:") ? tp.split(":").slice(1).join(":") : "";
+  });
+  const [claudeCodeModels, setClaudeCodeModels] = useState<string[]>([]);
 
   // Screenshots: existing paths from DB + new files to upload
   const [existingScreenshots, setExistingScreenshots] = useState<string[]>(
@@ -178,6 +185,8 @@ export function ProductForm({ product }: ProductFormProps) {
       llmInstructions: llmInstructions || null,
       textProvider: textProvider === "antigravity"
         ? (antigravityModel ? `antigravity:${antigravityModel}` : "antigravity")
+        : textProvider === "claude-code"
+        ? (claudeCodeModel ? `claude-code:${claudeCodeModel}` : "claude-code")
         : (textProvider || null),
       imageProvider: imageProvider || null,
       replaceScreenshots: true,
@@ -354,6 +363,12 @@ export function ProductForm({ product }: ProductFormProps) {
                 if (res.ok) setAntigravityModels(await res.json());
               } catch { /* ignore */ }
             }
+            if (val === "claude-code" && claudeCodeModels.length === 0) {
+              try {
+                const res = await fetch("/api/settings/claude-code-models");
+                if (res.ok) setClaudeCodeModels(await res.json());
+              } catch { /* ignore */ }
+            }
           }}
           className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
         >
@@ -361,6 +376,7 @@ export function ProductForm({ product }: ProductFormProps) {
           <option value="gemini-flash-lite">Gemini — gemini-2.5-flash-lite</option>
           <option value="huggingface">HuggingFace — GLM-4.5V</option>
           <option value="antigravity">Antigravity (local CLI)</option>
+          <option value="claude-code">Claude Code (local CLI)</option>
         </select>
         {textProvider === "antigravity" && (
           <select
@@ -370,6 +386,18 @@ export function ProductForm({ product }: ProductFormProps) {
           >
             <option value="">Default model</option>
             {antigravityModels.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        )}
+        {textProvider === "claude-code" && (
+          <select
+            value={claudeCodeModel}
+            onChange={(e) => setClaudeCodeModel(e.target.value)}
+            className="w-full mt-2 px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            <option value="">Default model</option>
+            {claudeCodeModels.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
