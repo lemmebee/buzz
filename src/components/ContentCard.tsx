@@ -50,7 +50,10 @@ export function ContentCard({
       {/* Media preview */}
       {post.mediaUrl && (
         post.mediaType === "video" ? (
-          <div className="aspect-square bg-border">
+          <div
+            className="aspect-square bg-border cursor-pointer relative group"
+            onClick={() => setLightboxSrc(post.mediaUrl!)}
+          >
             <video
               src={post.mediaUrl}
               controls

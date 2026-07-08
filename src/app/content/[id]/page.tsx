@@ -308,7 +308,8 @@ export default function ContentEditPage() {
                       muted
                       loop
                       playsInline
-                      className="w-full rounded-lg border border-border"
+                      className="w-full rounded-lg border border-border cursor-pointer"
+                      onClick={() => setLightboxSrc(mediaUrl)}
                     />
                   ) : (
                     <Image

@@ -13,11 +13,17 @@ interface ImageLightboxProps {
   onIndexChange?: (index: number) => void;
 }
 
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|mov)(\?|$)/i.test(url);
+}
+
 export function ImageLightbox({ src, onClose, images, currentIndex = 0, onIndexChange }: ImageLightboxProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
-  const imgRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const hasMultiple = images && images.length > 1;
+  const isVideo = isVideoUrl(src);
 
   const goNext = useCallback(() => {
     if (hasMultiple && onIndexChange) {
@@ -41,8 +47,15 @@ export function ImageLightbox({ src, onClose, images, currentIndex = 0, onIndexC
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose, goNext, goPrev]);
 
+  useEffect(() => {
+    if (isVideo && videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+  }, [src, isVideo]);
+
   function handleBackdropClick(e: React.MouseEvent) {
-    if (imgRef.current && !imgRef.current.contains(e.target as Node)) {
+    if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
       onClose();
     }
   }
@@ -59,7 +72,7 @@ export function ImageLightbox({ src, onClose, images, currentIndex = 0, onIndexC
     >
       <button
         onClick={onClose}
-        className={`top-4 right-4 ${btnBase} ${btnTheme}`}
+        className={`absolute top-4 right-4 ${btnBase} ${btnTheme}`}
       >
         <X className="h-5 w-5" />
       </button>
@@ -67,27 +80,40 @@ export function ImageLightbox({ src, onClose, images, currentIndex = 0, onIndexC
       {hasMultiple && (
         <button
           onClick={(e) => { e.stopPropagation(); goPrev(); }}
-          className={`left-4 top-1/2 -translate-y-1/2 ${btnBase} ${btnTheme}`}
+          className={`absolute left-4 top-1/2 -translate-y-1/2 ${btnBase} ${btnTheme}`}
         >
           <ChevronLeft className="h-6 w-6" />
         </button>
       )}
 
-      <Image
-        ref={imgRef}
-        src={src}
-        alt=""
-        width={0}
-        height={0}
-        sizes="90vw"
-        unoptimized
-        className="max-w-[90vw] max-h-[90vh] object-contain"
-      />
+      <div
+        ref={containerRef}
+        className="relative w-[95vw] h-[95vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isVideo ? (
+          <video
+            ref={videoRef}
+            src={src}
+            controls
+            autoPlay
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <Image
+            src={src}
+            alt=""
+            fill
+            unoptimized
+            className="object-contain"
+          />
+        )}
+      </div>
 
       {hasMultiple && (
         <button
           onClick={(e) => { e.stopPropagation(); goNext(); }}
-          className={`right-4 top-1/2 -translate-y-1/2 ${btnBase} ${btnTheme}`}
+          className={`absolute right-4 top-1/2 -translate-y-1/2 ${btnBase} ${btnTheme}`}
         >
           <ChevronRight className="h-6 w-6" />
         </button>
