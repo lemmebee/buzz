@@ -110,6 +110,43 @@ export function fitText(text: string, boxW: number, boxH: number, opts: FitOptio
   }
 
   const fontSize = Math.floor(bestSize * 0.98); // safety margin
-  const lines = greedyWrap(words, boxW, fontSize, family, weight, trackingEm) ?? best;
+  const wrapped = greedyWrap(words, boxW, fontSize, family, weight, trackingEm);
+  const lines = balance(wrapped, words, boxW, fontSize, family, weight, trackingEm);
   return { fontSize, lines, blockHeight: lines.length * fontSize * lineHeight };
+}
+
+// Equalize line lengths without changing the line count — the same idea as CSS
+// `text-wrap: balance`. Greedy wrapping packs early lines full and leaves the
+// last one short ("logged before you / leave the / counter"), which reads as
+// jagged. Narrowing the wrap width until the line count is about to grow yields
+// the most even break for the same number of lines.
+function balance(
+  lines: string[],
+  words: string[],
+  boxW: number,
+  size: number,
+  family: string,
+  weight: number,
+  trackingEm: number
+): string[] {
+  if (lines.length < 2) return lines;
+
+  const target = lines.length;
+  let lo = 0;
+  let hi = boxW;
+  let best = lines;
+
+  // Smallest width that still wraps to `target` lines.
+  while (hi - lo > 1) {
+    const mid = (lo + hi) / 2;
+    const candidate = greedyWrap(words, mid, size, family, weight, trackingEm);
+    if (candidate.length <= target) {
+      best = candidate;
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  // Never return something that overflows the real box.
+  return best.every((l) => measure(l, size, family, weight, trackingEm) <= boxW) ? best : lines;
 }

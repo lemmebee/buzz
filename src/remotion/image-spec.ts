@@ -56,8 +56,40 @@ const ImageLayer = z
     opacity: 1,
   });
 
+// ─── Layout vocabulary ───────────────────────────────────────────────────────
+// Archetypes from the standard poster/advertising layout taxonomy. Each one is
+// a whole composition, not a coordinate: it decides alignment, which band the
+// type occupies, and how the legibility treatment is drawn.
+export const ARCHETYPES = [
+  "centered-axial",
+  "bottom-strip",
+  "type-as-image",
+  "corner-anchored",
+  "big-type-small-caption",
+  "knockout-block",
+  "split",
+] as const;
+export type ArchetypeT = (typeof ARCHETYPES)[number];
+
+// Decor is RELATIONAL. A shape is defined by what it serves, never by where it
+// sits. The old free-floating {shape, xPct, yPct} let the model drop a green
+// rectangle into empty space because it had no word for "colour field behind
+// the headline" — so it said "rectangle at 50,65" instead.
+export const DECOR_ROLES = ["accent-bar", "underline", "frame"] as const;
+
+const Decor = z
+  .object({
+    role: z.enum(DECOR_ROLES).catch("accent-bar"),
+    color: Hex,
+    accent: z.boolean().catch(true),
+  })
+  .catch({ role: "accent-bar", color: "#ffffff", accent: true });
+
 export const ImageSpec = z.object({
   aspectRatio: z.enum(["9:16", "1:1", "16:9", "4:5"]).catch("1:1"),
+  archetype: z.enum(ARCHETYPES).catch("centered-axial"),
+  align: z.enum(["left", "center"]).catch("center"),
+  decor: z.array(Decor).max(2).catch([]),
   palette: z
     .object({ bg: Hex, accent: Hex, text: Hex })
     .catch({ bg: "#0b0b0f", accent: "#ffd60a", text: "#ffffff" }),
@@ -77,6 +109,8 @@ export type ImageSpecT = z.infer<typeof ImageSpec>;
 export type ResolvedImageBgKind = "image" | "gradient" | "color";
 
 // MUST be a `type` (not interface) for Remotion's Record<string,unknown> constraint.
+export type DecorT = { role: (typeof DECOR_ROLES)[number]; color: string; accent: boolean };
+
 export type ResolvedImageSpec = {
   bgKind: ResolvedImageBgKind;
   bgImageSrc?: string;
@@ -85,10 +119,32 @@ export type ResolvedImageSpec = {
   bgFit: "cover" | "contain";
   bgColor: string;
   bgColor2: string;
+  archetype: ArchetypeT;
+  align: "left" | "center";
+  decor: DecorT[];
   layers: LayerT[];
   palette: { bg: string; accent: string; text: string };
   width: number;
   height: number;
+};
+
+// How each archetype composes. `band` overrides where type sits; `plate` is the
+// legibility treatment over imagery: a full-width strip, a card hugging the
+// type, a solid accent block, or nothing (for backgrounds that need no scrim).
+export interface Composition {
+  align: "left" | "center";
+  band?: "upper" | "middle" | "lower";
+  plate: "strip" | "hug" | "block" | "none";
+}
+
+export const COMPOSITION: Record<ArchetypeT, Composition> = {
+  "centered-axial": { align: "center", band: "middle", plate: "hug" },
+  "bottom-strip": { align: "left", band: "lower", plate: "strip" },
+  "type-as-image": { align: "left", plate: "none" },
+  "corner-anchored": { align: "left", band: "lower", plate: "hug" },
+  "big-type-small-caption": { align: "left", plate: "hug" },
+  "knockout-block": { align: "left", band: "lower", plate: "block" },
+  split: { align: "left", band: "lower", plate: "strip" },
 };
 
 // MUST be a `type` (not interface) for Remotion's Record<string,unknown> constraint.
@@ -105,6 +161,9 @@ export const DEFAULT_IMAGE_PROPS: ImageCompositionProps = {
   bgFit: "cover",
   bgColor: "#0b0b0f",
   bgColor2: "#1b1b2f",
+  archetype: "centered-axial",
+  align: "center",
+  decor: [],
   layers: [],
   palette: { bg: "#0b0b0f", accent: "#ffd60a", text: "#ffffff" },
   width: 1080,
@@ -121,36 +180,47 @@ THIS IS A STILL IMAGE, not a video. Design for instant impact: one clear focal p
 
 TOP-LEVEL:
 - aspectRatio: "9:16" | "1:1" | "16:9" | "4:5"  (default "1:1")
+- archetype: the whole composition. Pick ONE (see ARCHETYPES below).
+- align: "left" | "center". Flush-left is the Swiss default and usually the stronger choice; centering suits axial/formal work only.
 - palette: { bg, accent, text }  — hex colors (#RRGGBB). Pull from the brand. accent is the pop color.
 - bgKind: "product" | "uploaded" | "generated" | "gradient" | "color"
-- bgImagePrompt: if bgKind="generated", a vivid cinematic photo prompt. Calm/uncluttered with room for text. No on-screen text in the image.
+- bgImagePrompt: if bgKind="generated", a vivid cinematic photo prompt written as NATURAL PROSE, not keywords: subject, then environment, then lighting, then lens/mood. Calm and uncluttered, with an empty region for type. No text in the image.
 - bgImageIndex: 0-based index into the available asset pool (see ASSETS below)
 - bgColor / bgColor2: hex colors for gradient/color backgrounds
-- layers: 1-6 text/shape elements
+- layers: 1-4 TEXT elements
+- decor: 0-2 relational marks (see DECOR below)
 
 ASSETS AVAILABLE:
 {{ASSETS_DIRECTIVE}}
 
-LAYER TYPES:
-- TEXT layer: { kind:"text", text, position:("center"|"top"|"bottom"|"upper-third"|"lower-third"), animation:(ignored for stills), fontFamily, sizePct:(2-22, % of height; hero text ~10-18), color, accent:(true=use palette.accent), uppercase }
-- SHAPE layer: { kind:"shape", shape:("rect"|"circle"|"ellipse"|"triangle"), color, xPct,yPct (center, 0-100), widthPct,heightPct, opacity }
+ARCHETYPES (each is a complete composition; the renderer supplies the geometry):
+- "centered-axial"          — everything on a central axis. Formal, classical, luxury.
+- "bottom-strip"            — full-bleed image, type in a strip along the bottom.
+- "type-as-image"           — the headline IS the picture. Fills the frame, no photo needed.
+- "corner-anchored"         — type locked into one corner, image mass on the diagonal. Swiss tension.
+- "big-type-small-caption"  — one huge hero line plus a single small caption. Editorial/fashion.
+- "knockout-block"          — type reversed out of a solid accent-colour block.
+- "split"                   — hard division; image one side, type-on-colour the other.
 
-FONTS allowed: ${FONTS.join(", ")}.
+TEXT layer: { kind:"text", text, position:("center"|"top"|"bottom"|"upper-third"|"lower-third"), fontFamily, sizePct:(2-22, % of height), color, accent:(true=use palette.accent), uppercase }
 
-LAYOUT RULES (critical):
-- AT MOST ONE hero text (sizePct 10-18). Any additional text must be a small kicker/label (sizePct 3-6) in a DIFFERENT zone.
-- Keep hero lines SHORT (2-6 words). Long copy kills impact.
-- Use position zones to separate elements: hero in ONE of center/upper-third/lower-third; kicker in a different zone.
-- High contrast: light text on dark bg, or dark text on light bg. Never low-contrast.
-- Use REAL assets (product/uploaded) when they exist — authenticity beats generation.
-- Leave breathing room. Don't fill every pixel.
+DECOR (relational marks — you never give coordinates; each is bound to the type it serves):
+- { role:"accent-bar", color, accent }  — the Swiss rule: a short bar set above the kicker.
+- { role:"underline",  color, accent }  — a weight under the hero's last line.
+- { role:"frame",      color, accent }  — a border inset around the whole composition.
+
+TYPOGRAPHY RULES (hard constraints — a spec that breaks these is rejected):
+- EXACTLY ONE hero (sizePct 10-18). Everything else is a kicker or caption (sizePct 3-6).
+- hero.sizePct must be AT LEAST 3x the kicker's. A ratio near 1.5x reads as an accident, not a hierarchy.
+- Keep the hero to 2-6 words. The renderer fits type to its box, so long copy just comes out small.
+- Put the hero and the kicker in DIFFERENT position zones.
 
 DESIGN PRINCIPLES:
 - One clear focal point. The eye should land immediately.
-- Bold typography that reads at social-media scroll speed.
-- Use the brand palette consistently.
-- Shapes are accents/backing cards — they support the text, not compete with it.
-- Respect safe margins — never push text to the very edge.
+- Leave one large area of empty space. Do not fill every region.
+- Use REAL assets (product/uploaded) when they exist — authenticity beats generation.
+- Use the brand palette consistently; accent is a pop, not a wash.
+- Pick the archetype that suits the message, and vary it between variants. Do not default to centered-axial.
 
 - Output ONLY the JSON object. No prose, no markdown fences.`;
 

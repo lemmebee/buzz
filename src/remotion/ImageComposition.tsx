@@ -1,9 +1,8 @@
 import { AbsoluteFill, Img, staticFile } from "remotion";
-import { Rect, Circle, Ellipse, Triangle } from "@remotion/shapes";
 import { fontStack, fontWeight } from "./fonts";
 import { fitText } from "./text-fit";
 import type { LayerT } from "./spec";
-import type { ImageCompositionProps } from "./image-spec";
+import { COMPOSITION, type Composition, type DecorT, type ImageCompositionProps } from "./image-spec";
 
 // ─── Background ──────────────────────────────────────────────────────────────
 // Photos fill the frame. Product screenshots must NOT: they are 9:16 and get
@@ -71,8 +70,7 @@ function safeInset(width: number, height: number): { x: number; y: number } {
 
 // ─── Bands ───────────────────────────────────────────────────────────────────
 // Three flow rows in a column. Layers assigned to the same band stack inside it
-// with a gap; siblings push each other down. Overlap is structurally impossible,
-// so no de-confliction pass is needed.
+// with a gap; siblings push each other down. Overlap is structurally impossible.
 type Band = "upper" | "middle" | "lower";
 const BAND_ORDER: Band[] = ["upper", "middle", "lower"];
 const BAND_OF: Record<LayerT["position"], Band> = {
@@ -90,13 +88,15 @@ const trackingFor = (l: LayerT) => (isHero(l) ? -0.02 : 0.08);
 
 function TextBlock({
   layer,
-  palette,
+  color,
+  align,
   boxW,
   boxH,
   canvasH,
 }: {
   layer: LayerT;
-  palette: ImageCompositionProps["palette"];
+  color: string;
+  align: "left" | "center";
   boxW: number;
   boxH: number;
   canvasH: number;
@@ -126,7 +126,13 @@ function TextBlock({
   if (lines.length === 0) return null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: align === "left" ? "flex-start" : "center",
+      }}
+    >
       {lines.map((line, i) => (
         <div
           key={i}
@@ -136,8 +142,8 @@ function TextBlock({
             fontSize,
             lineHeight,
             letterSpacing: `${trackingEm * fontSize}px`,
-            color: layer.accent ? palette.accent : layer.color,
-            textAlign: "center",
+            color,
+            textAlign: align,
             whiteSpace: "nowrap",
           }}
         >
@@ -148,37 +154,32 @@ function TextBlock({
   );
 }
 
-// ─── Shapes ──────────────────────────────────────────────────────────────────
-function StaticShapeLayer({ layer, width, height }: { layer: LayerT; width: number; height: number }) {
-  const w = Math.round((layer.widthPct / 100) * width);
-  const h = Math.round((layer.heightPct / 100) * height);
-  const left = Math.round((layer.xPct / 100) * width);
-  const top = Math.round((layer.yPct / 100) * height);
+// ─── Decor ───────────────────────────────────────────────────────────────────
+// Relational marks. Each is sized from the canvas and bound to the type it
+// serves; none of them carry coordinates.
+function Bar({ width, thickness, color }: { width: number; thickness: number; color: string }) {
+  return <div style={{ width, height: thickness, backgroundColor: color, borderRadius: thickness / 2 }} />;
+}
 
-  let shape: React.ReactNode;
-  switch (layer.shape) {
-    case "circle":
-      shape = <Circle radius={Math.min(w, h) / 2} fill={layer.color} />;
-      break;
-    case "ellipse":
-      shape = <Ellipse rx={w / 2} ry={h / 2} fill={layer.color} />;
-      break;
-    case "triangle":
-      shape = <Triangle length={Math.min(w, h)} direction="up" fill={layer.color} />;
-      break;
-    case "rect":
-    default:
-      shape = <Rect width={w} height={h} fill={layer.color} cornerRadius={Math.round(Math.min(w, h) * 0.08)} />;
-      break;
+const decorColor = (d: DecorT, palette: ImageCompositionProps["palette"]) =>
+  d.accent ? palette.accent : d.color;
+
+// ─── Plate ───────────────────────────────────────────────────────────────────
+function plateStyle(
+  plate: Composition["plate"],
+  palette: ImageCompositionProps["palette"],
+  safeH: number
+): React.CSSProperties {
+  if (plate === "none") return {};
+  if (plate === "block") {
+    // Knockout: solid accent field, type reversed out of it.
+    return { background: palette.accent, borderRadius: Math.round(safeH * 0.02) };
   }
-
-  return (
-    <AbsoluteFill>
-      <div style={{ position: "absolute", left, top, transform: "translate(-50%, -50%)", opacity: layer.opacity }}>
-        {shape}
-      </div>
-    </AbsoluteFill>
-  );
+  return {
+    background: "rgba(0,0,0,0.46)",
+    backdropFilter: "blur(20px) saturate(0.85)",
+    borderRadius: plate === "hug" ? Math.round(safeH * 0.03) : 0,
+  };
 }
 
 // ─── Main composition ────────────────────────────────────────────────────────
@@ -188,6 +189,9 @@ export function ImageComposition({
   bgFit,
   bgColor,
   bgColor2,
+  archetype,
+  align,
+  decor,
   layers,
   palette,
   width,
@@ -197,22 +201,55 @@ export function ImageComposition({
   const safeW = width - inset.x * 2;
   const safeH = height - inset.y * 2;
 
-  const shapes = layers.filter((l) => l.kind === "shape");
-  const texts = layers.filter((l) => l.kind === "text" && l.text.trim().length > 0);
+  const comp = COMPOSITION[archetype] ?? COMPOSITION["centered-axial"];
+  // A plate is a legibility device, not decoration. Over imagery, text always
+  // gets one (even if the archetype asked for none). Over a flat or gradient
+  // ground there is nothing to protect against, so drawing a dark card on a dark
+  // gradient just adds a box — the sole exception is the knockout block, which
+  // is a deliberate colour field rather than a scrim.
+  const plate: Composition["plate"] =
+    bgKind === "image"
+      ? comp.plate === "none"
+        ? "hug"
+        : comp.plate
+      : comp.plate === "block"
+        ? "block"
+        : "none";
 
+  const texts = layers.filter((l) => l.kind === "text" && l.text.trim().length > 0);
+  // An archetype that names a band collapses the type into it; the flow layout
+  // then stacks hero and kicker safely inside that one band.
+  const bandFor = (l: LayerT): Band => comp.band ?? BAND_OF[l.position];
+
+  // Every band gets a slot, occupied or not. Distributing only the occupied
+  // bands with space-between drops a `middle` band to the bottom of the frame
+  // whenever `lower` happens to be empty.
   const byBand = BAND_ORDER.map((band) => ({
     band,
-    layers: texts.filter((l) => BAND_OF[l.position] === band),
-  })).filter((b) => b.layers.length > 0);
+    layers: texts.filter((l) => bandFor(l) === band),
+  }));
+  const occupied = byBand.filter((b) => b.layers.length > 0);
 
-  // Allocate vertical space: the hero band takes the lion's share.
   const gap = safeH * 0.04;
-  const available = safeH - gap * Math.max(0, byBand.length - 1);
+  const available = safeH - gap * Math.max(0, occupied.length - 1);
   const weightOf = (ls: LayerT[]) => (ls.some(isHero) ? 3 : 1);
-  const totalWeight = byBand.reduce((s, b) => s + weightOf(b.layers), 0) || 1;
+  const totalWeight = occupied.reduce((s, b) => s + weightOf(b.layers), 0) || 1;
 
-  // Text over a photo or screenshot needs a guaranteed contrast floor.
-  const plated = bgKind === "image";
+  // Where a band's content sits inside its own slot.
+  const SLOT_ALIGN: Record<Band, "flex-start" | "center" | "flex-end"> = {
+    upper: "flex-start",
+    middle: "center",
+    lower: "flex-end",
+  };
+
+  const frame = decor.find((d) => d.role === "frame");
+  const accentBar = decor.find((d) => d.role === "accent-bar");
+  const underline = decor.find((d) => d.role === "underline");
+  const barThickness = Math.max(3, Math.round(width * 0.008));
+
+  // Knocked-out type sits on the accent field, so it takes the background colour.
+  const textColorFor = (l: LayerT) =>
+    plate === "block" ? palette.bg : l.accent ? palette.accent : l.color;
 
   return (
     <AbsoluteFill style={{ backgroundColor: palette.bg }}>
@@ -224,9 +261,18 @@ export function ImageComposition({
         bgColor2={bgColor2}
         palette={palette}
       />
-      {shapes.map((layer, i) => (
-        <StaticShapeLayer key={`s${i}`} layer={layer} width={width} height={height} />
-      ))}
+      {frame && (
+        // Inset via `inset`, not `margin`: AbsoluteFill already sets width/height
+        // to 100%, so a margin pushes the box off the bottom-right of the frame
+        // and only two edges of the border ever draw.
+        <div
+          style={{
+            position: "absolute",
+            inset: Math.round(Math.min(width, height) * 0.05),
+            border: `${Math.max(2, Math.round(width * 0.005))}px solid ${decorColor(frame, palette)}`,
+          }}
+        />
+      )}
       <AbsoluteFill
         style={{
           paddingLeft: inset.x,
@@ -235,55 +281,70 @@ export function ImageComposition({
           paddingBottom: inset.y,
           display: "flex",
           flexDirection: "column",
-          // With a single occupied band, honour which band it is rather than
-          // centring it over the subject.
-          justifyContent:
-            byBand.length > 1
-              ? "space-between"
-              : byBand[0]?.band === "upper"
-                ? "flex-start"
-                : byBand[0]?.band === "lower"
-                  ? "flex-end"
-                  : "center",
-          alignItems: "center",
+          alignItems: align === "left" ? "flex-start" : "center",
           gap,
         }}
       >
         {byBand.map(({ band, layers: bandLayers }) => {
-          // One plate per band, not per layer — a strip reads as a deliberate
-          // treatment; stacked boxes read as an accident.
-          const padX = plated ? safeW * 0.045 : 0;
-          const padY = plated ? safeH * 0.022 : 0;
-          const innerW = safeW - padX * 2;
-          const bandH = (available * weightOf(bandLayers)) / totalWeight - padY * 2;
+          // Empty bands still take their share of the column, so an occupied
+          // band lands in the third of the frame it actually named.
+          if (bandLayers.length === 0) {
+            return <div key={band} style={{ flex: 1 }} />;
+          }
+          // One plate per band: a strip reads as a deliberate treatment;
+          // stacked boxes read as an accident.
+          const platePad = plate === "none" ? 0 : safeW * 0.045;
+          const platePadY = plate === "none" ? 0 : safeH * 0.022;
+          const isStrip = plate === "strip";
+          const innerW = safeW - platePad * 2;
+          const bandH = (available * weightOf(bandLayers)) / totalWeight - platePadY * 2;
           const sizeSum = bandLayers.reduce((s, l) => s + l.sizePct, 0) || 1;
           const innerGap = safeH * 0.018;
           const contentH = bandH - innerGap * (bandLayers.length - 1);
+          const hasHero = bandLayers.some(isHero);
+          const hasKicker = bandLayers.some((l) => !isHero(l));
+
           return (
             <div
               key={band}
               style={{
+                flex: weightOf(bandLayers),
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: innerGap,
-                padding: `${padY}px ${padX}px`,
-                borderRadius: plated ? Math.round(safeH * 0.03) : 0,
-                background: plated ? "rgba(0,0,0,0.46)" : "none",
-                backdropFilter: plated ? "blur(20px) saturate(0.85)" : "none",
+                justifyContent: SLOT_ALIGN[band],
+                alignItems: align === "left" ? "flex-start" : "center",
+                width: isStrip ? "100%" : undefined,
               }}
             >
-              {bandLayers.map((layer, i) => (
-                <TextBlock
-                  key={i}
-                  layer={layer}
-                  palette={palette}
-                  boxW={innerW}
-                  boxH={(contentH * layer.sizePct) / sizeSum}
-                  canvasH={height}
-                />
-              ))}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: align === "left" ? "flex-start" : "center",
+                  gap: innerGap,
+                  padding: `${platePadY}px ${platePad}px`,
+                  width: isStrip ? "100%" : undefined,
+                  ...plateStyle(plate, palette, safeH),
+                }}
+              >
+                {accentBar && hasKicker && (
+                  <Bar width={width * 0.09} thickness={barThickness} color={decorColor(accentBar, palette)} />
+                )}
+                {bandLayers.map((layer, i) => (
+                  <TextBlock
+                    key={i}
+                    layer={layer}
+                    color={textColorFor(layer)}
+                    align={align}
+                    boxW={innerW}
+                    boxH={(contentH * layer.sizePct) / sizeSum}
+                    canvasH={height}
+                  />
+                ))}
+                {underline && hasHero && (
+                  <Bar width={innerW * 0.35} thickness={barThickness} color={decorColor(underline, palette)} />
+                )}
+              </div>
             </div>
           );
         })}

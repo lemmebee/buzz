@@ -89,7 +89,26 @@ function finalizeSpec(data: ImageSpecT, input: ImageAuthorInput): ImageSpecT {
       )
     : data.layers;
 
-  return guaranteeTypography({ ...data, aspectRatio, layers }, input.productName);
+  return enforceTypeScale(guaranteeTypography({ ...data, aspectRatio, layers }, input.productName));
+}
+
+// Enforce the hierarchy rule from the type-scale canon: a hero less than 3x its
+// kicker reads as an accident rather than a decision. Rather than reject the
+// spec, push the sizes apart — the renderer's fit will shrink anything that no
+// longer fits its box, so this can only improve the hierarchy.
+const HERO_KICKER_RATIO = 3;
+
+function enforceTypeScale(spec: ImageSpecT): ImageSpecT {
+  const texts = spec.layers.filter((l) => l.kind === "text" && l.text.trim());
+  const hero = texts.find((l) => l.sizePct >= 8);
+  if (!hero) return spec;
+
+  const layers = spec.layers.map((l) => {
+    if (l.kind !== "text" || l === hero || !l.text.trim()) return l;
+    const maxKicker = hero.sizePct / HERO_KICKER_RATIO;
+    return l.sizePct > maxKicker ? { ...l, sizePct: Math.max(2, maxKicker) } : l;
+  });
+  return { ...spec, layers };
 }
 
 // Guarantee at least one text layer
@@ -158,11 +177,14 @@ async function authorImageOnce(
 }
 
 // Distinct creative angles for image variants
+// Each angle names a DIFFERENT archetype. Variants that share an archetype
+// differ only in wording and look like the same poster twice; structural
+// variety is what makes a best-of-N worth rendering.
 const IMAGE_ANGLES = [
-  "BOLD TYPOGRAPHY angle: make the words the hero. Large, punchy text on a clean background. Minimal imagery, maximum impact.",
-  "PRODUCT HERO angle: showcase the actual product/app prominently. Clean composition that lets the real asset shine with supporting text.",
-  "MOOD/ATMOSPHERE angle: evocative background with overlaid text. Create a feeling first, message second. Gradient or generated backgrounds work well.",
-  "MINIMALIST angle: maximum negative space. One focal point. Let the design breathe. Less is more.",
+  'BOLD TYPOGRAPHY angle: use archetype "type-as-image". The words ARE the picture — they fill the frame on a flat or gradient ground. align="left".',
+  'PRODUCT HERO angle: use archetype "bottom-strip" over a real product screenshot. The app is the subject; type sits in a strip beneath it and never covers the UI.',
+  'MOOD/ATMOSPHERE angle: use archetype "corner-anchored" over a generated photo. Type locked into one corner, the image mass on the diagonal. Feeling first, message second.',
+  'MINIMALIST angle: use archetype "big-type-small-caption". One huge line, one small caption, and a large field of empty space. Nothing else.',
 ];
 
 interface ImageSpecSummary {
@@ -301,6 +323,9 @@ export function deterministicImageSpec(
       ? input.aspectRatio
       : "1:1") as ImageSpecT["aspectRatio"],
     palette,
+    archetype: "type-as-image",
+    align: "left",
+    decor: [],
     bgKind: "gradient",
     bgImagePrompt: "",
     bgImageIndex: 0,
