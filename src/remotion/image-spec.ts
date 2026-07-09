@@ -85,11 +85,27 @@ const Decor = z
   })
   .catch({ role: "accent-bar", color: "#ffffff", accent: true });
 
+// ─── Product showcase ────────────────────────────────────────────────────────
+// A real product screenshot COMPOSED INTO the layout as an element, rather than
+// stretched behind everything as wallpaper. It flows in a band like a text
+// layer, so it can never collide with type and is never buried under a scrim.
+export const SHOWCASE_TREATMENTS = ["device-frame", "floating-card", "cropped-detail"] as const;
+export type ShowcaseTreatmentT = (typeof SHOWCASE_TREATMENTS)[number];
+
+const Showcase = z.object({
+  treatment: z.enum(SHOWCASE_TREATMENTS).catch("device-frame"),
+  imageIndex: z.number().min(0).catch(0),
+  position: Position,
+  // Slight rotation reads as art-directed; beyond ~12° it reads as a mistake.
+  tilt: z.number().min(-12).max(12).catch(0),
+});
+
 export const ImageSpec = z.object({
   aspectRatio: z.enum(["9:16", "1:1", "16:9", "4:5"]).catch("1:1"),
   archetype: z.enum(ARCHETYPES).catch("centered-axial"),
   align: z.enum(["left", "center"]).catch("center"),
   decor: z.array(Decor).max(2).catch([]),
+  showcase: Showcase.nullable().catch(null),
   palette: z
     .object({ bg: Hex, accent: Hex, text: Hex })
     .catch({ bg: "#0b0b0f", accent: "#ffd60a", text: "#ffffff" }),
@@ -111,6 +127,17 @@ export type ResolvedImageBgKind = "image" | "gradient" | "color";
 // MUST be a `type` (not interface) for Remotion's Record<string,unknown> constraint.
 export type DecorT = { role: (typeof DECOR_ROLES)[number]; color: string; accent: boolean };
 
+// Render-time showcase: imageIndex already resolved to a real asset src, and the
+// screenshot MEASURED (width/height) so the device body can take the asset's own
+// aspect. A hardcoded phone aspect crops the app's own UI down its sides.
+export type ResolvedShowcase = {
+  treatment: ShowcaseTreatmentT;
+  src: string;
+  position: LayerT["position"];
+  tilt: number;
+  aspect: number; // screenshot width / height
+};
+
 export type ResolvedImageSpec = {
   bgKind: ResolvedImageBgKind;
   bgImageSrc?: string;
@@ -122,6 +149,7 @@ export type ResolvedImageSpec = {
   archetype: ArchetypeT;
   align: "left" | "center";
   decor: DecorT[];
+  showcase?: ResolvedShowcase;
   layers: LayerT[];
   palette: { bg: string; accent: string; text: string };
   width: number;
@@ -189,6 +217,7 @@ TOP-LEVEL:
 - bgColor / bgColor2: hex colors for gradient/color backgrounds
 - layers: 1-4 TEXT elements
 - decor: 0-2 relational marks (see DECOR below)
+- showcase: how to COMPOSE a real product screenshot into the design, or null (see SHOWCASE below)
 
 ASSETS AVAILABLE:
 {{ASSETS_DIRECTIVE}}
@@ -203,6 +232,21 @@ ARCHETYPES (each is a complete composition; the renderer supplies the geometry):
 - "split"                   — hard division; image one side, type-on-colour the other.
 
 TEXT layer: { kind:"text", text, position:("center"|"top"|"bottom"|"upper-third"|"lower-third"), fontFamily, sizePct:(2-22, % of height), color, accent:(true=use palette.accent), uppercase }
+
+SHOWCASE (how a real product screenshot appears — you are SHOWN the screenshots, so LOOK at them):
+A screenshot is an ELEMENT in the composition, not wallpaper. Wallpaper (bgKind:"product") stretches
+the app behind the type and buries it under a scrim — only use it when the screenshot is genuinely
+atmospheric. Otherwise set showcase and let the design hold the product:
+- { treatment:"device-frame", imageIndex, position, tilt }  — the screenshot inside a phone body
+  (bezel, rounded screen, drop shadow). The default and usually the right answer for an app UI.
+- { treatment:"floating-card", imageIndex, position, tilt } — the screenshot as a rounded card with a
+  soft shadow. Good for a single panel or a wide UI.
+- { treatment:"cropped-detail", imageIndex, position, tilt } — a zoomed crop of ONE telling detail
+  (a row, a number, a control). Use when a small part of the UI proves the point better than the whole.
+- position: which band the product sits in — the type takes the other bands. tilt: -12..12 degrees.
+- Describe what you actually SEE in the screenshot in your choice: a transaction list wants a
+  device-frame or a cropped row; a full-bleed hero screen wants a floating-card.
+- Set showcase to null when there is no product screenshot worth showing.
 
 DECOR (relational marks — you never give coordinates; each is bound to the type it serves):
 - { role:"accent-bar", color, accent }  — the Swiss rule: a short bar set above the kicker.
@@ -226,7 +270,10 @@ DESIGN PRINCIPLES:
 
 // Directive appended when product screenshots are available
 function productShotsDirective(count: number): string {
-  return `PRODUCT SHOTS: ${count} real screenshot(s) of the ACTUAL product are available. To show the app/product, set bgKind to "product" and bgImageIndex to 0-${count - 1}. This uses a REAL screenshot — much more authentic than generating a fake one. Use product shots for "here's what it looks like" moments.`;
+  return `PRODUCT SHOTS: ${count} real screenshot(s) of the ACTUAL product are attached to this message — LOOK AT THEM. They are indexed 0-${count - 1} in the order shown.
+
+To show the product, prefer a SHOWCASE (device-frame / floating-card / cropped-detail) that composes the screenshot INTO the design as an element. Base the treatment on what you actually see in the image.
+Only use bgKind:"product" (full-bleed wallpaper behind the type) when the screenshot is atmospheric rather than informational — a UI shown that way gets buried under a legibility scrim and reads as a mistake.`;
 }
 
 // Directive appended when user-uploaded images are available

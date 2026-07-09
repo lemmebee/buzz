@@ -182,6 +182,9 @@ export async function generateImageContent(
       aspectRatio,
       productShots: productShots.length,
       uploadedImages: uploadedImagePaths.length,
+      // The real pixels, product shots first then uploads — the same order the
+      // prompt indexes them by. The director designs around what it can SEE.
+      assetImages: [...productShots, ...uploadedImagePaths],
       caption: captionText,
       fallbackPalette: derivePalette(profile.visualIdentity?.colors),
       n: 3,

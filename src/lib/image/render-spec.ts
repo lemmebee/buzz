@@ -1,5 +1,6 @@
 import { mkdirSync } from "fs";
 import path from "path";
+import sharp from "sharp";
 import { selectComposition, renderStill } from "@remotion/renderer";
 import { resolveImageProvider } from "@/lib/providers";
 import { getRemotionBundle, ensureRemotionBrowser } from "@/lib/remotion-bundle";
@@ -133,6 +134,30 @@ export async function renderSpecImage(
     bgKind = "color";
   }
 
+  // Resolve the showcase's imageIndex against the real asset pool (product shots
+  // first, then user uploads). An unresolvable index means no showcase, not a
+  // broken render.
+  const showcasePool = [...productShots, ...uploadedImages];
+  let showcase: ImageCompositionProps["showcase"];
+  if (healed.showcase && showcasePool.length > 0) {
+    const src = showcasePool[clampImageIndex(healed.showcase.imageIndex, showcasePool.length)];
+    // Measure the screenshot so the device body takes its real aspect (avoids
+    // cropping the app's own UI). Fall back to a typical handset ratio.
+    let aspect = 0.4615;
+    try {
+      const abs = path.join(process.cwd(), "public", src.replace(/^\/api\/media\//, "media/"));
+      const meta = await sharp(abs).metadata();
+      if (meta.width && meta.height) aspect = meta.width / meta.height;
+    } catch { /* keep default aspect */ }
+    showcase = {
+      treatment: healed.showcase.treatment,
+      src,
+      position: healed.showcase.position,
+      tilt: healed.showcase.tilt,
+      aspect,
+    };
+  }
+
   const inputProps: ImageCompositionProps = {
     bgKind,
     bgImageSrc,
@@ -140,6 +165,7 @@ export async function renderSpecImage(
     archetype: healed.archetype,
     align: healed.align,
     decor: healed.decor,
+    showcase,
     bgColor: healed.bgColor,
     bgColor2: healed.bgColor2,
     layers: healed.layers,

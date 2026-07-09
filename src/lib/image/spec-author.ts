@@ -20,6 +20,12 @@ export interface ImageAuthorInput {
   aspectRatio: string;
   productShots: number;
   uploadedImages: number;
+  // The ACTUAL asset images, product shots first then uploads — same order the
+  // prompt indexes them by. Handed to the provider so the creative director can
+  // SEE what it is designing around instead of being told only how many exist.
+  // Without this it can only treat a screenshot as wallpaper: it has never
+  // looked at one.
+  assetImages?: string[];
   // Optional: a caption or script to derive hero text from
   caption?: string;
 }
@@ -79,8 +85,16 @@ function finalizeSpec(data: ImageSpecT, input: ImageAuthorInput): ImageSpecT {
     ? input.aspectRatio
     : "1:1") as ImageSpecT["aspectRatio"];
 
-  // On product/uploaded backgrounds, shrink text so the asset shines
-  const isRealAsset = data.bgKind === "product" || data.bgKind === "uploaded";
+  // A showcase already carries the product as a composed element, so the same
+  // asset must not ALSO be stretched behind the type — that buries it under the
+  // legibility scrim, which is exactly the failure the showcase exists to fix.
+  const hasShowcase = data.showcase !== null && (input.productShots > 0 || input.uploadedImages > 0);
+  const bgKind = hasShowcase && (data.bgKind === "product" || data.bgKind === "uploaded") ? "gradient" : data.bgKind;
+  const showcase = input.productShots > 0 || input.uploadedImages > 0 ? data.showcase : null;
+
+  // On product/uploaded BACKGROUNDS (wallpaper, no showcase), shrink text so the
+  // asset shines. With a showcase the type is free — nothing is behind it.
+  const isRealAsset = !hasShowcase && (bgKind === "product" || bgKind === "uploaded");
   const layers = isRealAsset
     ? data.layers.map((l) =>
         l.kind === "text"
@@ -89,7 +103,7 @@ function finalizeSpec(data: ImageSpecT, input: ImageAuthorInput): ImageSpecT {
       )
     : data.layers;
 
-  return enforceTypeScale(guaranteeTypography({ ...data, aspectRatio, layers }, input.productName));
+  return enforceTypeScale(guaranteeTypography({ ...data, aspectRatio, bgKind, showcase, layers }, input.productName));
 }
 
 // Enforce the hierarchy rule from the type-scale canon: a hero less than 3x its
@@ -155,7 +169,7 @@ async function authorImageOnce(
         ? baseUser
         : `${baseUser}\n\nYOUR PREVIOUS OUTPUT WAS REJECTED: ${lastError}\nReturn the corrected JSON object only.`;
     try {
-      const res = await provider.generate({ systemPrompt, userPrompt });
+      const res = await provider.generate({ systemPrompt, userPrompt, images: input.assetImages });
       raw = res.text;
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
@@ -326,6 +340,7 @@ export function deterministicImageSpec(
     archetype: "type-as-image",
     align: "left",
     decor: [],
+    showcase: null,
     bgKind: "gradient",
     bgImagePrompt: "",
     bgImageIndex: 0,
