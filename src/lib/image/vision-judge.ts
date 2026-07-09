@@ -35,14 +35,42 @@ function parseJson(raw: string): unknown | null {
   }
 }
 
+// Boldness is a first-class criterion, not a footnote.
+//
+// The previous prompt listed four "automatic losers" — all of them safety
+// failures — and mentioned stopping power once. Measured against a safe centered
+// layout and a bold oversized one (both defect-free), it returned TIE in both
+// orders: it could not tell them apart, so position bias decided, and ties go to
+// the incumbent. Blandness was literally unpunished. The renderer now makes
+// overlap and margin violations structurally impossible, so the disqualifiers
+// below are a safety net for photographic cases — they must not be the whole
+// rubric, or the judge selects the mean of the candidate pool every time.
 const COMPARE_SYSTEM = `You are a ruthless art director comparing two RENDERED social media images.
-You are looking at actual pixels, not descriptions.
+You are looking at actual pixels, not descriptions. This is an ad. It has one job:
+stop a thumb.
 
-Judge on: stopping power, typographic craft, legibility, composition, and whether the
-product or photographic subject is respected rather than buried.
+STEP 1 — DISQUALIFY only for real defects:
+  • text physically overlapping other text
+  • text genuinely unreadable against what is behind it
+  • the product screenshot or photographic subject buried under a text block
+  • type spilling outside the safe margins
+If exactly one image has a defect, the other wins. If both do, pick the lesser.
 
-Automatic loser: text overlapping other text; text unreadable against its background;
-the subject obscured by a text block; type outside the safe margins.
+STEP 2 — If BOTH are defect-free (the usual case), judge on distinctiveness:
+  • Stopping power. Which one makes you stop? Scale contrast, a real focal point,
+    tension, an idea.
+  • Typographic craft. Deliberate hierarchy, tight display tracking, confident scale.
+  • Composition. Asymmetry, negative space used on purpose, a considered crop.
+  • Specificity. Apply this test: "Could this image belong to ANY other product
+    if I swapped the words?" If yes, it is generic and it LOSES.
+
+A safe, centred, evenly-weighted, forgettable design LOSES to a braver one that
+takes a real compositional risk — provided the brave one has no defect from STEP 1.
+Timidity is a failure mode, not a virtue. Do not reward an image merely for being
+inoffensive.
+
+Pick a winner. Only call it a draw if the two are genuinely indistinguishable —
+never to avoid making a judgment.
 
 The first image is A, the second is B. Respond with ONLY: {"winner": "A"|"B", "why": "<one line>"}`;
 
@@ -133,9 +161,19 @@ export async function pickWinner(
 }
 
 const CRITIQUE_SYSTEM = `You are a ruthless art director reviewing ONE rendered social media image.
-You are looking at actual pixels. Write concrete, actionable art-direction notes: changes to
-layout, scale, colour, or placement. Do not restate what already works. Do not suggest anything
-that cannot be expressed as position, size, colour, font, uppercase, or shape placement.
+You are looking at actual pixels. This is an ad; its job is to stop a thumb.
+
+Apply the specificity test first: "Could this image belong to ANY other product if I
+swapped the words?" If yes, say so and make it specific.
+
+Write concrete, actionable art-direction notes that make the piece BOLDER and more
+distinctive — push scale contrast, asymmetry, a single focal point, a considered crop,
+one word carrying the accent. Never advise making it safer, more centred, or more
+evenly balanced. "Inoffensive" is not the goal.
+
+Every note must be expressible in the spec vocabulary: archetype, alignment, position,
+size, colour, font, uppercase, or a relational decor mark. Do not restate what already
+works. Do not invent capabilities the renderer does not have.
 
 Respond with ONLY: {"notes": "<the notes>"}`;
 

@@ -1,0 +1,38 @@
+{
+  "caption": "\"Paid 100 for coffee, 150 for a taxi, 350 for sunblock.\" That was three expenses, logged in one breath.\n\nHere's the part that made me actually keep using it. That sentence never left my phone. Tanda turns your voice into text on the device, sorts it into a budget, and the audio stays local. No bank login. No upload. No form asking me to pick a category at 11pm.\n\nEvery other app died on me by day five because typing each coffee felt like a second job. This one I just talk to. Five seconds, phone back in my pocket, and by the end of the week there's a real zero-based budget sitting on top of it instead of a pile of receipts.\n\nWon't claim it reads your mind. It won't touch your bank. It just listens when you say what you spent, and keeps that between you and your phone.\n\nSave this if you've quit a budget app before.",
+  "hashtags": ["budgetingapp", "moneytok", "voicefirst", "privacyfirst", "personalfinance"],
+  "imagePrompt": {
+    "scene": "A single window awning of soft folded fabric catching low warm light against a vast near-black wall, casting a gentle shadow over an empty sill below. Airy negative space fills most of the frame, a dim lime-tinted glow pooling under the canopy. Shot on 50mm f/2.0, quiet and confident.",
+    "brandColorUsage": "Near-black background surface, a single lime green glow under the awning fabric, warm off-white light spilling across the sill",
+    "mood": "calm",
+    "style": "cinematic",
+    "aspectRatio": "1:1 square"
+  },
+  "script": "Every budget app I downloaded died by day five. Typing in every coffee felt like homework. So I tried just saying it. Paid a hundred for coffee, one fifty for a taxi, three fifty for sunblock. Three expenses, one breath, done. And here's what kept me. That voice never leaves my phone. No bank login. No upload. It just turns what I said into a real budget. Say what you spent. Your voice stays on your phone.",
+  "scenes": [
+    {
+      "description": "Close-up of a thumb hovering over a phone screen showing a nearly empty budgeting form at night, warm off-white glow on a tired face just out of focus, cluttered dim bedroom, the moment of hesitation before giving up, moody low light.",
+      "durationSec": 5
+    },
+    {
+      "description": "Overhead shot of a hand tossing a phone face-down onto a rumpled bed beside a pile of paper receipts, soft window light, a gesture of frustration and surrender, muted daytime tones.",
+      "durationSec": 5
+    },
+    {
+      "description": "A young person walking down a sunny city street holding a coffee cup, lifting the phone close to their mouth mid-sentence, relaxed candid expression, shallow depth of field, bright natural daylight, motion and ease.",
+      "durationSec": 5
+    },
+    {
+      "description": "Tight shot of a phone screen in a palm showing one big confident number on a near-black surface with a soft lime glow, generous empty space, a small microphone icon glowing, no clutter, calm and clean.",
+      "durationSec": 5
+    },
+    {
+      "description": "Same phone screen resolving into a simple budget list with Arabic and English lines side by side, warm off-white text on dark, a hand steady, quiet realization on the blurred face behind it, soft ambient light.",
+      "durationSec": 5
+    },
+    {
+      "description": "A phone resting screen-up on a windowsill under a real awning outdoors, soft daylight filtering through the canopy, one bold number glowing lime on the dark screen, vast calm negative space, a feeling of effortless coverage.",
+      "durationSec": 5
+    }
+  ]
+}
