@@ -3,6 +3,8 @@ import { pickWinner, resolveVisionProvider } from "@/lib/image/vision-judge";
 import { authorVideoVariants, buildFallbackSpec, type AuthorInput } from "./spec-author";
 import { renderSpecVideo, type RenderSpecResult } from "./render-spec";
 import { renderPreviewSheet } from "./preview";
+import { reviewRenderedVideo, cleanupReviewFrames } from "./final-review";
+import type { VideoSpecT } from "@/remotion/spec";
 
 export interface SelectVideoInput extends AuthorInput {
   textProvider: TextProvider;
@@ -13,6 +15,29 @@ export interface SelectVideoInput extends AuthorInput {
 }
 
 const visionEnabled = () => process.env.VIDEO_VISION_LOOP !== "0";
+
+// Full-render a spec, then self-review the actual output (ffprobe + volumedetect
+// + frame spot-check). A hard technical failure (unplayable, silent-when-
+// narrated, all-black) throws so a broken video is never presented as success;
+// softer issues are logged and shipped for this one-shot pipeline.
+async function renderAndReview(
+  spec: VideoSpecT,
+  renderOpts: { imageProviderName?: string | null; productShots: string[] },
+  targetDurationSec: number
+): Promise<RenderSpecResult> {
+  const r = await renderSpecVideo(spec, renderOpts);
+  const review = await reviewRenderedVideo({
+    localPath: r.localPath,
+    targetDurationSec,
+    narrated: spec.script.trim().length > 0,
+  });
+  if (review.issues.length) console.log(`[final-review] ${review.status}: ${review.issues.join("; ")}`);
+  cleanupReviewFrames(review);
+  if (review.status === "fail") {
+    throw new Error(`final review failed: ${review.issues.join("; ")}`);
+  }
+  return r;
+}
 
 // Author N variants, render a CHEAP contact-sheet preview of each, and let the
 // pairwise vision judge pick the winner from the frames — not from a four-field
@@ -32,11 +57,11 @@ export async function renderBestVideo(input: SelectVideoInput): Promise<RenderSp
       aspectRatio: input.aspectRatio,
       durationSec: input.durationSec,
     });
-    return { ...(await renderSpecVideo(fallback, renderOpts)), source: "deterministic", valid: 0 };
+    return { ...(await renderAndReview(fallback, renderOpts, input.durationSec)), source: "deterministic", valid: 0 };
   }
 
   if (specs.length === 1 || !visionEnabled()) {
-    return { ...(await renderSpecVideo(specs[0], renderOpts)), source: "single", valid: specs.length };
+    return { ...(await renderAndReview(specs[0], renderOpts, input.durationSec)), source: "single", valid: specs.length };
   }
 
   // Cheap previews, sequentially (each drives headless Chrome).
@@ -53,5 +78,5 @@ export async function renderBestVideo(input: SelectVideoInput): Promise<RenderSp
   });
   console.log(`[video-select] pixel judge picked variant ${winner} of ${specs.length}`);
 
-  return { ...(await renderSpecVideo(specs[winner], renderOpts)), source: "judged", valid: specs.length };
+  return { ...(await renderAndReview(specs[winner], renderOpts, input.durationSec)), source: "judged", valid: specs.length };
 }
