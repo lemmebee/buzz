@@ -86,11 +86,14 @@ export async function renderSpecImage(
   // Resolve background
   let bgKind: ResolvedImageBgKind = "color";
   let bgImageSrc: string | undefined;
+  let bgFit: "cover" | "contain" = "cover";
 
   if (healed.bgKind === "product" && productShots.length > 0) {
     const idx = clampImageIndex(healed.bgImageIndex, productShots.length);
     bgImageSrc = productShots[idx];
     bgKind = "image";
+    // Screenshots are tall; cover would crop them to a meaningless slice.
+    bgFit = "contain";
   } else if (healed.bgKind === "uploaded" && uploadedImages.length > 0) {
     const idx = clampImageIndex(healed.bgImageIndex, uploadedImages.length);
     bgImageSrc = uploadedImages[idx];
@@ -119,6 +122,7 @@ export async function renderSpecImage(
   const inputProps: ImageCompositionProps = {
     bgKind,
     bgImageSrc,
+    bgFit,
     bgColor: healed.bgColor,
     bgColor2: healed.bgColor2,
     layers: healed.layers,

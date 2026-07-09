@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, type Part } from "@google/generative-ai";
 import type { TextProvider, TextGenerationInput, TextGenerationOutput, ProviderConfig } from "./types";
+import { toInlineImage } from "./image-input";
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
@@ -23,11 +24,10 @@ export function createGeminiTextProvider(config: ProviderConfig = {}): TextProvi
 
       const parts: Part[] = [{ text: input.userPrompt }];
 
-      if (input.images?.length) {
-        for (const img of input.images) {
-          const data = img.startsWith("data:") ? img.split(",")[1] : img;
-          parts.push({ inlineData: { mimeType: "image/png", data: data! } });
-        }
+      for (const img of input.images ?? []) {
+        const inline = toInlineImage(img);
+        if (inline) parts.push({ inlineData: inline });
+        else console.warn(`[Gemini] could not resolve image: ${img}`);
       }
 
       console.log(`[TextProvider] sending request to gemini/${modelName}`);

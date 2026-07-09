@@ -46,3 +46,23 @@ export function fontStack(family: string | undefined): string {
   const resolved = family && familyMap[family] ? familyMap[family] : "Inter";
   return `"${resolved}", sans-serif`;
 }
+
+// Heaviest weight each family actually ships. Asking for 800 from a font that
+// only has 400 makes the browser synthesize a smeared faux-bold, so display
+// faces must be rendered at their real weight.
+const MAX_WEIGHT: Record<string, number> = {
+  Inter: 800,
+  Montserrat: 800,
+  Poppins: 800,
+  PlayfairDisplay: 800,
+  Roboto: 800,
+  Oswald: 700,
+  BebasNeue: 400,
+  Anton: 400,
+  ArchivoBlack: 400,
+};
+
+export function fontWeight(family: string | undefined): number {
+  if (!family) return 800;
+  return MAX_WEIGHT[family.replace(/\s+/g, "")] ?? 800;
+}

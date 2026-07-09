@@ -80,6 +80,9 @@ export type ResolvedImageBgKind = "image" | "gradient" | "color";
 export type ResolvedImageSpec = {
   bgKind: ResolvedImageBgKind;
   bgImageSrc?: string;
+  // Photos fill the frame; product screenshots are letterboxed so they aren't
+  // cropped to an arbitrary middle slice.
+  bgFit: "cover" | "contain";
   bgColor: string;
   bgColor2: string;
   layers: LayerT[];
@@ -99,6 +102,7 @@ export const IMAGE_COMPOSITION_ID = "ImageComposition";
 
 export const DEFAULT_IMAGE_PROPS: ImageCompositionProps = {
   bgKind: "color",
+  bgFit: "cover",
   bgColor: "#0b0b0f",
   bgColor2: "#1b1b2f",
   layers: [],

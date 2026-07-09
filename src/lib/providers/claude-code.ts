@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import type { TextProvider, TextGenerationInput, TextGenerationOutput, ProviderConfig } from "./types";
+import { materializeToFile, parentDirs } from "./image-input";
 
 const DEFAULT_BIN = "/home/mrg/.local/bin/claude";
 const DEFAULT_MODEL = "sonnet";
@@ -18,15 +19,21 @@ export function createClaudeCodeTextProvider(config: ProviderConfig = {}): TextP
     name: `claude-code/${model}`,
 
     async generate(input: TextGenerationInput): Promise<TextGenerationOutput> {
-      if (input.images?.length) {
-        console.warn("[ClaudeCode] images not supported, ignoring");
-      }
+      // The CLI reads images referenced as @<abs-path> in the prompt.
+      const imagePaths = (input.images ?? [])
+        .map(materializeToFile)
+        .filter((p): p is string => p !== null);
 
-      const combined = `${input.systemPrompt}\n\n---\n\n${input.userPrompt}`;
+      const attachments = imagePaths.length
+        ? `\n\nIMAGES — look at each one:\n${imagePaths.map((p) => `@${p}`).join("\n")}`
+        : "";
+
+      const combined = `${input.systemPrompt}\n\n---\n\n${input.userPrompt}${attachments}`;
 
       const args = [
         "--print",
         "--model", model,
+        ...parentDirs(imagePaths).flatMap((d) => ["--add-dir", d]),
       ];
 
       const text = await new Promise<string>((resolve, reject) => {

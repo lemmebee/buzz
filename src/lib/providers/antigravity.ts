@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import type { TextProvider, TextGenerationInput, TextGenerationOutput, ProviderConfig } from "./types";
+import { materializeToFile, parentDirs } from "./image-input";
 
 const DEFAULT_BIN = "/home/mrg/.local/bin/agy";
 const DEFAULT_MODEL = "GPT-OSS 120B (Medium)";
@@ -13,16 +14,22 @@ export function createAntigravityTextProvider(config: ProviderConfig = {}): Text
     name: `antigravity/${model}`,
 
     async generate(input: TextGenerationInput): Promise<TextGenerationOutput> {
-      if (input.images?.length) {
-        console.warn("[Antigravity] images not supported, ignoring");
-      }
+      // agy has no image flag; it opens files itself when granted the directory.
+      const imagePaths = (input.images ?? [])
+        .map(materializeToFile)
+        .filter((p): p is string => p !== null);
 
-      const combined = `${input.systemPrompt}\n\n---\n\n${input.userPrompt}`;
+      const attachments = imagePaths.length
+        ? `\n\nIMAGES — read each file with your Read tool and look at it:\n${imagePaths.join("\n")}`
+        : "";
+
+      const combined = `${input.systemPrompt}\n\n---\n\n${input.userPrompt}${attachments}`;
 
       const args = [
         "--print",
         "--model", model,
         "--print-timeout", `${Math.ceil(DEFAULT_TIMEOUT / 1000)}s`,
+        ...parentDirs(imagePaths).flatMap((d) => ["--add-dir", d]),
       ];
 
       const text = await new Promise<string>((resolve, reject) => {

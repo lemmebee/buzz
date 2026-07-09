@@ -1,0 +1,72 @@
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import path from "path";
+
+// Image references reaching a TextProvider come in three shapes:
+//   • data: URI                  (inline base64)
+//   • /api/media/<file>          (served URL — lives at public/media/<file>)
+//   • /abs/path or media/<file>  (filesystem path, absolute or relative to public/)
+// Providers need them as either an absolute file path (CLI providers) or
+// inline base64 + mime type (SDK providers). These helpers cover both.
+
+const MIME_BY_EXT: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+};
+
+export interface InlineImage {
+  mimeType: string;
+  data: string;
+}
+
+function mimeForPath(p: string): string {
+  return MIME_BY_EXT[path.extname(p).toLowerCase()] ?? "image/png";
+}
+
+function parseDataUri(ref: string): InlineImage | null {
+  const m = ref.match(/^data:([^;,]+);base64,([\s\S]+)$/);
+  return m ? { mimeType: m[1], data: m[2] } : null;
+}
+
+// Resolve a non-data reference to an existing absolute path, or null.
+export function toAbsolutePath(ref: string): string | null {
+  if (ref.startsWith("data:")) return null;
+  // Strip the served-URL prefix first: "/api/media/x.jpg" is not a real path.
+  const rel = ref.replace(/^\/api\/media\//, "media/");
+  const abs = path.isAbsolute(rel) ? rel : path.join(process.cwd(), "public", rel);
+  return existsSync(abs) ? abs : null;
+}
+
+// Absolute path for any reference. data: URIs are spilled to a temp file so
+// CLI providers, which can only take paths, don't silently drop them.
+export function materializeToFile(ref: string): string | null {
+  const abs = toAbsolutePath(ref);
+  if (abs) return abs;
+
+  const inline = parseDataUri(ref);
+  if (!inline) return null;
+
+  const ext = Object.entries(MIME_BY_EXT).find(([, m]) => m === inline.mimeType)?.[0] ?? ".png";
+  const dir = mkdtempSync(path.join(tmpdir(), "buzz-img-"));
+  const file = path.join(dir, `image${ext}`);
+  writeFileSync(file, Buffer.from(inline.data, "base64"));
+  return file;
+}
+
+// Inline base64 + correct mime for any reference.
+export function toInlineImage(ref: string): InlineImage | null {
+  const inline = parseDataUri(ref);
+  if (inline) return inline;
+
+  const abs = toAbsolutePath(ref);
+  if (!abs) return null;
+  return { mimeType: mimeForPath(abs), data: readFileSync(abs).toString("base64") };
+}
+
+// Unique parent directories, for CLIs that must be granted workspace access.
+export function parentDirs(paths: string[]): string[] {
+  return Array.from(new Set(paths.map((p) => path.dirname(p))));
+}
