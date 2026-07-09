@@ -36,6 +36,18 @@ const Shape = z.enum(["rect", "circle", "ellipse", "triangle"]).catch("rect");
 const Transition = z.enum(["fade", "slide", "wipe", "clockWipe", "flip", "none"]).catch("fade");
 const KenBurns = z.enum(["in", "out", "none"]).catch("in");
 
+// Relational decor: a mark bound to the text it serves, never free-floating
+// coordinates. Same vocabulary as the image engine — this is what turns a
+// stray rectangle into an intentional accent.
+export const DECOR_ROLES = ["accent-bar", "underline", "frame"] as const;
+const Decor = z
+  .object({
+    role: z.enum(DECOR_ROLES).catch("accent-bar"),
+    color: Hex,
+    accent: z.boolean().catch(true),
+  })
+  .catch({ role: "accent-bar", color: "#ffffff", accent: true });
+
 // One permissive layer object (kind discriminator + every field defaulted) so a
 // layer NEVER fails to parse — the renderer reads only the fields for its kind.
 export const Layer = z
@@ -85,6 +97,8 @@ export const Scene = z
     bgColor2: Hex, // second stop for gradient backgrounds
     kenBurns: KenBurns,
     transition: Transition, // transition INTO this scene
+    align: z.enum(["left", "center"]).catch("center"),
+    decor: z.array(Decor).max(2).catch([]),
     layers: z.array(Layer).max(6).catch([]),
   })
   .catch({
@@ -95,6 +109,8 @@ export const Scene = z
     bgColor2: "#1b1b2f",
     kenBurns: "in",
     transition: "fade",
+    align: "center",
+    decor: [],
     layers: [],
   });
 
@@ -127,6 +143,7 @@ export const VideoSpec = z.object({
 export type VideoSpecT = z.infer<typeof VideoSpec>;
 export type LayerT = z.infer<typeof Layer>;
 export type SceneT = z.infer<typeof Scene>;
+export type DecorT = z.infer<typeof Decor>;
 
 // ─── Render-time props (what the SpecVideo composition consumes) ──────────────
 // Differs from the authored spec: each scene's bgImagePrompt has been resolved
@@ -139,6 +156,8 @@ export interface ResolvedScene {
   bgColor2: string;
   kenBurns: "in" | "out" | "none";
   transition: "fade" | "slide" | "wipe" | "clockWipe" | "flip" | "none";
+  align: "left" | "center";
+  decor: DecorT[];
   layers: LayerT[];
 }
 
@@ -195,9 +214,13 @@ EACH SCENE:
 - bgColor / bgColor2: hex
 - kenBurns: "in" | "out" | "none"  (slow zoom on image backgrounds)
 - transition: how this scene enters — "fade" | "slide" | "wipe" | "clockWipe" | "flip" | "none"
-- layers: 1-5 elements drawn on top. EVERY scene MUST include at least one bold TEXT layer (this is the whole point — typography is the art). Add SHAPE layers as accents around it.
+- align: "left" | "center" — text alignment for the scene. Flush-left reads as designed; centering suits formal/axial beats.
+- decor: 0-2 relational marks. You NEVER give coordinates; each is bound to the type it serves and the renderer places it:
+  - { role:"accent-bar", color, accent } — the Swiss rule, a short bar set above the kicker
+  - { role:"underline", color, accent } — a weight under the hero's last line
+  - { role:"frame", color, accent } — a thin border inset around the whole scene
+- layers: 1-4 TEXT layers drawn on top. EVERY scene MUST include at least one bold TEXT layer — typography is the art.
   - TEXT layer: { kind:"text", text, position:("center"|"top"|"bottom"|"upper-third"|"lower-third"), animation:("fadeUp"|"pop"|"typewriter"|"slideLeft"|"none"), fontFamily, sizePct:(2-18, % of height; hero text ~9-14), color, accent:(true=use palette.accent), uppercase }
-  - SHAPE layer: { kind:"shape", shape:("rect"|"circle"|"ellipse"|"triangle"), color, xPct,yPct (center, 0-100), widthPct,heightPct, opacity } — for accent bars, badges, backing cards behind text
 
 FONTS allowed: ${FONTS.join(", ")}.
 

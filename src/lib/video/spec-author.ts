@@ -86,6 +86,8 @@ export function buildFallbackSpec(input: {
     bgColor2: input.palette.accent,
     kenBurns: "none",
     transition: i === 0 ? "none" : FALLBACK_TRANSITIONS[i % FALLBACK_TRANSITIONS.length],
+    align: "center",
+    decor: [],
     layers: [
       {
         kind: "text",

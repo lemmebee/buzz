@@ -14,11 +14,10 @@ import { slide } from "@remotion/transitions/slide";
 import { wipe } from "@remotion/transitions/wipe";
 import { clockWipe } from "@remotion/transitions/clock-wipe";
 import { flip } from "@remotion/transitions/flip";
-import { Rect, Circle, Ellipse, Triangle } from "@remotion/shapes";
 import { Captions } from "./Captions";
 import { fontStack, fontWeight } from "./fonts";
 import { fitText } from "./text-fit";
-import { TRANSITION_FRAMES, type LayerT, type ResolvedScene, type SpecVideoProps } from "./spec";
+import { TRANSITION_FRAMES, type DecorT, type LayerT, type ResolvedScene, type SpecVideoProps } from "./spec";
 
 // ─── Background ───────────────────────────────────────────────────────────────
 function Background({ scene, palette }: { scene: ResolvedScene; palette: SpecVideoProps["palette"] }) {
@@ -56,25 +55,6 @@ function Background({ scene, palette }: { scene: ResolvedScene; palette: SpecVid
     );
   }
   return <AbsoluteFill style={{ backgroundColor: scene.bgColor }} />;
-}
-
-// ─── Entrance animation presets (closed set) ──────────────────────────────────
-function useEntrance(animation: LayerT["animation"]) {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const s = spring({ frame, fps, config: { damping: 16, stiffness: 160, mass: 0.6 }, durationInFrames: 12 });
-  switch (animation) {
-    case "pop":
-      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `scale(${interpolate(s, [0, 1], [0.6, 1])})` };
-    case "slideLeft":
-      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `translateX(${interpolate(s, [0, 1], [80, 0])}px)` };
-    case "fadeUp":
-      return { opacity: interpolate(s, [0, 1], [0, 1]), transform: `translateY(${interpolate(s, [0, 1], [40, 0])}px)` };
-    case "typewriter": // approximated as a quick fade (per-char would need the text)
-    case "none":
-    default:
-      return { opacity: animation === "none" ? 1 : interpolate(s, [0, 1], [0, 1]), transform: "none" };
-  }
 }
 
 // ─── Flow-layout bands (ported from the image engine) ────────────────────────
@@ -149,12 +129,14 @@ function wordEntrance(
 function TextBlock({
   layer,
   color,
+  align,
   boxW,
   boxH,
   canvasH,
 }: {
   layer: LayerT;
   color: string;
+  align: "left" | "center";
   boxW: number;
   boxH: number;
   canvasH: number;
@@ -185,7 +167,7 @@ function TextBlock({
 
   let wordIndex = 0;
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: align === "left" ? "flex-start" : "center" }}>
       {lines.map((line, li) => (
         <div
           key={li}
@@ -199,7 +181,7 @@ function TextBlock({
             lineHeight,
             letterSpacing: `${trackingEm * fontSize}px`,
             color,
-            textAlign: "center",
+            textAlign: align,
             textShadow: `0 ${Math.round(fontSize * 0.05)}px ${Math.round(fontSize * 0.16)}px rgba(0,0,0,0.5)`,
             whiteSpace: "nowrap",
           }}
@@ -214,41 +196,13 @@ function TextBlock({
   );
 }
 
-function ShapeLayerView({ layer, width, height }: { layer: LayerT; width: number; height: number }) {
-  const entrance = useEntrance(layer.animation);
-  const w = Math.round((layer.widthPct / 100) * width);
-  const h = Math.round((layer.heightPct / 100) * height);
-  const left = Math.round((layer.xPct / 100) * width);
-  const top = Math.round((layer.yPct / 100) * height);
-
-  let shape: React.ReactNode;
-  switch (layer.shape) {
-    case "circle":
-      shape = <Circle radius={Math.min(w, h) / 2} fill={layer.color} />;
-      break;
-    case "ellipse":
-      shape = <Ellipse rx={w / 2} ry={h / 2} fill={layer.color} />;
-      break;
-    case "triangle":
-      shape = <Triangle length={Math.min(w, h)} direction="up" fill={layer.color} />;
-      break;
-    case "rect":
-    default:
-      shape = <Rect width={w} height={h} fill={layer.color} cornerRadius={Math.round(Math.min(w, h) * 0.08)} />;
-      break;
-  }
-  return (
-    <AbsoluteFill>
-      {/* outer div positions (centered on x/y); inner div carries the entrance
-          animation so its transform/opacity don't clobber the positioning. */}
-      <div style={{ position: "absolute", left, top, transform: "translate(-50%, -50%)" }}>
-        <div style={{ ...entrance, opacity: (typeof entrance.opacity === "number" ? entrance.opacity : 1) * layer.opacity }}>
-          {shape}
-        </div>
-      </div>
-    </AbsoluteFill>
-  );
+// A relational bar (accent-bar above a kicker, or underline beneath a hero).
+// Sized from the canvas, never positioned by coordinates.
+function Bar({ width, thickness, color }: { width: number; thickness: number; color: string }) {
+  return <div style={{ width, height: thickness, backgroundColor: color, borderRadius: thickness / 2 }} />;
 }
+
+const decorColor = (d: DecorT, palette: SpecVideoProps["palette"]) => (d.accent ? palette.accent : d.color);
 
 function SceneView({
   scene,
@@ -262,14 +216,18 @@ function SceneView({
   height: number;
 }) {
   const indexed = scene.layers.map((layer, i) => ({ layer, i }));
-  // Shapes are accents / backing cards, so they ALWAYS render BEHIND text —
-  // otherwise a shape placed after a text layer covers it (muddy, unreadable).
-  const shapes = indexed.filter((x) => x.layer.kind === "shape");
   const texts = indexed.filter((x) => x.layer.kind === "text" && x.layer.text.trim().length > 0);
+  const align = scene.align ?? "center";
 
   const inset = safeInset(width, height);
   const safeW = width - inset.x * 2;
   const safeH = height - inset.y * 2;
+
+  const frameDecor = scene.decor?.find((d) => d.role === "frame");
+  const accentBar = scene.decor?.find((d) => d.role === "accent-bar");
+  const underline = scene.decor?.find((d) => d.role === "underline");
+  const barThickness = Math.max(3, Math.round(width * 0.008));
+  const slotAlign = align === "left" ? "flex-start" : "center";
 
   // Assign each text layer to a fixed band slot; empty slots still reserve their
   // third of the column so an occupied band lands where it asked to.
@@ -286,9 +244,15 @@ function SceneView({
   return (
     <AbsoluteFill>
       <Background scene={scene} palette={palette} />
-      {shapes.map(({ layer, i }) => (
-        <ShapeLayerView key={`s${i}`} layer={layer} width={width} height={height} />
-      ))}
+      {frameDecor && (
+        <div
+          style={{
+            position: "absolute",
+            inset: Math.round(Math.min(width, height) * 0.05),
+            border: `${Math.max(2, Math.round(width * 0.005))}px solid ${decorColor(frameDecor, palette)}`,
+          }}
+        />
+      )}
       <AbsoluteFill
         style={{
           paddingLeft: inset.x,
@@ -297,7 +261,7 @@ function SceneView({
           paddingBottom: inset.y,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
+          alignItems: slotAlign,
           gap,
         }}
       >
@@ -307,6 +271,8 @@ function SceneView({
           const sizeSum = bandLayers.reduce((s, x) => s + x.layer.sizePct, 0) || 1;
           const innerGap = safeH * 0.018;
           const contentH = bandH - innerGap * (bandLayers.length - 1);
+          const hasHero = bandLayers.some((x) => isHero(x.layer));
+          const hasKicker = bandLayers.some((x) => !isHero(x.layer));
           return (
             <div
               key={band}
@@ -315,21 +281,28 @@ function SceneView({
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: SLOT_ALIGN[band],
-                alignItems: "center",
+                alignItems: slotAlign,
                 gap: innerGap,
                 width: "100%",
               }}
             >
+              {accentBar && hasKicker && (
+                <Bar width={width * 0.09} thickness={barThickness} color={decorColor(accentBar, palette)} />
+              )}
               {bandLayers.map(({ layer, i }) => (
                 <TextBlock
                   key={`t${i}`}
                   layer={layer}
                   color={layer.accent ? palette.accent : layer.color}
+                  align={align}
                   boxW={safeW}
                   boxH={(contentH * layer.sizePct) / sizeSum}
                   canvasH={height}
                 />
               ))}
+              {underline && hasHero && (
+                <Bar width={safeW * 0.35} thickness={barThickness} color={decorColor(underline, palette)} />
+              )}
             </div>
           );
         })}

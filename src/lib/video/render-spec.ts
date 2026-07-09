@@ -104,6 +104,8 @@ export async function renderSpecVideo(
       bgColor2: scene.bgColor2,
       kenBurns: scene.kenBurns,
       transition: scene.transition,
+      align: scene.align,
+      decor: scene.decor,
       layers: scene.layers,
     });
   }
