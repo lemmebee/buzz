@@ -31,7 +31,7 @@ async function probeAudioSeconds(file: string): Promise<number | null> {
   }
 }
 
-function dimsFor(aspectRatio: string): { width: number; height: number } {
+export function dimsFor(aspectRatio: string): { width: number; height: number } {
   switch (aspectRatio) {
     case "9:16": return { width: 1080, height: 1920 };
     case "16:9": return { width: 1920, height: 1080 };

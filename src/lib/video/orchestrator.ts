@@ -377,8 +377,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
         .filter(Boolean)
         .join("; ") || "modern, bold, on-brand";
 
-    const { authorBestSpec } = await import("@/lib/video/spec-author");
-    const { renderSpecVideo } = await import("@/lib/video/render-spec");
+    const { renderBestVideo } = await import("@/lib/video/select");
 
     // Pre-flight: if every configured image provider is out of credits, tell the
     // creative director to design a cohesive text-only video instead of an image
@@ -403,8 +402,8 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
     // The creative director is the USER'S selected text provider (resolved at the
     // top of generateContent) — never hardcoded. Best-of-N + judge with a
     // deterministic typography floor so a creative run is never lost.
-    const { spec, source, valid } = await authorBestSpec({
-      provider: textProvider,
+    const r = await renderBestVideo({
+      textProvider,
       productName: product.name,
       profile: rawProfile,
       strategy: rawStrategy,
@@ -414,13 +413,14 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
       script: scriptText,
       imagesAvailable: imagesAvail,
       productShots: productShots.length,
+      productShotPaths: productShots,
       fallbackPalette: derivePalette(profile.visualIdentity?.colors),
+      imageProviderName: product.imageProvider,
       n: 3,
     });
     console.log(
-      `[video] creative spec via ${source} (${valid} valid) from ${textProvider.name}, ${spec.scenes.length} scenes, images=${imagesAvail}, productShots=${productShots.length}`
+      `[video] rendered via ${r.source} (${r.valid} valid) from ${textProvider.name}, images=${imagesAvail}, productShots=${productShots.length}`
     );
-    const r = await renderSpecVideo(spec, { imageProviderName: product.imageProvider, productShots });
     return {
       content: sanitizeCaption(coerceText(item.caption)),
       hashtags: (item.hashtags || []).map((t) => coerceText(t).replace(/^#+/, "")),

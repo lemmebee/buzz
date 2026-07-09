@@ -339,6 +339,21 @@ async function judgeSpecs(provider: TextProvider, input: AuthorInput, specs: Vid
   return heuristicBestIndex(specs);
 }
 
+// Author N distinct variants without picking a winner. Used by the pixel-judging
+// path (select.ts), which renders cheap previews and judges the frames instead
+// of a JSON summary of each spec.
+export async function authorVideoVariants(
+  provider: TextProvider,
+  input: AuthorInput,
+  n: number
+): Promise<VideoSpecT[]> {
+  const count = Math.max(1, Math.min(n, ANGLES.length));
+  const variants = await Promise.all(
+    Array.from({ length: count }, (_, i) => authorOnce(provider, input, ANGLES[i]))
+  );
+  return variants.map((v) => v.spec).filter((s): s is VideoSpecT => s !== null);
+}
+
 export interface AuthorBestInput extends AuthorInput {
   provider: TextProvider; // the user's selected text provider — the creative director
   n?: number; // how many variants to author (default 3, capped to the angle pool)
