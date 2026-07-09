@@ -16,7 +16,8 @@ import { clockWipe } from "@remotion/transitions/clock-wipe";
 import { flip } from "@remotion/transitions/flip";
 import { Rect, Circle, Ellipse, Triangle } from "@remotion/shapes";
 import { Captions } from "./Captions";
-import { fontStack } from "./fonts";
+import { fontStack, fontWeight } from "./fonts";
+import { fitText } from "./text-fit";
 import { TRANSITION_FRAMES, type LayerT, type ResolvedScene, type SpecVideoProps } from "./spec";
 
 // ─── Background ───────────────────────────────────────────────────────────────
@@ -76,41 +77,35 @@ function useEntrance(animation: LayerT["animation"]) {
   }
 }
 
-const POSITION_STYLE: Record<LayerT["position"], React.CSSProperties> = {
-  center: { alignItems: "center", justifyContent: "center" },
-  top: { alignItems: "center", justifyContent: "flex-start", paddingTop: "12%" },
-  bottom: { alignItems: "center", justifyContent: "flex-end", paddingBottom: "14%" },
-  "upper-third": { alignItems: "center", justifyContent: "flex-start", paddingTop: "22%" },
-  "lower-third": { alignItems: "center", justifyContent: "flex-end", paddingBottom: "22%" },
-};
-
-// Each text layer renders as its own full-screen positioned AbsoluteFill, so two
-// text layers in the same vertical BAND overlap completely (the "glitchy
-// doubled text" look). De-conflict bands per scene: keep the layer's position
-// when its band is free, else move it to a free band. Preserves good LLM
-// layouts and hard-guarantees no overlap even if the model collides positions.
-const BAND_OF: Record<LayerT["position"], "upper" | "middle" | "lower"> = {
+// ─── Flow-layout bands (ported from the image engine) ────────────────────────
+// Text no longer renders as free-floating full-screen AbsoluteFills that can sit
+// on top of each other. Every text layer is assigned to one of three fixed slots
+// (upper/middle/lower) in a flex column inside the safe area; siblings in a slot
+// stack and push each other down, so overlap is structurally impossible — no
+// de-confliction referee needed.
+type Band = "upper" | "middle" | "lower";
+const BAND_ORDER: Band[] = ["upper", "middle", "lower"];
+const BAND_OF: Record<LayerT["position"], Band> = {
   top: "upper",
   "upper-third": "upper",
   center: "middle",
   bottom: "lower",
   "lower-third": "lower",
 };
-const FREE_POSITIONS: LayerT["position"][] = ["center", "upper-third", "lower-third", "top", "bottom"];
+const SLOT_ALIGN: Record<Band, "flex-start" | "center" | "flex-end"> = {
+  upper: "flex-start",
+  middle: "center",
+  lower: "flex-end",
+};
 
-function deconflictTextPositions(layers: ResolvedScene["layers"]): Record<number, LayerT["position"]> {
-  const used = new Set<string>();
-  const resolved: Record<number, LayerT["position"]> = {};
-  layers.forEach((l, i) => {
-    if (l.kind !== "text") return;
-    let pos = l.position;
-    if (used.has(BAND_OF[pos])) {
-      pos = FREE_POSITIONS.find((p) => !used.has(BAND_OF[p])) ?? pos;
-    }
-    used.add(BAND_OF[pos]);
-    resolved[i] = pos;
-  });
-  return resolved;
+const isHero = (l: LayerT) => l.sizePct >= 8;
+// Display type gets tight negative tracking; small caps/kickers get it positive.
+const trackingFor = (l: LayerT) => (isHero(l) ? -0.02 : 0.08);
+
+// Tall formats reserve room for platform chrome; square/landscape get a margin.
+function safeInset(width: number, height: number): { x: number; y: number } {
+  const tall = height / width > 1.5;
+  return { x: width * 0.06, y: tall ? height * 0.13 : height * 0.06 };
 }
 
 // Frames each word's entrance lags behind the previous one — the kinetic
@@ -146,55 +141,76 @@ function wordEntrance(
   }
 }
 
-function TextLayerView({
+// A single fitted text layer. fitText measures against the real loaded font and
+// shrinks to fit its allotted box (height-aware, unlike the old longest-word
+// hack that let hero lines overflow the frame). Words animate in individually to
+// keep the kinetic-typography look; the stagger index runs continuously across
+// wrapped lines so the cascade reads left-to-right, top-to-bottom.
+function TextBlock({
   layer,
-  palette,
-  width,
-  height,
+  color,
+  boxW,
+  boxH,
+  canvasH,
 }: {
   layer: LayerT;
-  palette: SpecVideoProps["palette"];
-  width: number;
-  height: number;
+  color: string;
+  boxW: number;
+  boxH: number;
+  canvasH: number;
 }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  // Auto-fit: cap the font so the longest word fits the text column on one line
-  // (long words can't wrap). Approx uppercase advance ≈ 0.62em.
-  const requested = (layer.sizePct / 100) * height;
-  const innerWidth = width * 0.86; // matches the 7% horizontal padding each side
-  const words = layer.text.split(/\s+/).filter(Boolean);
-  const longestWordLen = Math.max(1, ...words.map((w) => w.length));
-  const maxForFit = innerWidth / (longestWordLen * 0.62);
-  const fontSize = Math.round(Math.min(requested, maxForFit));
-  const color = layer.accent ? palette.accent : layer.color;
+  const family = fontStack(layer.fontFamily);
+  const weight = fontWeight(layer.fontFamily);
+  const trackingEm = trackingFor(layer);
+  const lineHeight = isHero(layer) ? 1.02 : 1.2;
+  const text = layer.uppercase ? layer.text.toUpperCase() : layer.text;
+
+  const { fontSize, lines } = fitText(
+    text,
+    boxW,
+    boxH,
+    {
+      maxSize: (layer.sizePct / 100) * canvasH,
+      minSize: 14,
+      maxLines: isHero(layer) ? 3 : 2,
+      lineHeight,
+      weight,
+      trackingEm,
+    },
+    family
+  );
+  if (lines.length === 0) return null;
+
+  let wordIndex = 0;
   return (
-    <AbsoluteFill style={{ ...POSITION_STYLE[layer.position], display: "flex", paddingLeft: "7%", paddingRight: "7%" }}>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: `${Math.round(fontSize * 0.06)}px ${Math.round(fontSize * 0.28)}px`,
-          textAlign: "center",
-          fontFamily: fontStack(layer.fontFamily),
-          fontWeight: 800,
-          fontSize,
-          lineHeight: 1.05,
-          color,
-          textTransform: layer.uppercase ? "uppercase" : "none",
-          textShadow: `0 ${Math.round(fontSize * 0.05)}px ${Math.round(fontSize * 0.16)}px rgba(0,0,0,0.5)`,
-          maxWidth: "100%",
-        }}
-      >
-        {words.map((word, i) => (
-          <span key={i} style={{ display: "inline-block", willChange: "transform, opacity", ...wordEntrance(layer.animation, frame, fps, i) }}>
-            {word}
-          </span>
-        ))}
-      </div>
-    </AbsoluteFill>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      {lines.map((line, li) => (
+        <div
+          key={li}
+          style={{
+            display: "flex",
+            flexWrap: "nowrap",
+            gap: `0 ${Math.round(fontSize * 0.26)}px`,
+            fontFamily: family,
+            fontWeight: weight,
+            fontSize,
+            lineHeight,
+            letterSpacing: `${trackingEm * fontSize}px`,
+            color,
+            textAlign: "center",
+            textShadow: `0 ${Math.round(fontSize * 0.05)}px ${Math.round(fontSize * 0.16)}px rgba(0,0,0,0.5)`,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {line.split(/\s+/).filter(Boolean).map((word) => {
+            const style = { display: "inline-block", willChange: "transform, opacity", ...wordEntrance(layer.animation, frame, fps, wordIndex++) };
+            return <span key={wordIndex} style={style}>{word}</span>;
+          })}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -245,27 +261,79 @@ function SceneView({
   width: number;
   height: number;
 }) {
-  const textPositions = deconflictTextPositions(scene.layers);
   const indexed = scene.layers.map((layer, i) => ({ layer, i }));
   // Shapes are accents / backing cards, so they ALWAYS render BEHIND text —
   // otherwise a shape placed after a text layer covers it (muddy, unreadable).
   const shapes = indexed.filter((x) => x.layer.kind === "shape");
-  const texts = indexed.filter((x) => x.layer.kind === "text");
+  const texts = indexed.filter((x) => x.layer.kind === "text" && x.layer.text.trim().length > 0);
+
+  const inset = safeInset(width, height);
+  const safeW = width - inset.x * 2;
+  const safeH = height - inset.y * 2;
+
+  // Assign each text layer to a fixed band slot; empty slots still reserve their
+  // third of the column so an occupied band lands where it asked to.
+  const byBand = BAND_ORDER.map((band) => ({
+    band,
+    layers: texts.filter((x) => BAND_OF[x.layer.position] === band),
+  }));
+  const occupied = byBand.filter((b) => b.layers.length > 0);
+  const gap = safeH * 0.04;
+  const available = safeH - gap * Math.max(0, occupied.length - 1);
+  const weightOf = (ls: typeof texts) => (ls.some((x) => isHero(x.layer)) ? 3 : 1);
+  const totalWeight = occupied.reduce((s, b) => s + weightOf(b.layers), 0) || 1;
+
   return (
     <AbsoluteFill>
       <Background scene={scene} palette={palette} />
       {shapes.map(({ layer, i }) => (
         <ShapeLayerView key={`s${i}`} layer={layer} width={width} height={height} />
       ))}
-      {texts.map(({ layer, i }) => (
-        <TextLayerView
-          key={`t${i}`}
-          layer={{ ...layer, position: textPositions[i] ?? layer.position }}
-          palette={palette}
-          width={width}
-          height={height}
-        />
-      ))}
+      <AbsoluteFill
+        style={{
+          paddingLeft: inset.x,
+          paddingRight: inset.x,
+          paddingTop: inset.y,
+          paddingBottom: inset.y,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap,
+        }}
+      >
+        {byBand.map(({ band, layers: bandLayers }) => {
+          if (bandLayers.length === 0) return <div key={band} style={{ flex: 1 }} />;
+          const bandH = (available * weightOf(bandLayers)) / totalWeight;
+          const sizeSum = bandLayers.reduce((s, x) => s + x.layer.sizePct, 0) || 1;
+          const innerGap = safeH * 0.018;
+          const contentH = bandH - innerGap * (bandLayers.length - 1);
+          return (
+            <div
+              key={band}
+              style={{
+                flex: weightOf(bandLayers),
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: SLOT_ALIGN[band],
+                alignItems: "center",
+                gap: innerGap,
+                width: "100%",
+              }}
+            >
+              {bandLayers.map(({ layer, i }) => (
+                <TextBlock
+                  key={`t${i}`}
+                  layer={layer}
+                  color={layer.accent ? palette.accent : layer.color}
+                  boxW={safeW}
+                  boxH={(contentH * layer.sizePct) / sizeSum}
+                  canvasH={height}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 }

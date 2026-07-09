@@ -1,176 +1,169 @@
-# Plan: Configurable Image Providers + Settings-managed API Keys
+# Buzz Content-Quality Adoption Plan
 
-**Status:** Plan only — no code changes yet.
-**Date:** 2026-06-28
+What to adopt from the OpenMontage study (+ the layout/judge research) to make image
+and video output look creatively directed instead of AI slop.
 
-## Objective
+**Hard constraint:** free/local tools only — ffmpeg, ffprobe, Remotion (headless
+Chrome), sharp — plus the LLM CLIs we already pay for (Claude Code, Codex, agy).
+No paid generation or evaluation APIs.
 
-Let the app generate images with any of three providers — **Pollinations**, **Google AI Studio (Gemini)**, or **HuggingFace** — chosen **per product** (mirroring the existing per-product `text_provider`). All API keys (text *and* image) move out of `.env` and into the DB-backed **Settings** UI, which becomes the single source of truth.
-
-## Confirmed decisions
-
-| # | Decision | Resolution |
-|---|----------|------------|
-| 1 | Default image provider | **Pollinations** stays the default — nothing changes until a product/global setting selects otherwise. |
-| 2 | Gemini SDK | Use the **already-installed** `@google/generative-ai@0.24.1` (no new dependency). HuggingFace shows a **model dropdown** (researched options below). |
-| 3 | Scope | **Per-product** image provider, mirroring `products.text_provider`. Global default lives in Settings as the fallback. |
-| 4 | API keys | **No API keys in `.env`.** Both text and image provider keys are entered in Settings and read from the DB. |
-| 5 | Secret handling | `GET /api/settings` masks secret values; key inputs are write-only. |
+**Already shipped (context, not tasks):** image fit-to-box typography + flow bands;
+image archetype vocabulary + relational decor; hero ≥ 3× kicker; pairwise
+order-swapped vision judge (round-robin, tie-on-disagreement); background cache;
+product-screenshot letterboxing.
 
 ---
 
-## Research findings
+## MUST — broken or contradictory today; everything else stacks on these
 
-### Google Gemini image generation with the installed SDK
+- [ ] **M1. Port the image fixes into video** (`src/remotion/SpecVideo.tsx`, `spec.ts`)
+  The video spec still has everything we just cured for images: free-floating
+  `{shape, xPct, yPct}` layers, five position enums, longest-word text sizing.
+  Port: fit-to-box (`text-fit.ts`), flow-layout bands (fixed slots), relational
+  decor replacing coordinate shapes, per-font real weights, balanced line breaks.
 
-- `@google/generative-ai@0.24.1` is **officially deprecated/legacy** (its `README.md` line 1: "[Deprecated] Google AI JavaScript SDK"; recommends migrating to `@google/genai`). Its TypeScript types **do not** include `responseModalities`.
-- **However**, the SDK is a thin pass-through: `dist/index.js` builds the request with `Object.assign({ generationConfig: this.generationConfig, ... }, formattedParams)` (lines ~1377/1393) — it does **not** whitelist `generationConfig` fields. So a `generationConfig: { responseModalities: ["Image"] }` passed via a TS cast is forwarded verbatim to the `v1beta` endpoint.
-- Reading image output is supported: the response part type `GenerativeContentBlob` / `inlineData` exists in the type defs. Image bytes arrive as `response.candidates[0].content.parts[].inlineData = { mimeType, data (base64) }`.
-- **Model:** `gemini-2.5-flash-image` ("Nano Banana"). Aspect ratio is hinted via prompt (the `imageConfig.aspectRatio` knob is a `@google/genai`-only convenience).
-- **Caveat / risk:** because we rely on undocumented pass-through of a deprecated SDK, a runtime smoke test is mandatory (see Phase 7). Pricing for reference: ~$0.039/image (1290 output tokens @ $30/1M).
+- [ ] **M2. Judge video by pixels, not JSON summaries**
+  Video best-of-N still judges spec summaries — the exact "art-directing over the
+  phone" failure images had. Cheap route (their trick): extract 4 frames at
+  10/35/65/90% via ffmpeg, feed the stills to the existing pairwise judge
+  (`vision-judge.ts` works unchanged on stills).
 
-### Best HuggingFace text-to-image models to offer (mid-2026)
+- [ ] **M3. Post-render self-review for every video** (new `src/lib/video/final-review.ts`)
+  We currently never look at finished renders. All free:
+  - ffprobe: valid container, duration vs target (>25% drift = flag), resolution,
+    audio stream present
+  - `ffmpeg -af volumedetect`: mean < −60dB = silent narration; max > −0.5dB = clipping
+  - 4-frame extraction → vision judge spot-check (unreadable text, broken layout)
+  - Hard rule: a failing review cannot be presented as success.
 
-| Model id | Why offer it |
-|----------|--------------|
-| `black-forest-labs/FLUX.1-schnell` | Fast, Apache-2.0, most free-tier-friendly — **default** |
-| `black-forest-labs/FLUX.1-dev` | Higher quality than schnell |
-| `Qwen/Qwen-Image` | Current quality leader (Feb 2026 "Qwen-Image-2.0"); best complex-text rendering, native 2K |
-| `stabilityai/stable-diffusion-3.5-large` | Strong general-purpose alternative |
+- [ ] **M4. Fix the font monoculture** (`src/remotion/fonts.ts`)
+  4 of our 9 fonts are on the "instant AI tell" list — including the default
+  (Inter) and display faces (Poppins, Playfair, Roboto). Add 2–3 non-monoculture
+  faces loadable headless via `@remotion/google-fonts`; obey pairing guardrails:
+  never two sans-serifs, cross serif+sans or sans+mono, weight gap ≥ 200.
 
-- **Endpoint risk:** HF's serverless image surface is in flux (classic `api-inference.huggingface.co` vs. the newer Inference Providers router). Plan: default to `POST https://api-inference.huggingface.co/models/{model}` returning raw image bytes; if a chosen model is only on Inference Providers, fall back to the router. **Confirm the working endpoint per model during implementation** (Phase 2).
+## NEED — the biggest quality-per-effort wins after MUST
 
-**Sources:**
-- [Gemini API — Image generation](https://ai.google.dev/gemini-api/docs/image-generation)
-- [Introducing Gemini 2.5 Flash Image (Nano Banana)](https://developers.googleblog.com/introducing-gemini-2-5-flash-image/)
-- [`@google/generative-ai` deprecation / migration](https://ai.google.dev/gemini-api/docs/migrate)
-- [HuggingFace — Text-to-Image task](https://huggingface.co/docs/inference-providers/tasks/text-to-image)
-- [Qwen-Image (HF)](https://huggingface.co/Qwen/Qwen-Image)
-- [Text-to-Image model king: Qwen Image vs FLUX](https://huggingface.co/blog/MonsterMMORPG/new-text-to-image-model-king-is-qwen-image-flux-de)
+- [ ] **N1. Scene-intent schema + slideshow-risk gate** (spec.ts + new `src/lib/video/risk.ts`)
+  Add per-scene: `shot_intent` (why this shot exists), `narrative_role`
+  (hook | establish | build | payload | evidence | cta), `hero_moment: bool`.
+  Then lift their scorer as ~100 lines of arithmetic (no LLM): flag >70% same
+  scene type, >60% text-first scenes, scenes with no stated purpose, no hero
+  moment. Verdict <2 strong / <3 acceptable / <4 revise / ≥4 block render.
+  The gate is really the schema: purposeless scenes become *detectable*.
 
----
+- [ ] **N2. Pacing + transition austerity constants** (SpecVideo + author prompt)
+  - Tone→hold table: elegiac 4.0s (2.5–7.0) · reverent 3.5 · dreamlike 3.0 ·
+    wry 2.0 · urgent 1.2s (0.5–2.5). Heroes hold longest; compress non-heroes first.
+  - ≤ 4 transition types per video; one primary carries 60–70% of cuts.
+    (Our fade/slide/wipe/clockWipe/flip free-for-all is "social-media edit slop".)
+  - ≥ 3 distinct easings per composition; entrances `.out`, exits `.in`;
+    velocity-matched cuts (exit power3.in meets entry power3.out at the cut).
+  - One deliberate ~2s silence/music-drop at the emotional center — once only.
+  - Music base volume ~0.1 under narration; fade-in 2s, fade-out 3s.
 
-## Architecture
+- [ ] **N3. Style playbooks — one preset end-to-end as proof** (new `src/lib/style/`)
+  Slop = arbitrary finish. A preset locks: font pairing (with rationale),
+  single-accent tint ladder (accent @ 4% card / 8% tint / 15% tint / 20% border;
+  never pure #000/#fff — tint neutrals toward the accent), a composition rule,
+  Remotion `springConfig` (motion personality is part of a look), and
+  `anti_patterns` strings. Applies to images AND video via the same tokens.
+  Brand stays sacred: preset decides treatment, never overrides brand colors/voice.
+  Build ONE (non-default register), render the same copy through it, compare.
+  Only then decide whether to systematize.
 
-### Data model
+- [ ] **N4. Judge upgrades from their CHAI reviewer rules** (`vision-judge.ts` prompts)
+  - Every critical finding must reference a concrete visible artifact and propose
+    a fix expressible in our spec vocabulary; else it's "investigation", not critical.
+  - Revision cap: max 2 rounds, then pass-with-warnings (kills infinite revise loops).
+  - Anti-generic test verbatim: "Could this belong to any product after replacing
+    the title? If yes → too generic." Feed the preset's anti_patterns to the judge.
 
-- **No new settings table** — reuse `settings(key unique, value)` (`drizzle/schema.ts:104`). New keys are just rows (no migration):
-  - `IMAGE_PROVIDER` — global default: `pollinations` \| `gemini` \| `huggingface` (default `pollinations`)
-  - `IMAGE_MODEL_HUGGINGFACE` — selected HF model (default `black-forest-labs/FLUX.1-schnell`)
-  - `GOOGLE_AI_API_KEY`, `HUGGINGFACE_API_KEY`, `POLLINATIONS_API_KEY` — secret (shared: the Google/HF keys power **both** text and image)
-- **New per-product column** (`drizzle/schema.ts`, after line 17 `text_provider`): `imageProvider: text("image_provider")` — nullable; `null` = use global default. **Requires `npm run db:push`** (per project memory: use `db:push`, not generate/migrate — journal is stale).
+## SHOULD — real wins, not blocking
 
-### Resolution logic (the core contract)
+- [ ] **S1. Background decor layer for images** (ImageComposition)
+  2–5 always-on depth elements; the standout: ghost text — a giant theme word at
+  3–8% opacity behind the hero. Directly fixes the dead-center void in
+  type-as-image / big-type-small-caption. Add as decor roles (`ghost-word`,
+  `radial-glow`, `grain`) — still zero coordinates.
+
+- [ ] **S2. FLUX prompt engineering** (image provider + author prompt)
+  - HF provider currently sends bare `{inputs: prompt}` — add
+    `num_inference_steps: 4, guidance: 3.0`.
+  - Prompt formula: subject → action → style → context → lighting → technical,
+    natural prose not tag soup.
+  - Hex + plain-English name pairs ("#7CFC5A (spring green)"), cap 3–5 colors,
+    bind colors to named regions to stop bleeding.
+  - Per-preset `image_prompt_prefix` + `negative_prompt` + consistency anchors
+    owned by the style playbook, not the caller.
+
+- [ ] **S3. Ken Burns alignment + text-over-video legibility** (SpecVideo)
+  Their constants: scale 1.18–1.22 over the cut, ±25–40px diagonal drift, spring
+  damping 18 / stiffness 80. Legibility over footage: brightness(0.55)
+  saturate(0.85) on the clip + local gradient scrim + text-shadow — never just
+  lower the video opacity.
+
+- [ ] **S4. Caption discipline** (Captions.tsx)
+  Vertical: 3–4 words/cue, ~20 chars/line; reading speed ~15 chars/sec;
+  min display 0.5s, max 5s; cue end +200ms past the last word; karaoke
+  active-word highlight as the baseline.
+
+- [ ] **S5. AI-cliché blocklist in author prompts** (image + video catalog prompts)
+  Never: gradient text · left-edge accent stripes on cards · cyan-on-dark /
+  purple-blue gradients · pure #000/#fff · identical repeated card grids ·
+  everything centered with equal weight · same transition on every cut.
+
+- [ ] **S6. Cloudflare Workers AI image provider** (new provider)
+  ~230 free FLUX-schnell images/day (10k neurons/day, no card), plus FLUX.2
+  klein/dev for a quality bump. HF free tier is shrinking; Pollinations 401s in
+  prod. Keep both as fallbacks behind Cloudflare.
+
+## GOOD-TO-HAVE — when the above is proven
+
+- [ ] **G1. Deterministic pre-judge gates for images**: WCAG contrast sampled under
+  actual text boxes (alpha-aware), LayoutGAN-style overlap/alignment metrics —
+  reject before spending judge calls. (Partly moot: our flow layout already makes
+  overlap impossible.)
+- [ ] **G2. Color-blind palette check**: hue-confusion ranges per CVD type; flag
+  accent pairs that collide with lightness diff < 0.3.
+- [ ] **G3. Deviation budget**: `max_deviation_ratio ≈ 0.2` — let 1 in 5 assets
+  intentionally break the preset so batches don't go monotonous.
+- [ ] **G4. Golden set**: keep (spec, render) pairs the judge scored highly; sample
+  2–3 per generation as few-shot references, tagged by creative angle.
+  Homogenization guard: rotate samples, never pin the same ones.
+- [ ] **G5. Extraction timeout fix** (`claude-code.ts`): configurable timeout via
+  env (extraction needs > 120s) and a real "timed out after Ns" error instead of
+  bare exit 143. Latent prod bug — bites on every heavy brief.
+- [ ] **G6. Curate mode — Pexels API**: free, 200 req/hr / 20k month, commercial-safe,
+  no attribution; real photography often beats generated for marketing backgrounds.
+- [ ] **G7. Provider scoring done honestly**: their 7-dim engine is a static table
+  whose measurement hooks no code ever writes. If we ever score claude/codex/agy
+  per task, feed it real pairwise-judge outcomes — we have the data they stubbed.
+- [ ] **G8. Beat-grid sync (librosa audiomap)**: local beat/downbeat extraction for
+  music-driven cuts. Only relevant once Buzz videos use real music beds.
+
+## Explicitly NOT adopting
+
+- **HyperFrames**: external HeyGen CLI, not vendorable source; Remotion covers it.
+  Take the motion grammar (N2/S3), skip the engine.
+- **Their 9-stage pipeline/checkpoint/backlot orchestration**: we're a Next.js app
+  with a jobs table, not an agent factory.
+- **Palette retrieval bank**: we're brand-driven; the client's colors beat a lookup
+  table. The tint-ladder generator (N3) is the useful half.
+- **Paid providers**: Kling / Runway / Veo / ElevenLabs — violates the constraint.
+- **CLIP corpus retrieval / diarization / 2.5D parallax**: premature (and the depth
+  tool doesn't even exist in their repo — their stills strategy is Ken Burns too).
+
+## Sequencing
 
 ```
-resolveImageProvider(productImageProvider?):
-  name = productImageProvider || getSetting("IMAGE_PROVIDER") || env.IMAGE_PROVIDER || "pollinations"
-  key  = getApiKey(KEY_FOR[name])            // settings-first, env fallback
-  switch name:
-    pollinations -> createPollinationsImageProvider({ apiKey: key })
-    gemini       -> createGeminiImageProvider({ apiKey: key })
-    huggingface  -> createHuggingFaceImageProvider({ apiKey: key, model: getImageModel() })
-
-getApiKey(name)   = (await getSetting(name)) || process.env[name] || ""
-getImageModel()   = (await getSetting("IMAGE_MODEL_HUGGINGFACE")) || "black-forest-labs/FLUX.1-schnell"
+M1 → M2 → M3  (video correctness + eyes)      ~2 days
+M4 + N3       (fonts + one preset proof)      ~1 day
+N1 + N2       (intent schema + pacing)        ~1 day
+N4 + S5       (judge + prompt upgrades)       ~half day
+S1–S4, S6     as follow-ups
+G*            on demand
 ```
 
-**Hard invariant (do not break):** every image provider must save the file under `public/media/` and return `localPath` (a `/api/media/...` path). The video orchestrator depends on it — `orchestrator.ts:250` does `urlPathToFs(imgResult.localPath)` for ffmpeg. The current Pollinations provider already does this.
-
-### Why env stays a *silent* fallback
-
-`getApiKey` reads Settings first, then `process.env`. This keeps existing deployments working through the migration. `.env.example` will **stop listing the keys as required** (documented as "set via Settings UI"). This honors "nothing in `.env` for keys" while avoiding a hard breakage if a key isn't yet entered. (If you want a *hard* removal with no env fallback, say so — it's a one-line change but means generation throws until keys are entered in Settings.)
-
----
-
-## Implementation phases
-
-### Phase 1 — Settings helpers (`src/lib/settings.ts`)
-Add, mirroring the existing `getTextProvider()`:
-- `getImageProviderName(): Promise<string>` → `getSetting("IMAGE_PROVIDER") || process.env.IMAGE_PROVIDER || "pollinations"`
-- `getApiKey(name: string): Promise<string>` → `getSetting(name) || process.env[name] || ""`
-- `getImageModel(): Promise<string>` → `getSetting("IMAGE_MODEL_HUGGINGFACE") || "black-forest-labs/FLUX.1-schnell"`
-- **Verify:** returns DB value when a row exists, env when not, default otherwise.
-
-### Phase 2 — Image providers (`src/lib/providers/`)
-- **Edit `image.ts`** — `createPollinationsImageProvider(config: ProviderConfig = {})`: take key from `config.apiKey ?? process.env.POLLINATIONS_API_KEY` (line 15). No other behavior change.
-- **New `image-gemini.ts`** — `createGeminiImageProvider({ apiKey })`:
-  - `new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: "gemini-2.5-flash-image" })`
-  - `generateContent({ contents:[{ role:"user", parts:[{ text: prompt }] }], generationConfig: ({ responseModalities:["Image"] } as unknown as GenerationConfig) })`
-  - Find the part with `inlineData`, `Buffer.from(data, "base64")`, save to `public/media/gemini-<ts>.png`, return `{ url: localPath, localPath: "/api/media/<file>" }`.
-  - Aspect ratio: append a hint to the prompt from `input.width/height`.
-- **New `image-hf.ts`** — `createHuggingFaceImageProvider({ apiKey, model })`:
-  - `POST https://api-inference.huggingface.co/models/{model}` with `{ inputs: prompt }`, `Authorization: Bearer <key>`; response is raw image bytes → save → return `localPath`. (Confirm endpoint per model; fall back to Inference Providers router if needed.)
-- **Export** all three from `index.ts`.
-- **Verify:** each writes a real file to `public/media/` and returns a valid `/api/media/...` path.
-
-### Phase 3 — Factory / resolvers (`src/lib/providers/factory.ts`)
-- `createTextProvider(providerName?, config?: { apiKey?: string })` — forward `config` into `createGeminiTextProvider`/`createHuggingFaceTextProvider` (both already accept `config.apiKey`). Antigravity ignores it.
-- `resolveTextProvider(productTextProvider?: string | null): Promise<TextProvider>` — resolve name (`productTextProvider || getTextProvider()`), pick the key by family (`gemini*` → `GOOGLE_AI_API_KEY`; `huggingface` → `HUGGINGFACE_API_KEY`; `antigravity` → none), call `createTextProvider(name, { apiKey })`.
-- `resolveImageProvider(productImageProvider?: string | null): Promise<ImageProvider>` — per the contract above.
-- **Verify:** typechecks; resolvers return a provider whose `name` reflects the chosen family.
-
-### Phase 4 — Migrate all construction sites (satisfies #4)
-Replace direct env-keyed construction with the resolvers:
-
-| File:line | Change |
-|-----------|--------|
-| `generate.ts:79` | `createTextProvider(...)` → `await resolveTextProvider(product.textProvider)` |
-| `generate.ts:119` | `createPollinationsImageProvider()` → `await resolveImageProvider(product.imageProvider)` |
-| `video/orchestrator.ts:138` | → `await resolveTextProvider(product.textProvider)` |
-| `video/orchestrator.ts:198` | → `await resolveImageProvider(product.imageProvider)` |
-| `api/products/[id]/brainstorm/route.ts:87` | → `await resolveTextProvider(product.textProvider)` |
-| `brain/extract.ts:38` | `createTextProvider(textProvider)` → `await resolveTextProvider(textProvider)` |
-
-- **Verify:** `grep -rn "process.env.\(GOOGLE_AI\|HUGGINGFACE\|POLLINATIONS\)_API_KEY" src` returns only the in-provider `getApiKey` fallbacks; no caller reads keys directly.
-
-### Phase 5 — Per-product UI (`src/components/ProductForm.tsx`)
-Mirror the `textProvider` pattern exactly:
-- State: `const [imageProvider, setImageProvider] = useState(product?.imageProvider || "")` (`""` = use default).
-- Dropdown (next to the Text Provider block at lines 281–317): `Use default` / `Pollinations` / `Google AI Studio (Gemini)` / `HuggingFace`.
-- Include in submit payload alongside `textProvider` (line ~157): `imageProvider: imageProvider || null`.
-- **API routes** — mirror `textProvider`:
-  - `api/products/route.ts:62` (POST) → add `imageProvider: body.imageProvider || null`
-  - `api/products/[id]/route.ts:110,131` (PUT) → add `imageProvider: body.imageProvider || null`
-- **Verify:** set a product's image provider, save, reload → persists; generation uses it.
-
-### Phase 6 — Settings UI (`src/app/settings/page.tsx`)
-- **New "API Keys" card** — three write-only password inputs: Google AI, HuggingFace, Pollinations. Each saves via existing `PUT /api/settings { key, value }` on blur/Save. Show "•••• set" when a value already exists (from masked GET).
-- **New "Default Image Provider" card** — dropdown (`pollinations`/`gemini`/`huggingface`) → `PUT IMAGE_PROVIDER`. When `huggingface` is selected, reveal a **model dropdown** (the four researched options) → `PUT IMAGE_MODEL_HUGGINGFACE`. (Mirrors the antigravity model sub-dropdown.)
-- **Verify:** selections persist across reload; entering a key then generating uses it.
-
-### Phase 7 — Secret hardening (`src/app/api/settings/route.ts`)
-- In `GET`, mask values whose key matches `/(_API_KEY|SECRET|TOKEN|PASSWORD)$/i`: return a marker (`"••••" + last4`) or `{ __set: true }` instead of the raw value. Non-secret keys (`IMAGE_PROVIDER`, `IMAGE_MODEL_HUGGINGFACE`, `TEXT_PROVIDER`) return normally.
-- UI treats key fields as write-only: only `PUT` when the user types a new value (empty input = leave unchanged).
-- **Verify:** `GET /api/settings` response contains no full key strings.
-
-### Phase 8 — `.env` cleanup
-- Remove `GOOGLE_AI_API_KEY`, `HUGGINGFACE_API_KEY`, `POLLINATIONS_API_KEY` from `.env.example` (and clear in `.env`); add a comment: "AI provider API keys are managed in Settings → API Keys." Non-key config (`ANTIGRAVITY_BIN`, `ADMIN_PASSWORD`, `FACEBOOK_*`, `INSTAGRAM_*`, `DATABASE_PATH`, `TEXT_PROVIDER`) stays.
-
----
-
-## Verification (end-to-end)
-
-1. `npm run db:push` succeeds; `products.image_provider` column exists.
-2. `npm run lint` and `npm run build` clean (keep the zero-ESLint-warning state).
-3. In Settings: enter each key; pick global image provider; pick HF model.
-4. Generate an **image post** with a product set to each provider → image renders, file lands in `public/media/`, post shows it.
-5. Generate a **video** (orchestrator path) with a non-Pollinations product → scenes render via the chosen provider (confirms the `localPath` invariant).
-6. Per-product override beats the global default; `""`/null falls back to the default.
-7. `GET /api/settings` shows masked keys only.
-
----
-
-## Risks & mitigations
-
-- **Deprecated Gemini SDK image path** — undocumented pass-through. *Mitigation:* Phase 7 smoke test; if it fails at runtime, the fallback is a raw `fetch` to `…/models/gemini-2.5-flash-image:generateContent` (same request body), or adding `@google/genai`. Flag back before switching approaches.
-- **HF serverless endpoint drift** — *Mitigation:* verify endpoint per model in Phase 2; keep the model list small and tested.
-- **Free-tier limits / quota errors** — providers may 429. *Mitigation:* surface provider errors to the UI rather than failing silently (current code throws on `!response.ok`).
-- **Key migration gap** — a deploy with empty Settings keys and blanked `.env` will fail generation until keys are entered. *Mitigation:* the silent env fallback in `getApiKey` (see above); document the one-time Settings entry step.
-
-## Out of scope (intentionally)
-
-- Per-product **model** override (model stays a global Settings choice; provider is per-product).
-- Imagen / other Gemini image models (different `:predict` API).
-- Migrating non-key config out of `.env`.
-- Local GPU generation (no NVIDIA GPU on this host).
+Rationale: OpenMontage's whole quality layer presumes a renderer that can't emit
+broken output. For video we don't have that yet — M1 first, always.
