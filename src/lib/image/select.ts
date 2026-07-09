@@ -6,7 +6,7 @@ import {
   type ImageAuthorInput,
 } from "./spec-author";
 import { renderSpecImage, type RenderImageOpts, type RenderImageResult } from "./render-spec";
-import { judgeRenderedImages, resolveVisionProvider } from "./vision-judge";
+import { comparePair, critique, pickWinner, resolveVisionProvider } from "./vision-judge";
 
 export interface SelectImageInput extends ImageAuthorInput {
   textProvider: TextProvider;
@@ -47,20 +47,22 @@ export async function renderBestImage(input: SelectImageInput): Promise<RenderIm
 
   const vision = resolveVisionProvider();
   const context = { productName: input.productName, vibe: input.vibe, caption: input.caption };
-  const verdict = await judgeRenderedImages(vision, rendered.map((r) => r.url), context);
 
-  const winnerSpec = specs[verdict.winner];
-  const winnerRender = rendered[verdict.winner];
-  if (!verdict.notes.trim()) return winnerRender;
+  const winner = await pickWinner(vision, rendered.map((r) => r.url), context);
+  const winnerSpec = specs[winner];
+  const winnerRender = rendered[winner];
 
-  // Revise against the notes, re-render, then confirm the revision is actually
-  // better. A revision that regresses is discarded rather than trusted.
-  const revisedSpec = await reviseImageSpec(input.textProvider, input, winnerSpec, verdict.notes);
+  const notes = await critique(vision, winnerRender.url, context);
+  if (!notes.trim()) return winnerRender;
+
+  const revisedSpec = await reviseImageSpec(input.textProvider, input, winnerSpec, notes);
   if (revisedSpec === winnerSpec) return winnerRender;
 
+  // The revision must beat the original in BOTH presentation orders. A tie means
+  // the two orders disagreed, which is position bias rather than an improvement —
+  // so we keep what we already had. Revisions must earn their place.
   const revisedRender = await renderSpecImage(revisedSpec, renderOpts);
-  const check = await judgeRenderedImages(vision, [winnerRender.url, revisedRender.url], context);
-  const improved = check.winner === 1;
-  console.log(`[image-vision] revision ${improved ? "accepted" : "rejected"}`);
-  return improved ? revisedRender : winnerRender;
+  const verdict = await comparePair(vision, winnerRender.url, revisedRender.url, context);
+  console.log(`[image-vision] revision ${verdict === "second" ? "accepted" : `rejected (${verdict})`}`);
+  return verdict === "second" ? revisedRender : winnerRender;
 }

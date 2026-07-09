@@ -12,75 +12,149 @@ export function resolveVisionProvider(): TextProvider {
   return createClaudeCodeTextProvider({ baseUrl: bin, model });
 }
 
-export interface VisionVerdict {
-  winner: number;
-  notes: string;
-  scores: number[];
-}
+// ─── Why pairwise, and why both orders ───────────────────────────────────────
+// Absolute 1-10 scoring is the least reliable judging mode: the same rendered
+// image scored 6 and then 4 across two identical calls. Pairwise comparison is
+// measurably more robust, but every judging mode carries position bias — a
+// preference for whichever candidate is shown first. So each comparison runs
+// twice with the order swapped, and only an order-independent verdict counts.
+// Disagreement between the two orders IS the signal that it's a coin flip.
+//   https://arxiv.org/abs/2406.07791  (position bias in pairwise LLM judging)
 
-const JUDGE_SYSTEM = `You are a ruthless art director reviewing RENDERED social media images.
-You are looking at the actual pixels, not a description. Judge what you see.
-
-Score each image 1-10 on: stopping power, typographic craft, legibility, composition,
-and whether the product/subject is respected rather than buried.
-
-Hard failures (score <= 4): text overlapping other text; text unreadable against its
-background; the product screenshot or photographic subject obscured by a text block;
-type running outside the safe margins.
-
-Then write art-direction notes for the WINNER only — concrete, actionable changes to
-its layout, scale, colour, or placement. Do not restate what is already good. Do not
-suggest anything that cannot be expressed as position, size, colour, font, uppercase,
-or shape placement.
-
-Respond with ONLY this JSON:
-{"scores": [<one number per image, in order>], "winner": <0-based index>, "notes": "<notes for the winner>"}`;
-
-function parseVerdict(raw: string, count: number): VisionVerdict | null {
+function parseJson(raw: string): unknown | null {
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) return null;
-  let value: unknown;
   try {
-    value = JSON.parse(match[0]);
+    return JSON.parse(match[0]);
   } catch {
     try {
-      value = JSON.parse(jsonrepair(match[0]));
+      return JSON.parse(jsonrepair(match[0]));
     } catch {
       return null;
     }
   }
-  const v = value as { winner?: unknown; notes?: unknown; scores?: unknown };
-  const winner = typeof v.winner === "number" && v.winner >= 0 && v.winner < count ? v.winner : null;
-  if (winner === null) return null;
-  const scores = Array.isArray(v.scores) ? v.scores.filter((s): s is number => typeof s === "number") : [];
-  return { winner, notes: typeof v.notes === "string" ? v.notes : "", scores };
 }
 
-// Look at every rendered candidate; return the winner plus notes to revise it.
-export async function judgeRenderedImages(
-  provider: TextProvider,
-  imageUrls: string[],
-  context: { productName: string; vibe: string; caption?: string }
-): Promise<VisionVerdict> {
-  if (imageUrls.length === 1) return { winner: 0, notes: "", scores: [] };
+const COMPARE_SYSTEM = `You are a ruthless art director comparing two RENDERED social media images.
+You are looking at actual pixels, not descriptions.
 
+Judge on: stopping power, typographic craft, legibility, composition, and whether the
+product or photographic subject is respected rather than buried.
+
+Automatic loser: text overlapping other text; text unreadable against its background;
+the subject obscured by a text block; type outside the safe margins.
+
+The first image is A, the second is B. Respond with ONLY: {"winner": "A"|"B", "why": "<one line>"}`;
+
+// A single A/B comparison. Returns 0 for the first url, 1 for the second, null on failure.
+async function compareOnce(
+  provider: TextProvider,
+  urlA: string,
+  urlB: string,
+  context: JudgeContext
+): Promise<0 | 1 | null> {
   const userPrompt = `Product: ${context.productName}
 Vibe: ${context.vibe}
 Caption: ${context.caption ?? ""}
 
-You are shown ${imageUrls.length} candidate images, in order (index 0 first).
-Score them all, pick the winner, and give art-direction notes for the winner.`;
-
+Image A is shown first, image B second. Which is the better post?`;
   try {
-    const res = await provider.generate({ systemPrompt: JUDGE_SYSTEM, userPrompt, images: imageUrls });
-    const verdict = parseVerdict(res.text, imageUrls.length);
-    if (verdict) {
-      console.log(`[image-vision] scores=${JSON.stringify(verdict.scores)} winner=${verdict.winner}`);
-      return verdict;
-    }
-    console.warn("[image-vision] unparseable verdict, defaulting to first candidate");
+    const res = await provider.generate({
+      systemPrompt: COMPARE_SYSTEM,
+      userPrompt,
+      images: [urlA, urlB],
+    });
+    const v = parseJson(res.text) as { winner?: unknown } | null;
+    if (v?.winner === "A") return 0;
+    if (v?.winner === "B") return 1;
+    return null;
   } catch (err) {
-    console.warn(`[image-vision] judge failed: ${err instanceof Error ? err.message : err}`);
+    console.warn(`[image-vision] compare failed: ${err instanceof Error ? err.message : err}`);
+    return null;
   }
-  return { winner: 0, notes: "", scores: [] };
+}
+
+export type PairResult = "first" | "second" | "tie";
+
+// Compare in both orders. Only an order-independent winner is a winner.
+export async function comparePair(
+  provider: TextProvider,
+  first: string,
+  second: string,
+  context: JudgeContext
+): Promise<PairResult> {
+  const forward = await compareOnce(provider, first, second, context);
+  const reverse = await compareOnce(provider, second, first, context);
+  if (forward === null || reverse === null) return "tie";
+
+  // forward: 0 => first wins.  reverse: 1 => first wins (it was shown second).
+  const firstWins = forward === 0 && reverse === 1;
+  const secondWins = forward === 1 && reverse === 0;
+  if (firstWins) return "first";
+  if (secondWins) return "second";
+  return "tie"; // the two orders disagreed: position bias, not a real preference
+}
+
+export interface JudgeContext {
+  productName: string;
+  vibe: string;
+  caption?: string;
+}
+
+// Round-robin, not single-elimination. Judge verdicts are frequently
+// non-transitive (A beats B, B beats C, C beats A), so a bracket can crown a
+// candidate that loses head-to-head against one it never met. With N=3 this is
+// three pairs instead of two — cheap insurance.
+//   https://arxiv.org/abs/2502.14074  (non-transitivity in LLM-as-a-judge)
+//
+// Only order-invariant wins score. Ties score nothing for either side, and a
+// tie on every pair leaves candidate 0 the winner by index.
+export async function pickWinner(
+  provider: TextProvider,
+  urls: string[],
+  context: JudgeContext
+): Promise<number> {
+  if (urls.length < 2) return 0;
+
+  const wins = new Array<number>(urls.length).fill(0);
+  for (let i = 0; i < urls.length; i++) {
+    for (let j = i + 1; j < urls.length; j++) {
+      const result = await comparePair(provider, urls[i], urls[j], context);
+      if (result === "first") wins[i]++;
+      else if (result === "second") wins[j]++;
+      console.log(`[image-vision] ${i} vs ${j}: ${result}`);
+    }
+  }
+
+  let best = 0;
+  for (let i = 1; i < urls.length; i++) if (wins[i] > wins[best]) best = i;
+  console.log(`[image-vision] wins=${JSON.stringify(wins)} winner=${best}`);
+  return best;
+}
+
+const CRITIQUE_SYSTEM = `You are a ruthless art director reviewing ONE rendered social media image.
+You are looking at actual pixels. Write concrete, actionable art-direction notes: changes to
+layout, scale, colour, or placement. Do not restate what already works. Do not suggest anything
+that cannot be expressed as position, size, colour, font, uppercase, or shape placement.
+
+Respond with ONLY: {"notes": "<the notes>"}`;
+
+// Notes are qualitative, so pointwise is fine here — we never compare them.
+export async function critique(
+  provider: TextProvider,
+  url: string,
+  context: JudgeContext
+): Promise<string> {
+  try {
+    const res = await provider.generate({
+      systemPrompt: CRITIQUE_SYSTEM,
+      userPrompt: `Product: ${context.productName}\nVibe: ${context.vibe}\nCaption: ${context.caption ?? ""}`,
+      images: [url],
+    });
+    const v = parseJson(res.text) as { notes?: unknown } | null;
+    return typeof v?.notes === "string" ? v.notes : "";
+  } catch (err) {
+    console.warn(`[image-vision] critique failed: ${err instanceof Error ? err.message : err}`);
+    return "";
+  }
 }
