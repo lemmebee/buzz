@@ -66,6 +66,11 @@ export interface RenderImageOpts {
   productShots?: string[];
   uploadedImages?: string[];
   productName?: string;
+  // Generated backgrounds are expensive and non-deterministic. When several
+  // candidate specs are rendered for comparison, a shared cache keyed by prompt
+  // keeps the photo identical across them, so a judge compares layouts rather
+  // than backgrounds — and a re-render of the winner reuses its own background.
+  bgCache?: Map<string, string>;
 }
 
 // Turns an authored ImageSpec into a rendered image file:
@@ -100,15 +105,24 @@ export async function renderSpecImage(
     bgKind = "image";
   } else if (healed.bgKind === "generated" && healed.bgImagePrompt.trim()) {
     try {
-      const imageProvider = await resolveImageProvider(opts.imageProviderName);
-      const img = await imageProvider.generate({
-        prompt: healed.bgImagePrompt,
-        width,
-        height,
-      });
-      bgImageSrc = img.localPath ? urlToStaticRel(img.localPath) : undefined;
-      if (bgImageSrc) bgKind = "image";
-      else bgKind = "gradient";
+      const cacheKey = `${width}x${height}:${healed.bgImagePrompt.trim()}`;
+      const cached = opts.bgCache?.get(cacheKey);
+      if (cached) {
+        bgImageSrc = cached;
+        bgKind = "image";
+      } else {
+        const imageProvider = await resolveImageProvider(opts.imageProviderName);
+        const img = await imageProvider.generate({
+          prompt: healed.bgImagePrompt,
+          width,
+          height,
+        });
+        bgImageSrc = img.localPath ? urlToStaticRel(img.localPath) : undefined;
+        if (bgImageSrc) {
+          bgKind = "image";
+          opts.bgCache?.set(cacheKey, bgImageSrc);
+        } else bgKind = "gradient";
+      }
     } catch (err) {
       console.warn(`[image-spec] bg generation failed, using gradient: ${err instanceof Error ? err.message : err}`);
       bgKind = "gradient";

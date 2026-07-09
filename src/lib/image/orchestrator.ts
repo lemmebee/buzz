@@ -167,11 +167,14 @@ export async function generateImageContent(
   const buildCreativeImage = async (item: ImageGenerated): Promise<GeneratedPost | null> => {
     const captionText = coerceText(item.caption).trim() || product.name;
 
-    const { authorBestImageSpec } = await import("@/lib/image/spec-author");
-    const { renderSpecImage } = await import("@/lib/image/render-spec");
+    const { renderBestImage } = await import("@/lib/image/select");
 
-    const { spec, source, valid } = await authorBestImageSpec({
-      provider: textProvider,
+    console.log(
+      `[image] authoring via ${textProvider.name}, productShots=${productShots.length}, uploads=${uploadedImagePaths.length}`
+    );
+
+    const r = await renderBestImage({
+      textProvider,
       productName: product.name,
       profile: rawProfile,
       strategy: rawStrategy,
@@ -182,17 +185,12 @@ export async function generateImageContent(
       caption: captionText,
       fallbackPalette: derivePalette(profile.visualIdentity?.colors),
       n: 3,
-    });
-
-    console.log(
-      `[image] creative spec via ${source} (${valid} valid) from ${textProvider.name}, bgKind=${spec.bgKind}, productShots=${productShots.length}, uploads=${uploadedImagePaths.length}`
-    );
-
-    const r = await renderSpecImage(spec, {
-      imageProviderName: product.imageProvider,
-      productShots,
-      uploadedImages: uploadedImagePaths,
-      productName: product.name,
+      renderOpts: {
+        imageProviderName: product.imageProvider,
+        productShots,
+        uploadedImages: uploadedImagePaths,
+        productName: product.name,
+      },
     });
 
     return {

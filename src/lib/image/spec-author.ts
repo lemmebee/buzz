@@ -229,6 +229,56 @@ async function judgeImageSpecs(
   return heuristicBestIndex(specs);
 }
 
+// Author N distinct variants without picking a winner. Used by the vision path,
+// which renders every candidate and judges the pixels instead of a JSON summary.
+export async function authorImageVariants(
+  provider: TextProvider,
+  input: ImageAuthorInput,
+  n: number
+): Promise<ImageSpecT[]> {
+  const count = Math.max(1, Math.min(n, IMAGE_ANGLES.length));
+  const variants = await Promise.all(
+    Array.from({ length: count }, (_, i) => authorImageOnce(provider, input, IMAGE_ANGLES[i]))
+  );
+  return variants.map((v) => v.spec).filter((s): s is ImageSpecT => s !== null);
+}
+
+// Apply an art director's notes to a spec. Returns the original on any failure —
+// a revision that won't parse is worse than the design we already have.
+export async function reviseImageSpec(
+  provider: TextProvider,
+  input: ImageAuthorInput,
+  spec: ImageSpecT,
+  notes: string
+): Promise<ImageSpecT> {
+  const systemPrompt = buildImageCatalogPrompt({
+    productShots: input.productShots,
+    uploadedImages: input.uploadedImages,
+  });
+  const userPrompt = `This design was rendered and reviewed by an art director.
+
+CURRENT SPEC:
+${JSON.stringify(spec)}
+
+ART DIRECTOR'S NOTES ON THE RENDERED IMAGE:
+${notes}
+
+Revise the spec to address the notes. Keep what works; change only what the notes call out.
+Output ONLY the corrected JSON object.`;
+
+  try {
+    const res = await provider.generate({ systemPrompt, userPrompt });
+    const parsed = parseToObject(res.text);
+    if ("error" in parsed) return spec;
+    const result = ImageSpec.safeParse(parsed.value);
+    if (!result.success) return spec;
+    return finalizeSpec(result.data, input);
+  } catch (err) {
+    console.warn(`[image-spec] revise failed, keeping original: ${err instanceof Error ? err.message : err}`);
+    return spec;
+  }
+}
+
 export interface ImageAuthorBestInput extends ImageAuthorInput {
   provider: TextProvider;
   n?: number;
@@ -239,6 +289,43 @@ export interface ImageAuthorBestResult {
   spec: ImageSpecT;
   source: "judged" | "single" | "deterministic";
   valid: number;
+}
+
+// Last-resort spec when every LLM variant fails: bold typography on a brand gradient.
+export function deterministicImageSpec(
+  input: ImageAuthorInput & { fallbackPalette?: { bg: string; accent: string; text: string } }
+): ImageSpecT {
+  const palette = input.fallbackPalette ?? { bg: "#0b0b0f", accent: "#ffd60a", text: "#ffffff" };
+  return {
+    aspectRatio: (["9:16", "1:1", "16:9", "4:5"].includes(input.aspectRatio)
+      ? input.aspectRatio
+      : "1:1") as ImageSpecT["aspectRatio"],
+    palette,
+    bgKind: "gradient",
+    bgImagePrompt: "",
+    bgImageIndex: 0,
+    bgColor: palette.bg,
+    bgColor2: palette.accent,
+    layers: [
+      {
+        kind: "text",
+        text: input.productName.split(/\s+/).slice(0, 4).join(" ").toUpperCase(),
+        position: "center",
+        animation: "none",
+        fontFamily: DISPLAY_FONTS[0],
+        sizePct: 14,
+        color: palette.text,
+        accent: false,
+        uppercase: true,
+        shape: "rect",
+        xPct: 50,
+        yPct: 50,
+        widthPct: 40,
+        heightPct: 20,
+        opacity: 1,
+      },
+    ],
+  };
 }
 
 // Best-of-N + judge with deterministic floor.
@@ -253,39 +340,7 @@ export async function authorBestImageSpec(
   console.log(`[image-spec] best-of-${n} via ${input.provider.name}: ${valid.length} valid variant(s)`);
 
   if (valid.length === 0) {
-    // Deterministic fallback: bold typography on brand gradient
-    const palette = input.fallbackPalette ?? { bg: "#0b0b0f", accent: "#ffd60a", text: "#ffffff" };
-    const fallbackSpec: ImageSpecT = {
-      aspectRatio: (["9:16", "1:1", "16:9", "4:5"].includes(input.aspectRatio)
-        ? input.aspectRatio
-        : "1:1") as ImageSpecT["aspectRatio"],
-      palette,
-      bgKind: "gradient",
-      bgImagePrompt: "",
-      bgImageIndex: 0,
-      bgColor: palette.bg,
-      bgColor2: palette.accent,
-      layers: [
-        {
-          kind: "text",
-          text: input.productName.split(/\s+/).slice(0, 4).join(" ").toUpperCase(),
-          position: "center",
-          animation: "none",
-          fontFamily: DISPLAY_FONTS[0],
-          sizePct: 14,
-          color: palette.text,
-          accent: false,
-          uppercase: true,
-          shape: "rect",
-          xPct: 50,
-          yPct: 50,
-          widthPct: 40,
-          heightPct: 20,
-          opacity: 1,
-        },
-      ],
-    };
-    return { spec: fallbackSpec, source: "deterministic", valid: 0 };
+    return { spec: deterministicImageSpec(input), source: "deterministic", valid: 0 };
   }
 
   if (valid.length === 1) return { spec: valid[0], source: "single", valid: 1 };
