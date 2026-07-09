@@ -15,6 +15,7 @@ import { wipe } from "@remotion/transitions/wipe";
 import { clockWipe } from "@remotion/transitions/clock-wipe";
 import { flip } from "@remotion/transitions/flip";
 import { Captions } from "./Captions";
+import { Showcase } from "./ImageComposition";
 import { fontStack, fontWeight } from "./fonts";
 import { fitText } from "./text-fit";
 import { TRANSITION_FRAMES, type DecorT, type LayerT, type ResolvedScene, type SpecVideoProps } from "./spec";
@@ -218,6 +219,8 @@ function SceneView({
   const indexed = scene.layers.map((layer, i) => ({ layer, i }));
   const texts = indexed.filter((x) => x.layer.kind === "text" && x.layer.text.trim().length > 0);
   const align = scene.align ?? "center";
+  const showcase = scene.showcase;
+  const showcaseBand: Band | null = showcase ? BAND_OF[showcase.position] : null;
 
   const inset = safeInset(width, height);
   const safeW = width - inset.x * 2;
@@ -229,17 +232,21 @@ function SceneView({
   const barThickness = Math.max(3, Math.round(width * 0.008));
   const slotAlign = align === "left" ? "flex-start" : "center";
 
-  // Assign each text layer to a fixed band slot; empty slots still reserve their
-  // third of the column so an occupied band lands where it asked to.
+  // Assign each text layer to a fixed band slot; the showcase claims a band of
+  // its own. Empty slots still reserve their third so an occupied band lands
+  // where it asked to.
   const byBand = BAND_ORDER.map((band) => ({
     band,
     layers: texts.filter((x) => BAND_OF[x.layer.position] === band),
+    hasShowcase: band === showcaseBand,
   }));
-  const occupied = byBand.filter((b) => b.layers.length > 0);
+  const occupied = byBand.filter((b) => b.layers.length > 0 || b.hasShowcase);
   const gap = safeH * 0.04;
   const available = safeH - gap * Math.max(0, occupied.length - 1);
-  const weightOf = (ls: typeof texts) => (ls.some((x) => isHero(x.layer)) ? 3 : 1);
-  const totalWeight = occupied.reduce((s, b) => s + weightOf(b.layers), 0) || 1;
+  // A product shot is the focal element, so it outweighs a hero line.
+  const weightOf = (ls: typeof texts, hasShow: boolean) => (hasShow ? 5 : ls.some((x) => isHero(x.layer)) ? 3 : 1);
+  const totalWeight = occupied.reduce((s, b) => s + weightOf(b.layers, b.hasShowcase), 0) || 1;
+  const SHOWCASE_WEIGHT = 26;
 
   return (
     <AbsoluteFill>
@@ -265,19 +272,20 @@ function SceneView({
           gap,
         }}
       >
-        {byBand.map(({ band, layers: bandLayers }) => {
-          if (bandLayers.length === 0) return <div key={band} style={{ flex: 1 }} />;
-          const bandH = (available * weightOf(bandLayers)) / totalWeight;
-          const sizeSum = bandLayers.reduce((s, x) => s + x.layer.sizePct, 0) || 1;
+        {byBand.map(({ band, layers: bandLayers, hasShowcase }) => {
+          if (bandLayers.length === 0 && !hasShowcase) return <div key={band} style={{ flex: 1 }} />;
+          const bandH = (available * weightOf(bandLayers, hasShowcase)) / totalWeight;
+          const sizeSum = bandLayers.reduce((s, x) => s + x.layer.sizePct, 0) + (hasShowcase ? SHOWCASE_WEIGHT : 0) || 1;
+          const itemCount = bandLayers.length + (hasShowcase ? 1 : 0);
           const innerGap = safeH * 0.018;
-          const contentH = bandH - innerGap * (bandLayers.length - 1);
+          const contentH = bandH - innerGap * Math.max(0, itemCount - 1);
           const hasHero = bandLayers.some((x) => isHero(x.layer));
           const hasKicker = bandLayers.some((x) => !isHero(x.layer));
           return (
             <div
               key={band}
               style={{
-                flex: weightOf(bandLayers),
+                flex: weightOf(bandLayers, hasShowcase),
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: SLOT_ALIGN[band],
@@ -286,8 +294,11 @@ function SceneView({
                 width: "100%",
               }}
             >
-              {accentBar && hasKicker && (
+              {accentBar && hasKicker && !hasShowcase && (
                 <Bar width={width * 0.09} thickness={barThickness} color={decorColor(accentBar, palette)} />
+              )}
+              {hasShowcase && showcase && (
+                <Showcase showcase={showcase} boxW={safeW} boxH={(contentH * SHOWCASE_WEIGHT) / sizeSum} bleed={band === "lower"} />
               )}
               {bandLayers.map(({ layer, i }) => (
                 <TextBlock
@@ -300,7 +311,7 @@ function SceneView({
                   canvasH={height}
                 />
               ))}
-              {underline && hasHero && (
+              {underline && hasHero && !hasShowcase && (
                 <Bar width={safeW * 0.35} thickness={barThickness} color={decorColor(underline, palette)} />
               )}
             </div>

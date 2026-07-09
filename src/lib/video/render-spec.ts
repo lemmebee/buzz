@@ -1,5 +1,6 @@
 import { mkdirSync } from "fs";
 import path from "path";
+import sharp from "sharp";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { selectComposition, renderMedia } from "@remotion/renderer";
@@ -73,6 +74,23 @@ export async function renderSpecVideo(
   const productShots = (opts.productShots ?? []).filter(Boolean);
   let productShotIdx = 0;
   const imageProvider = await resolveImageProvider(opts.imageProviderName);
+
+  // Resolve a scene's showcase to a real screenshot + measured aspect. Reuses
+  // the same product-shot pool the "product" background draws from.
+  const resolveShowcase = async (
+    sc: (typeof spec.scenes)[number]["showcase"]
+  ): Promise<ResolvedScene["showcase"]> => {
+    if (!sc || productShots.length === 0) return undefined;
+    const src = productShots[Math.max(0, Math.min(sc.imageIndex, productShots.length - 1))];
+    let aspect = 0.4615;
+    try {
+      const abs = path.join(process.cwd(), "public", src.replace(/^\/api\/media\//, "media/"));
+      const meta = await sharp(abs).metadata();
+      if (meta.width && meta.height) aspect = meta.width / meta.height;
+    } catch { /* keep default */ }
+    return { treatment: sc.treatment, src, position: sc.position, tilt: sc.tilt, aspect };
+  };
+
   const resolvedScenes: ResolvedScene[] = [];
   for (const scene of spec.scenes) {
     let bgImageSrc: string | undefined;
@@ -106,6 +124,7 @@ export async function renderSpecVideo(
       transition: scene.transition,
       align: scene.align,
       decor: scene.decor,
+      showcase: await resolveShowcase(scene.showcase),
       layers: scene.layers,
     });
   }

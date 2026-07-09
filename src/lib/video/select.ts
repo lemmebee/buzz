@@ -47,7 +47,9 @@ export async function renderBestVideo(input: SelectVideoInput): Promise<RenderSp
   const n = Math.max(1, input.n ?? 3);
   const renderOpts = { imageProviderName: input.imageProviderName, productShots: input.productShotPaths };
 
-  const specs = await authorVideoVariants(input.textProvider, input, n);
+  // Let the director SEE the product screenshots when authoring variants.
+  const authorInput = { ...input, assetImages: input.productShotPaths };
+  const specs = await authorVideoVariants(input.textProvider, authorInput, n);
   console.log(`[video-select] authored ${specs.length}/${n} valid variant(s)`);
 
   if (specs.length === 0) {

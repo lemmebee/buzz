@@ -88,6 +88,7 @@ export function buildFallbackSpec(input: {
     transition: i === 0 ? "none" : FALLBACK_TRANSITIONS[i % FALLBACK_TRANSITIONS.length],
     align: "center",
     decor: [],
+    showcase: null,
     layers: [
       {
         kind: "text",
@@ -135,6 +136,9 @@ export interface AuthorInput {
   script?: string; // optional pre-written narration to design the video around
   imagesAvailable: boolean; // false when ALL image providers are out → design text-only
   productShots: number; // count of real product screenshots available (bgKind:"product")
+  // The ACTUAL screenshots, so the director can SEE them and choose a showcase
+  // treatment from what's in each — not just be told a count.
+  assetImages?: string[];
 }
 
 export interface AuthorResult {
@@ -246,7 +250,7 @@ async function authorOnce(provider: TextProvider, input: AuthorInput, angleHint?
         ? baseUser
         : `${baseUser}\n\nYOUR PREVIOUS OUTPUT WAS REJECTED: ${lastError}\nReturn the corrected JSON object only.`;
     try {
-      const res = await provider.generate({ systemPrompt, userPrompt });
+      const res = await provider.generate({ systemPrompt, userPrompt, images: input.assetImages });
       raw = res.text;
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);

@@ -48,6 +48,17 @@ const Decor = z
   })
   .catch({ role: "accent-bar", color: "#ffffff", accent: true });
 
+// Product showcase — a real screenshot COMPOSED INTO a scene as an element
+// (phone frame / floating card / cropped detail), not stretched behind the type.
+// Same vocabulary as the image engine.
+export const SHOWCASE_TREATMENTS = ["device-frame", "floating-card", "cropped-detail"] as const;
+const Showcase = z.object({
+  treatment: z.enum(SHOWCASE_TREATMENTS).catch("device-frame"),
+  imageIndex: z.number().min(0).catch(0),
+  position: Position,
+  tilt: z.number().min(-12).max(12).catch(0),
+});
+
 // One permissive layer object (kind discriminator + every field defaulted) so a
 // layer NEVER fails to parse — the renderer reads only the fields for its kind.
 export const Layer = z
@@ -99,6 +110,7 @@ export const Scene = z
     transition: Transition, // transition INTO this scene
     align: z.enum(["left", "center"]).catch("center"),
     decor: z.array(Decor).max(2).catch([]),
+    showcase: Showcase.nullable().catch(null),
     layers: z.array(Layer).max(6).catch([]),
   })
   .catch({
@@ -111,6 +123,7 @@ export const Scene = z
     transition: "fade",
     align: "center",
     decor: [],
+    showcase: null,
     layers: [],
   });
 
@@ -158,6 +171,7 @@ export interface ResolvedScene {
   transition: "fade" | "slide" | "wipe" | "clockWipe" | "flip" | "none";
   align: "left" | "center";
   decor: DecorT[];
+  showcase?: import("./image-spec").ResolvedShowcase;
   layers: LayerT[];
 }
 
@@ -219,6 +233,11 @@ EACH SCENE:
   - { role:"accent-bar", color, accent } — the Swiss rule, a short bar set above the kicker
   - { role:"underline", color, accent } — a weight under the hero's last line
   - { role:"frame", color, accent } — a thin border inset around the whole scene
+- showcase: how to COMPOSE a real product screenshot into THIS scene, or null. A screenshot is an ELEMENT, not wallpaper — do NOT bury it behind the type with bgKind:"product". When you have product shots (see below), a "here's the app" scene should set showcase:
+  - { treatment:"device-frame", imageIndex, position, tilt(-12..12) } — the screenshot inside a phone body. Default for an app UI.
+  - { treatment:"floating-card", imageIndex, position, tilt } — the screenshot as a rounded card. Good for one panel.
+  - { treatment:"cropped-detail", imageIndex, position, tilt } — a zoomed slice of ONE telling row/number.
+  The showcase takes its band; put the scene's text in the other bands.
 - layers: 1-4 TEXT layers drawn on top. EVERY scene MUST include at least one bold TEXT layer — typography is the art.
   - TEXT layer: { kind:"text", text, position:("center"|"top"|"bottom"|"upper-third"|"lower-third"), animation:("fadeUp"|"pop"|"typewriter"|"slideLeft"|"none"), fontFamily, sizePct:(2-18, % of height; hero text ~9-14), color, accent:(true=use palette.accent), uppercase }
 
