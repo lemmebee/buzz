@@ -121,7 +121,7 @@ export function buildFallbackSpec(input: {
     fps,
     palette: input.palette,
     script: input.script.trim(),
-    caption: { show: false, position: "lower-third", fontFamily: "Inter" },
+    caption: { show: false, position: "lower-third", fontFamily: "Space Grotesk" },
     scenes,
   });
 }

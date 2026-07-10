@@ -17,19 +17,23 @@ const Hex = z
   .catch("#ffffff");
 
 // Curated, headless-safe font allow-list (loaded via @remotion/google-fonts).
+// Deliberately excludes the LLM-monoculture defaults (Inter/Roboto/Poppins/
+// Playfair) — those read as AI slop. Condensed grotesques for display, a
+// distinctive grotesque for body, one mono and one serif for pairing.
 export const FONTS = [
-  "Inter",
+  "Space Grotesk", // distinctive grotesque — the default
+  "Chivo",
+  "Archivo",
   "Montserrat",
-  "Poppins",
-  "Oswald",
-  "Bebas Neue",
-  "Anton",
-  "Archivo Black",
-  "Playfair Display",
-  "Roboto",
+  "Oswald", // condensed
+  "Bebas Neue", // ultra-condensed display
+  "Anton", // heavy condensed display
+  "Archivo Black", // heavy display
+  "Space Mono", // mono — pair with a sans
+  "Fraunces", // expressive serif — pair with a sans
 ] as const;
 
-const Font = z.enum(FONTS).catch("Inter");
+const Font = z.enum(FONTS).catch("Space Grotesk");
 const TextAnim = z.enum(["fadeUp", "pop", "typewriter", "slideLeft", "none"]).catch("fadeUp");
 const Position = z.enum(["center", "top", "bottom", "upper-third", "lower-third"]).catch("center");
 const Shape = z.enum(["rect", "circle", "ellipse", "triangle"]).catch("rect");
@@ -86,7 +90,7 @@ export const Layer = z
     text: "",
     position: "center",
     animation: "fadeUp",
-    fontFamily: "Inter",
+    fontFamily: "Space Grotesk",
     sizePct: 7,
     color: "#ffffff",
     accent: false,
@@ -137,7 +141,7 @@ export const Caption = z
     position: Position,
     fontFamily: Font,
   })
-  .catch({ show: true, position: "lower-third", fontFamily: "Inter" });
+  .catch({ show: true, position: "lower-third", fontFamily: "Space Grotesk" });
 
 export const VideoSpec = z.object({
   aspectRatio: z.enum(["9:16", "1:1", "16:9", "4:5"]).catch("9:16"),
@@ -242,6 +246,7 @@ EACH SCENE:
   - TEXT layer: { kind:"text", text, position:("center"|"top"|"bottom"|"upper-third"|"lower-third"), animation:("fadeUp"|"pop"|"typewriter"|"slideLeft"|"none"), fontFamily, sizePct:(2-18, % of height; hero text ~9-14), color, accent:(true=use palette.accent), uppercase }
 
 FONTS allowed: ${FONTS.join(", ")}.
+FONT PAIRING: when a scene has a hero AND a kicker, cross the boundary — a condensed display face (Anton/Bebas Neue/Archivo Black/Oswald) for the hero paired with a grotesque, mono, or serif (Space Grotesk/Chivo/Space Mono/Fraunces) for the kicker. NEVER pair two similar sans-serifs; that reads as an accident.
 
 LAYOUT RULES (critical — keep it clean):
 - AT MOST ONE hero text per scene (sizePct 9-14). Any additional text in the same scene must be a small kicker/label (sizePct 3-5) placed in a DIFFERENT zone. NEVER stack two large texts — they overlap.

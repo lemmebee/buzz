@@ -14,7 +14,7 @@ const Hex = z
   .regex(/^#[0-9a-fA-F]{6}$/)
   .catch("#ffffff");
 
-const Font = z.enum(FONTS).catch("Inter");
+const Font = z.enum(FONTS).catch("Space Grotesk");
 const TextAnim = z.enum(["fadeUp", "pop", "typewriter", "slideLeft", "none"]).catch("fadeUp");
 const Position = z.enum(["center", "top", "bottom", "upper-third", "lower-third"]).catch("center");
 const Shape = z.enum(["rect", "circle", "ellipse", "triangle"]).catch("rect");
@@ -43,7 +43,7 @@ const ImageLayer = z
     text: "",
     position: "center",
     animation: "fadeUp",
-    fontFamily: "Inter",
+    fontFamily: "Space Grotesk",
     sizePct: 8,
     color: "#ffffff",
     accent: false,
