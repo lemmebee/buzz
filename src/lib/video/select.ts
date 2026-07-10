@@ -73,12 +73,27 @@ export async function renderBestVideo(input: SelectVideoInput): Promise<RenderSp
   }
 
   const vision = resolveVisionProvider();
-  const winner = await pickWinner(vision, sheets, {
+  const { winner, decisive } = await pickWinner(vision, sheets, {
     productName: input.productName,
     vibe: input.vibe,
     caption: input.script,
   });
-  console.log(`[video-select] pixel judge picked variant ${winner} of ${specs.length}`);
 
-  return { ...(await renderAndReview(specs[winner], renderOpts, input.durationSec)), source: "judged", valid: specs.length };
+  // When the judge can't decide, don't always ship candidate 0 (identical output
+  // every generation). Break the tie with variety, preferring a variant that
+  // shows the product when screenshots are available.
+  let chosen = winner;
+  if (!decisive) {
+    const hasShots = input.productShotPaths.length > 0;
+    const productIdx = specs
+      .map((s, i) => (s.scenes.some((sc) => sc.showcase !== null || sc.bgKind === "product") ? i : -1))
+      .filter((i) => i >= 0);
+    const pool = hasShots && productIdx.length > 0 ? productIdx : specs.map((_, i) => i);
+    chosen = pool[Math.floor(Math.random() * pool.length)];
+    console.log(`[video-select] judge undecided — tie-break to ${chosen} (product-preferred=${hasShots && productIdx.length > 0})`);
+  } else {
+    console.log(`[video-select] pixel judge picked variant ${winner} of ${specs.length}`);
+  }
+
+  return { ...(await renderAndReview(specs[chosen], renderOpts, input.durationSec)), source: "judged", valid: specs.length };
 }

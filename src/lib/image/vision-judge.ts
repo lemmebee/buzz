@@ -137,27 +137,36 @@ export interface JudgeContext {
 //
 // Only order-invariant wins score. Ties score nothing for either side, and a
 // tie on every pair leaves candidate 0 the winner by index.
+export interface PickResult {
+  winner: number;
+  // false when every pair tied (the judge could not tell the candidates apart) —
+  // the caller then breaks the tie itself rather than always defaulting to
+  // candidate 0, which would ship the same design on every generation.
+  decisive: boolean;
+}
+
 export async function pickWinner(
   provider: TextProvider,
   urls: string[],
   context: JudgeContext
-): Promise<number> {
-  if (urls.length < 2) return 0;
+): Promise<PickResult> {
+  if (urls.length < 2) return { winner: 0, decisive: true };
 
   const wins = new Array<number>(urls.length).fill(0);
+  let anyDecision = false;
   for (let i = 0; i < urls.length; i++) {
     for (let j = i + 1; j < urls.length; j++) {
       const result = await comparePair(provider, urls[i], urls[j], context);
-      if (result === "first") wins[i]++;
-      else if (result === "second") wins[j]++;
+      if (result === "first") { wins[i]++; anyDecision = true; }
+      else if (result === "second") { wins[j]++; anyDecision = true; }
       console.log(`[image-vision] ${i} vs ${j}: ${result}`);
     }
   }
 
   let best = 0;
   for (let i = 1; i < urls.length; i++) if (wins[i] > wins[best]) best = i;
-  console.log(`[image-vision] wins=${JSON.stringify(wins)} winner=${best}`);
-  return best;
+  console.log(`[image-vision] wins=${JSON.stringify(wins)} winner=${best} decisive=${anyDecision}`);
+  return { winner: best, decisive: anyDecision };
 }
 
 const CRITIQUE_SYSTEM = `You are a ruthless art director reviewing ONE rendered social media image.

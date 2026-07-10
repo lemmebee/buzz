@@ -7,6 +7,11 @@ import {
 } from "./spec-author";
 import { renderSpecImage, type RenderImageOpts, type RenderImageResult } from "./render-spec";
 import { comparePair, critique, pickWinner, resolveVisionProvider } from "./vision-judge";
+import type { ImageSpecT } from "@/remotion/image-spec";
+
+// A spec "shows the product" if it composes a screenshot in (showcase) or uses
+// one as the background.
+const showsProduct = (s: ImageSpecT) => s.showcase !== null || s.bgKind === "product";
 
 export interface SelectImageInput extends ImageAuthorInput {
   textProvider: TextProvider;
@@ -48,9 +53,22 @@ export async function renderBestImage(input: SelectImageInput): Promise<RenderIm
   const vision = resolveVisionProvider();
   const context = { productName: input.productName, vibe: input.vibe, caption: input.caption };
 
-  const winner = await pickWinner(vision, rendered.map((r) => r.url), context);
-  const winnerSpec = specs[winner];
-  const winnerRender = rendered[winner];
+  const { winner, decisive } = await pickWinner(vision, rendered.map((r) => r.url), context);
+
+  // When the judge could not tell the candidates apart, DON'T always default to
+  // candidate 0 — that ships the identical design on every generation. Break the
+  // tie ourselves, with variety, and prefer a candidate that actually shows the
+  // product when screenshots are available (the whole point of having them).
+  let chosen = winner;
+  if (!decisive) {
+    const hasShots = (input.assetImages?.length ?? 0) > 0;
+    const productIdx = specs.map((s, i) => (showsProduct(s) ? i : -1)).filter((i) => i >= 0);
+    const pool = hasShots && productIdx.length > 0 ? productIdx : specs.map((_, i) => i);
+    chosen = pool[Math.floor(Math.random() * pool.length)];
+    console.log(`[image-vision] judge undecided — tie-break to ${chosen} (product-preferred=${hasShots && productIdx.length > 0})`);
+  }
+  const winnerSpec = specs[chosen];
+  const winnerRender = rendered[chosen];
 
   const notes = await critique(vision, winnerRender.url, context);
   if (!notes.trim()) return winnerRender;

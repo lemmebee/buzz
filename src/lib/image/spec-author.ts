@@ -195,10 +195,10 @@ async function authorImageOnce(
 // differ only in wording and look like the same poster twice; structural
 // variety is what makes a best-of-N worth rendering.
 const IMAGE_ANGLES = [
-  'BOLD TYPOGRAPHY angle: use archetype "type-as-image". The words ARE the picture — they fill the frame on a flat or gradient ground. align="left".',
-  'PRODUCT HERO angle: use archetype "bottom-strip" over a real product screenshot. The app is the subject; type sits in a strip beneath it and never covers the UI.',
-  'MOOD/ATMOSPHERE angle: use archetype "corner-anchored" over a generated photo. Type locked into one corner, the image mass on the diagonal. Feeling first, message second.',
-  'MINIMALIST angle: use archetype "big-type-small-caption". One huge line, one small caption, and a large field of empty space. Nothing else.',
+  'BOLD TYPOGRAPHY angle: use archetype "type-as-image". The words ARE the picture — they fill the frame on a flat or gradient ground. align="left". showcase MUST be null.',
+  'PRODUCT SHOWCASE angle: the app is the hero. Set showcase to { treatment:"device-frame", imageIndex:0, position:"lower-third", tilt:-6 } so a REAL screenshot appears inside a tilted phone bleeding off the frame; put a short hero line + kicker in the upper band. archetype "big-type-small-caption". Do NOT use bgKind:"product" (that is wallpaper). If there is no product screenshot, skip this and do bold typography instead.',
+  'MOOD/ATMOSPHERE angle: use archetype "corner-anchored" over a generated photo. Type locked into one corner, the image mass on the diagonal. Feeling first, message second. showcase null.',
+  'MINIMALIST angle: use archetype "big-type-small-caption". One huge line, one small caption, and a large field of empty space. showcase null.',
 ];
 
 interface ImageSpecSummary {
@@ -267,6 +267,9 @@ async function judgeImageSpecs(
 
 // Author N distinct variants without picking a winner. Used by the vision path,
 // which renders every candidate and judges the pixels instead of a JSON summary.
+// Index of the PRODUCT SHOWCASE angle in IMAGE_ANGLES.
+const PRODUCT_ANGLE = 1;
+
 export async function authorImageVariants(
   provider: TextProvider,
   input: ImageAuthorInput,
@@ -276,7 +279,25 @@ export async function authorImageVariants(
   const variants = await Promise.all(
     Array.from({ length: count }, (_, i) => authorImageOnce(provider, input, IMAGE_ANGLES[i]))
   );
-  return variants.map((v) => v.spec).filter((s): s is ImageSpecT => s !== null);
+  const specs = variants.map((v) => v.spec).filter((s): s is ImageSpecT => s !== null);
+
+  // Guarantee the product-showcase variant ACTUALLY shows the product. The model
+  // often ignores the instruction and ships pure typography, so the user's
+  // screenshots never appear. If shots exist and no variant composed one in,
+  // force a device-frame showcase onto the product-angle spec.
+  const hasShots = input.productShots > 0 || input.uploadedImages > 0;
+  if (hasShots && specs.length > PRODUCT_ANGLE && !specs.some((s) => s.showcase !== null)) {
+    const s = specs[PRODUCT_ANGLE];
+    specs[PRODUCT_ANGLE] = {
+      ...s,
+      bgKind: s.bgKind === "product" ? "gradient" : s.bgKind, // don't ALSO wallpaper it
+      showcase: { treatment: "device-frame", imageIndex: 0, position: "lower-third", tilt: -6 },
+      // Type moves up so the phone owns the lower band.
+      layers: s.layers.map((l) => (l.kind === "text" ? { ...l, position: "top" as const } : l)),
+    };
+    console.log("[image-spec] injected device-frame showcase into product variant");
+  }
+  return specs;
 }
 
 // Apply an art director's notes to a spec. Returns the original on any failure —
