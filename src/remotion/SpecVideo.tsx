@@ -16,6 +16,7 @@ import { clockWipe } from "@remotion/transitions/clock-wipe";
 import { flip } from "@remotion/transitions/flip";
 import { Captions } from "./Captions";
 import { Showcase } from "./ImageComposition";
+import { DepthStack } from "./DepthStack";
 import { fontStack, fontWeight } from "./fonts";
 import { fitText } from "./text-fit";
 import { TRANSITION_FRAMES, type DecorT, type LayerT, type ResolvedScene, type SpecVideoProps } from "./spec";
@@ -251,6 +252,7 @@ function SceneView({
   return (
     <AbsoluteFill>
       <Background scene={scene} palette={palette} />
+      <DepthStack width={width} height={height} accent={palette.accent} seedId={scene.layers[0]?.text ?? scene.bgKind} />
       {frameDecor && (
         <div
           style={{

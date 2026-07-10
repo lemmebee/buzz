@@ -2,6 +2,7 @@ import { AbsoluteFill, Img, staticFile } from "remotion";
 import { fontStack, fontWeight } from "./fonts";
 import { fitText } from "./text-fit";
 import type { LayerT } from "./spec";
+import { DepthStack } from "./DepthStack";
 import { COMPOSITION, type Composition, type DecorT, type ImageCompositionProps, type ResolvedShowcase } from "./image-spec";
 
 // ─── Background ──────────────────────────────────────────────────────────────
@@ -385,6 +386,7 @@ export function ImageComposition({
         bgColor2={bgColor2}
         palette={palette}
       />
+      <DepthStack width={width} height={height} accent={palette.accent} seedId={`${archetype}-${layers[0]?.text ?? ""}`} />
       {frame && (
         // Inset via `inset`, not `margin`: AbsoluteFill already sets width/height
         // to 100%, so a margin pushes the box off the bottom-right of the frame
