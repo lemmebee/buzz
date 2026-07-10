@@ -247,6 +247,7 @@ LAYOUT RULES (critical — keep it clean):
 - AT MOST ONE hero text per scene (sizePct 9-14). Any additional text in the same scene must be a small kicker/label (sizePct 3-5) placed in a DIFFERENT zone. NEVER stack two large texts — they overlap.
 - Use the position zones to separate elements: a scene's hero goes in ONE of center / upper-third / lower-third; a kicker goes in a different zone (e.g. hero center + kicker top).
 - Keep hero lines SHORT (2-5 words). Long sentences belong in the voiceover/captions, not as hero text.
+- EMPHASIS: wrap the ONE most important word of a hero line in *asterisks* (e.g. "Logged in *seconds*"). That word gets the accent colour and a scale-pop. Exactly one word per line.
 - caption.show: ALWAYS set FALSE. This style shows its own designed typography on every scene; raw voiceover captions are off-brand here.
 
 MOTION-DESIGN PRINCIPLES:

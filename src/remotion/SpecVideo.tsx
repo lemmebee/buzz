@@ -17,6 +17,7 @@ import { flip } from "@remotion/transitions/flip";
 import { Captions } from "./Captions";
 import { Showcase } from "./ImageComposition";
 import { DepthStack } from "./DepthStack";
+import { parseEmphasis, isEmphasized } from "./emphasis";
 import { fontStack, fontWeight } from "./fonts";
 import { fitText } from "./text-fit";
 import { TRANSITION_FRAMES, type DecorT, type LayerT, type ResolvedScene, type SpecVideoProps } from "./spec";
@@ -123,6 +124,17 @@ function wordEntrance(
   }
 }
 
+// A scale-pop for the emphasis word: after it has entered, it punches up to
+// ~1.18 and settles back to exactly 1.0 (a sine pulse), so the fitted box is
+// never violated. `startFrame` is when the word finished entering.
+function emphasisPop(frame: number, fps: number, startFrame: number): number {
+  const popStart = startFrame + 6; // pop just after the word lands
+  const dur = fps * 0.26; // ~260ms
+  const t = (frame - popStart) / dur;
+  if (t <= 0 || t >= 1) return 1;
+  return 1 + 0.18 * Math.sin(t * Math.PI);
+}
+
 // A single fitted text layer. fitText measures against the real loaded font and
 // shrinks to fit its allotted box (height-aware, unlike the old longest-word
 // hack that let hero lines overflow the frame). Words animate in individually to
@@ -131,6 +143,7 @@ function wordEntrance(
 function TextBlock({
   layer,
   color,
+  emphasisColor,
   align,
   boxW,
   boxH,
@@ -138,6 +151,7 @@ function TextBlock({
 }: {
   layer: LayerT;
   color: string;
+  emphasisColor: string;
   align: "left" | "center";
   boxW: number;
   boxH: number;
@@ -149,7 +163,8 @@ function TextBlock({
   const weight = fontWeight(layer.fontFamily);
   const trackingEm = trackingFor(layer);
   const lineHeight = isHero(layer) ? 1.02 : 1.2;
-  const text = layer.uppercase ? layer.text.toUpperCase() : layer.text;
+  const { clean, emphasized } = parseEmphasis(layer.text);
+  const text = layer.uppercase ? clean.toUpperCase() : clean;
 
   const { fontSize, lines } = fitText(
     text,
@@ -189,8 +204,23 @@ function TextBlock({
           }}
         >
           {line.split(/\s+/).filter(Boolean).map((word) => {
-            const style = { display: "inline-block", willChange: "transform, opacity", ...wordEntrance(layer.animation, frame, fps, wordIndex++) };
-            return <span key={wordIndex} style={style}>{word}</span>;
+            const wi = wordIndex++;
+            const enter = wordEntrance(layer.animation, frame, fps, wi);
+            const emph = isEmphasized(word, emphasized);
+            // The word finishes entering ~12 frames after its staggered start.
+            const pop = emph ? emphasisPop(frame, fps, wi * WORD_STAGGER_FRAMES + 12) : 1;
+            // CSS transforms compose, so the pop scale just appends to the
+            // entrance transform (translate/scale) without disturbing it.
+            const base = enter.transform && enter.transform !== "none" ? enter.transform : "";
+            const transform = pop !== 1 ? `${base} scale(${pop.toFixed(3)})`.trim() : enter.transform;
+            return (
+              <span
+                key={wi}
+                style={{ display: "inline-block", willChange: "transform, opacity", ...enter, transform, color: emph ? emphasisColor : undefined }}
+              >
+                {word}
+              </span>
+            );
           })}
         </div>
       ))}
@@ -307,6 +337,7 @@ function SceneView({
                   key={`t${i}`}
                   layer={layer}
                   color={layer.accent ? palette.accent : layer.color}
+                  emphasisColor={layer.accent ? palette.text : palette.accent}
                   align={align}
                   boxW={safeW}
                   boxH={(contentH * layer.sizePct) / sizeSum}

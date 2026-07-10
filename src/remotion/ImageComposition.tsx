@@ -3,6 +3,7 @@ import { fontStack, fontWeight } from "./fonts";
 import { fitText } from "./text-fit";
 import type { LayerT } from "./spec";
 import { DepthStack } from "./DepthStack";
+import { parseEmphasis, isEmphasized } from "./emphasis";
 import { COMPOSITION, type Composition, type DecorT, type ImageCompositionProps, type ResolvedShowcase } from "./image-spec";
 
 // ─── Background ──────────────────────────────────────────────────────────────
@@ -90,6 +91,7 @@ const trackingFor = (l: LayerT) => (isHero(l) ? -0.02 : 0.08);
 function TextBlock({
   layer,
   color,
+  emphasisColor,
   align,
   boxW,
   boxH,
@@ -97,6 +99,7 @@ function TextBlock({
 }: {
   layer: LayerT;
   color: string;
+  emphasisColor: string;
   align: "left" | "center";
   boxW: number;
   boxH: number;
@@ -106,7 +109,9 @@ function TextBlock({
   const weight = fontWeight(layer.fontFamily);
   const trackingEm = trackingFor(layer);
   const lineHeight = isHero(layer) ? 1.02 : 1.2;
-  const text = layer.uppercase ? layer.text.toUpperCase() : layer.text;
+  // Strip the *emphasis* markers before measuring so the fit is unaffected.
+  const { clean, emphasized } = parseEmphasis(layer.text);
+  const text = layer.uppercase ? clean.toUpperCase() : clean;
 
   const { fontSize, lines } = fitText(
     text,
@@ -148,7 +153,15 @@ function TextBlock({
             whiteSpace: "nowrap",
           }}
         >
-          {line}
+          {line.split(/(\s+)/).map((tok, j) =>
+            /\s+/.test(tok) ? (
+              tok
+            ) : isEmphasized(tok, emphasized) ? (
+              <span key={j} style={{ color: emphasisColor }}>{tok}</span>
+            ) : (
+              tok
+            )
+          )}
         </div>
       ))}
     </div>
@@ -475,6 +488,9 @@ export function ImageComposition({
                     key={i}
                     layer={layer}
                     color={textColorFor(layer)}
+                    // Emphasis pops against the base colour: accent on plain
+                    // text, or the text colour when the line is already accent.
+                    emphasisColor={layer.accent ? palette.text : palette.accent}
                     align={align}
                     boxW={innerW}
                     boxH={(contentH * layer.sizePct) / sizeSum}

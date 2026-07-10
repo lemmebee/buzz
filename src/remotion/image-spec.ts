@@ -258,6 +258,7 @@ TYPOGRAPHY RULES (hard constraints — a spec that breaks these is rejected):
 - hero.sizePct must be AT LEAST 3x the kicker's. A ratio near 1.5x reads as an accident, not a hierarchy.
 - Keep the hero to 2-6 words. The renderer fits type to its box, so long copy just comes out small.
 - Put the hero and the kicker in DIFFERENT position zones.
+- EMPHASIS: wrap the ONE most important word of the hero in *asterisks* (e.g. "Logged in *seconds*"). That word gets the accent colour. Exactly one word — emphasising everything emphasises nothing.
 
 DESIGN PRINCIPLES:
 - One clear focal point. The eye should land immediately.
