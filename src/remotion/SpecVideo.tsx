@@ -50,14 +50,21 @@ function Background({ scene, palette }: { scene: ResolvedScene; palette: SpecVid
       </AbsoluteFill>
     );
   }
+  // Flat and gradient backgrounds were dead-static — "nothing moves when nothing
+  // is happening" is a top template tell. Give them slow ambient motion: a barely
+  // perceptible scale drift, and for gradients a slow angle rotation, so the field
+  // is always subtly alive without ever reading as a zoom.
+  const t = durationInFrames > 0 ? frame / durationInFrames : 0;
+  const drift = 1 + 0.04 * t; // 4% over the whole scene
   if (scene.bgKind === "gradient") {
+    const angle = 135 + 12 * t; // slow 12° sweep
     return (
-      <AbsoluteFill
-        style={{ background: `linear-gradient(135deg, ${scene.bgColor} 0%, ${scene.bgColor2} 100%)` }}
-      />
+      <AbsoluteFill style={{ transform: `scale(${drift})` }}>
+        <AbsoluteFill style={{ background: `linear-gradient(${angle}deg, ${scene.bgColor} 0%, ${scene.bgColor2} 100%)` }} />
+      </AbsoluteFill>
     );
   }
-  return <AbsoluteFill style={{ backgroundColor: scene.bgColor }} />;
+  return <AbsoluteFill style={{ backgroundColor: scene.bgColor, transform: `scale(${drift})` }} />;
 }
 
 // ─── Flow-layout bands (ported from the image engine) ────────────────────────

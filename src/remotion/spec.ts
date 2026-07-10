@@ -194,8 +194,9 @@ export type SpecVideoProps = {
 };
 
 // Overlap each transition consumes between adjacent scenes. The renderer and
-// the duration math (render-spec.ts) must use the SAME value.
-export const TRANSITION_FRAMES = 14;
+// the duration math (render-spec.ts) must use the SAME value. ~9 frames (~300ms
+// at 30fps) reads as current; the old 14 (~470ms) read as a slow, dated wipe.
+export const TRANSITION_FRAMES = 9;
 
 export const SPEC_COMPOSITION_ID = "SpecVideo";
 
@@ -231,7 +232,7 @@ EACH SCENE:
 - bgImagePrompt: if bgKind="image", a vivid cinematic photo prompt for the background. Calm/uncluttered with room for text. No on-screen text in the image.
 - bgColor / bgColor2: hex
 - kenBurns: "in" | "out" | "none"  (slow zoom on image backgrounds)
-- transition: how this scene enters — "fade" | "slide" | "wipe" | "clockWipe" | "flip" | "none"
+- transition: how this scene enters. PREFER "fade" or "slide" (fast and current). "wipe" | "clockWipe" | "flip" read as dated 2010s templates — avoid them. "none" for a hard cut. Do NOT use a different transition on every scene; pick one primary and repeat it.
 - align: "left" | "center" — text alignment for the scene. Flush-left reads as designed; centering suits formal/axial beats.
 - decor: 0-2 relational marks. You NEVER give coordinates; each is bound to the type it serves and the renderer places it:
   - { role:"accent-bar", color, accent } — the Swiss rule, a short bar set above the kicker
