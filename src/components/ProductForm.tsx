@@ -31,6 +31,7 @@ export function ProductForm({ product }: ProductFormProps) {
     return tp;
   });
   const [imageProvider, setImageProvider] = useState(product?.imageProvider || "");
+  const [contentEngine, setContentEngine] = useState(product?.contentEngine || "");
   const [antigravityModel, setAntigravityModel] = useState(() => {
     const tp = product?.textProvider || "";
     return tp.startsWith("antigravity:") ? tp.split(":").slice(1).join(":") : "";
@@ -189,6 +190,7 @@ export function ProductForm({ product }: ProductFormProps) {
         ? (claudeCodeModel ? `claude-code:${claudeCodeModel}` : "claude-code")
         : (textProvider || null),
       imageProvider: imageProvider || null,
+      contentEngine: contentEngine || null,
       replaceScreenshots: true,
     };
 
@@ -420,6 +422,22 @@ export function ProductForm({ product }: ProductFormProps) {
           <option value="huggingface">HuggingFace</option>
         </select>
         <p className="text-xs text-text-tertiary mt-1">Image generation provider (leave empty to use global default)</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-secondary mb-1">
+          Content Engine
+        </label>
+        <select
+          value={contentEngine}
+          onChange={(e) => setContentEngine(e.target.value)}
+          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+        >
+          <option value="">Use global setting</option>
+          <option value="buzz">Buzz — composes the design itself. Full control over typography and brand. Free.</option>
+          <option value="higgsfield">Higgsfield — generates the media. Photoreal, uses credits.</option>
+        </select>
+        <p className="text-xs text-text-tertiary mt-1">Content generation engine (leave empty to use global default)</p>
       </div>
 
       <div>

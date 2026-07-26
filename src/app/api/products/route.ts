@@ -55,6 +55,7 @@ interface ProductBody {
   landingUrl?: string | null;
   textProvider?: string | null;
   imageProvider?: string | null;
+  contentEngine?: string | null;
   llmInstructions?: string | null;
 }
 
@@ -73,6 +74,7 @@ async function createProduct(body: ProductBody, screenshotPaths: string[], logoP
     attributionWebhookSecret: randomBytes(32).toString("hex"),
     textProvider: body.textProvider || null,
     imageProvider: body.imageProvider || null,
+    contentEngine: body.contentEngine || null,
     llmInstructions: body.llmInstructions || null,
     extractionStatus: body.planFile ? "pending" : null,
   }).returning();

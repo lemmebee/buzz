@@ -123,6 +123,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       screenshots: allPaths.length > 0 ? JSON.stringify(allPaths) : null,
       textProvider: body.textProvider || null,
       imageProvider: body.imageProvider || null,
+      contentEngine: body.contentEngine || null,
       llmInstructions: body.llmInstructions || null,
     };
 
@@ -153,6 +154,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     planFileName: body.planFileName || null,
     textProvider: body.textProvider || null,
     imageProvider: body.imageProvider || null,
+    contentEngine: body.contentEngine || null,
     llmInstructions: body.llmInstructions || null,
   };
   if (body.profile !== undefined) updateData.profile = body.profile;

@@ -7,8 +7,8 @@ const DEFAULT_MODEL = "GPT-OSS 120B (Medium)";
 const DEFAULT_TIMEOUT = 120_000;
 
 export function createAntigravityTextProvider(config: ProviderConfig = {}): TextProvider {
-  const bin = config.baseUrl || process.env.ANTIGRAVITY_BIN || DEFAULT_BIN;
-  const model = config.model || process.env.ANTIGRAVITY_MODEL || DEFAULT_MODEL;
+  const bin = config.baseUrl || DEFAULT_BIN;
+  const model = config.model || DEFAULT_MODEL;
 
   return {
     name: `antigravity/${model}`,
@@ -66,7 +66,7 @@ export function createAntigravityTextProvider(config: ProviderConfig = {}): Text
 }
 
 export async function listAntigravityModels(bin?: string): Promise<string[]> {
-  const binary = bin || process.env.ANTIGRAVITY_BIN || DEFAULT_BIN;
+  const binary = bin ?? await (await import("@/lib/settings")).getAntigravityBin();
 
   return new Promise((resolve, reject) => {
     const child = spawn(binary, ["models"], {
@@ -77,14 +77,14 @@ export async function listAntigravityModels(bin?: string): Promise<string[]> {
     let stdout = "";
     let stderr = "";
 
-    child.stdout.on("data", (d) => { stdout += d.toString(); });
-    child.stderr.on("data", (d) => { stderr += d.toString(); });
+    child.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
+    child.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
 
-    child.on("error", (error) => {
+    child.on("error", (error: Error) => {
       reject(new Error(`Failed to list models: ${error.message}`));
     });
 
-    child.on("close", (code) => {
+    child.on("close", (code: number | null) => {
       if (code !== 0) {
         reject(new Error(`Failed to list models (exit ${code}): ${stderr}`));
         return;

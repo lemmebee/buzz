@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "claude_ai_HiggsField": {
+      "type": "http",
+      "url": "https://mcp.higgsfield.ai/mcp"
+    }
+  }
+}

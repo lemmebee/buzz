@@ -36,3 +36,31 @@ Professional, efficient, confident. The interface gets out of the way and lets t
 - Keyboard navigation support
 - Screen reader friendly labels and ARIA attributes
 - Respect prefers-reduced-motion
+
+## Content Engines
+
+Buzz supports two content generation engines, switchable globally or per-product:
+
+### Buzz Engine (Default)
+- **What it does:** Remotion/spec compositor with full typographic control
+- **Cost:** Free (uses local AI providers)
+- **Best for:** Deterministic layouts, precise brand control, Arabic/RTL text
+- **How it works:** Generates specs → Remotion renders video with branded overlays, kinetic captions, cross-fades
+
+### Higgsfield Engine
+- **What it does:** Generative AI media creation (photoreal images, videos)
+- **Cost:** ~2 credits/image, ~4-60 credits/video (varies by model)
+- **Best for:** Photoreal product shots, creative video content
+- **Requirements:** Claude Code CLI + Higgsfield MCP authenticated
+- **Known limitation:** Generative models mangle Arabic/RTL text. For Arabic copy, prefer the Buzz engine.
+
+### Setup
+1. Install Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
+2. Authenticate Higgsfield MCP: `claude --mcp-config higgsfield-mcp.json --strict-mcp-config`, then `/mcp` to connect
+3. Set `CONTENT_ENGINE=higgsfield` in Settings (or per-product override)
+4. Choose models in Settings → Higgsfield Content Engine
+
+### Cost Management
+- Models are sorted by cost in the picker (cheapest first)
+- Video generation is user-triggered only (not scheduled) to prevent unexpected credit spend
+- Use `--cost` preflight before generation to see exact cost

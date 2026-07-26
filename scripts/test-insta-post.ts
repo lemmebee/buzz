@@ -41,7 +41,7 @@ async function main() {
     } catch { /* skip */ }
   }
 
-  const textProvider = createTextProvider();
+  const textProvider = await createTextProvider();
   const imageProvider = createPollinationsImageProvider();
 
   // 1. Single call: caption + image instructions

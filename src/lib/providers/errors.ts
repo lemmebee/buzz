@@ -1,5 +1,21 @@
 export function classifyProviderError(err: unknown): string {
+  const name = err instanceof Error ? err.constructor.name : "";
+  if (name === "AuthenticationError") {
+    return "Higgsfield rejected the API credentials. Please check HIGGSFIELD_CREDENTIALS in settings.";
+  }
+  if (name === "NotEnoughCreditsError") {
+    return "Higgsfield credits are exhausted. Add credits in the Higgsfield dashboard, or switch the content engine back to buzz.";
+  }
+  if (name === "BadInputError") {
+    return "Higgsfield rejected the request: invalid input. Try adjusting the prompt or parameters.";
+  }
+  if (name === "ValidationError") {
+    return "Higgsfield rejected the request: validation error. The prompt or parameters may be malformed.";
+  }
   const msg = err instanceof Error ? err.message : String(err);
+  if (/NSFW|nsfw/i.test(msg)) {
+    return "Higgsfield flagged the content as NSFW. Try adjusting the prompt.";
+  }
   if (/402|payment.?required|credit|depleted|insufficient.?(fund|balance)|pre.?paid/i.test(msg)) {
     return "The AI provider's credits are exhausted. Add credits / upgrade the plan, or switch the product to a different model or provider.";
   }
@@ -25,6 +41,8 @@ export function classifyProviderError(err: unknown): string {
 // is bad, every remaining item will fail the same way, so we bail instead of
 // hammering the provider N more times.
 export function isTerminalProviderError(err: unknown): boolean {
+  const name = err instanceof Error ? err.constructor.name : "";
+  if (name === "AuthenticationError" || name === "NotEnoughCreditsError") return true;
   const msg = err instanceof Error ? err.message : String(err);
   return /402|payment.?required|credit|depleted|insufficient|pre.?paid|429|RESOURCE_EXHAUSTED|quota|rate.?limit|401|403|API.?key|invalid.*key/i.test(
     msg

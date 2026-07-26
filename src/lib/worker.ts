@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { generateContent } from "@/lib/generate";
 import { sendPostForApproval } from "@/lib/discord";
+import { resolveContentEngine } from "@/lib/settings";
 
 function latestAnchor(schedule: typeof schema.generationSchedules.$inferSelect, now: Date): Date {
   const [h, m] = schedule.preferredTime.split(":").map(Number);
@@ -31,6 +32,13 @@ async function runScheduledGeneration() {
     if (!isDue(schedule)) continue;
 
     try {
+      // Guard: skip higgsfield video in scheduled runs (costs 4-60 credits per run)
+      const engine = await resolveContentEngine(schedule.productId);
+      if (engine === "higgsfield" && schedule.mediaType === "video") {
+        console.log(`[higgsfield] skipping scheduled video generation for schedule ${schedule.id} (product ${schedule.productId}) — video must be user-triggered to avoid unexpected credit spend`);
+        continue;
+      }
+
       console.log(`[Cron] Generating for schedule ${schedule.id} (product ${schedule.productId})`);
       const { posts, errors } = await generateContent({
         productId: schedule.productId,

@@ -10,19 +10,23 @@ import { createGeminiImageProvider } from "./image-gemini";
 import { createHuggingFaceImageProvider } from "./image-hf";
 import { isTerminalProviderError } from "./errors";
 import { markImageProviderDown, markImageProviderUp } from "./image-health";
-import { getTextProvider, getImageProviderName, getApiKey, getImageModel } from "@/lib/settings";
+import { getTextProvider, getImageProviderName, getApiKey, getImageModel, getAntigravityBin, getAntigravityModel, getClaudeCodeBin, getClaudeCodeModel } from "@/lib/settings";
 
-export function createTextProvider(providerName?: string, config?: { apiKey?: string }): TextProvider {
-  const provider = providerName || process.env.TEXT_PROVIDER || "gemini";
+export async function createTextProvider(providerName?: string, config?: { apiKey?: string }): Promise<TextProvider> {
+  const provider = providerName || (await getTextProvider());
 
   if (provider.startsWith("antigravity")) {
     const model = provider.includes(":") ? provider.split(":").slice(1).join(":") : undefined;
-    return createAntigravityTextProvider(model ? { model } : {});
+    const bin = await getAntigravityBin();
+    const defaultModel = await getAntigravityModel();
+    return createAntigravityTextProvider({ baseUrl: bin, model: model || defaultModel });
   }
 
   if (provider.startsWith("claude-code")) {
     const model = provider.includes(":") ? provider.split(":").slice(1).join(":") : undefined;
-    return createClaudeCodeTextProvider(model ? { model } : {});
+    const bin = await getClaudeCodeBin();
+    const defaultModel = await getClaudeCodeModel();
+    return createClaudeCodeTextProvider({ baseUrl: bin, model: model || defaultModel });
   }
 
   switch (provider) {

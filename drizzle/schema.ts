@@ -18,6 +18,9 @@ export const products = sqliteTable("products", {
   textProvider: text("text_provider"), // gemini | huggingface
   imageProvider: text("image_provider"), // pollinations | gemini | huggingface
   videoProvider: text("video_provider"), // ffmpeg | remotion (null = global default)
+  contentEngine: text("content_engine"), // buzz | higgsfield (null = global default)
+  higgsfieldImageModel: text("higgsfield_image_model"), // nullable: product-level override for HF image model
+  higgsfieldVideoModel: text("higgsfield_video_model"), // nullable: product-level override for HF video model
   llmInstructions: text("llm_instructions"), // user-provided rules/guidance for LLM
   extractionStatus: text("extraction_status"), // pending | extracting | done | failed
   extractionError: text("extraction_error"), // human-readable reason when failed
@@ -131,6 +134,32 @@ export const settings = sqliteTable("settings", {
   value: text("value"),
 });
 
+export const higgsfieldAssets = sqliteTable("higgsfield_assets", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }),
+  localPath: text("local_path").notNull(),
+  kind: text("kind"),
+  hfUrl: text("hf_url"),
+  hfMediaId: text("hf_media_id"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const higgsfieldModels = sqliteTable("higgsfield_models", {
+  id: text("id").primaryKey(),
+  name: text("name"),
+  providerName: text("provider_name"),
+  description: text("description"),
+  outputType: text("output_type").notNull(),
+  aspectRatios: text("aspect_ratios"),
+  durationRangeMin: integer("duration_range_min"),
+  durationRangeMax: integer("duration_range_max"),
+  durations: text("durations"),
+  medias: text("medias"),
+  parameters: text("parameters"),
+  baseCredits: integer("base_credits"),
+  fetchedAt: integer("fetched_at", { mode: "timestamp" }).notNull(),
+});
+
 // Types
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
@@ -145,3 +174,7 @@ export type BrainstormIdeaRow = typeof brainstormIdeas.$inferSelect;
 export type NewBrainstormIdea = typeof brainstormIdeas.$inferInsert;
 export type Job = typeof jobs.$inferSelect;
 export type NewJob = typeof jobs.$inferInsert;
+export type HiggsfieldAsset = typeof higgsfieldAssets.$inferSelect;
+export type NewHiggsfieldAsset = typeof higgsfieldAssets.$inferInsert;
+export type HiggsfieldModelRow = typeof higgsfieldModels.$inferSelect;
+export type NewHiggsfieldModelRow = typeof higgsfieldModels.$inferInsert;

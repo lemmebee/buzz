@@ -1,5 +1,8 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { seedSettingsFromEnv } = await import("@/lib/settings");
+    await seedSettingsFromEnv();
+
     const { processScheduledPosts } = await import("@/lib/scheduler");
     const { startWorker } = await import("@/lib/worker");
 

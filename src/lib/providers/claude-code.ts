@@ -12,8 +12,8 @@ const DEFAULT_TIMEOUT = 120_000;
 const KNOWN_MODELS = ["sonnet", "opus", "haiku"];
 
 export function createClaudeCodeTextProvider(config: ProviderConfig = {}): TextProvider {
-  const bin = config.baseUrl || process.env.CLAUDE_CODE_BIN || DEFAULT_BIN;
-  const model = config.model || process.env.CLAUDE_CODE_MODEL || DEFAULT_MODEL;
+  const bin = config.baseUrl || DEFAULT_BIN;
+  const model = config.model || DEFAULT_MODEL;
 
   return {
     name: `claude-code/${model}`,

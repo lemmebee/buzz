@@ -1,5 +1,6 @@
 import type { Platform, ContentPurpose, ContentTargeting, GenerationMetadata, MediaType } from "@/lib/brain/types";
 import { getDefaults, type ContentConfig } from "@/lib/content/defaults";
+import { resolveContentEngine } from "@/lib/settings";
 
 export interface GenerateContentInput {
   productId: number;
@@ -61,6 +62,12 @@ export async function generateContent(
 ): Promise<GenerateContentResult> {
   const { mediaType, targetSurface, config: userConfig } = input;
   const config: ContentConfig = { ...getDefaults(targetSurface, mediaType), ...(userConfig || {}) };
+
+  const engine = await resolveContentEngine(input.productId);
+  if (engine === "higgsfield") {
+    const { generateHiggsfieldContent } = await import("@/lib/higgsfield/orchestrator");
+    return generateHiggsfieldContent({ ...input, config }, hooks);
+  }
 
   if (mediaType === "video") {
     const { generateVideoContent } = await import("@/lib/video/orchestrator");
