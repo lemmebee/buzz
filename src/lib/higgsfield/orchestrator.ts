@@ -151,10 +151,14 @@ export async function generateHiggsfieldContent(
     }),
     output: JSON.stringify({
       selectedMedias: medias,
-      selectionReason: ctx.screenshotMediaIds.length > 0 
-        ? "screenshot-first (logo deprioritised)" 
-        : ctx.logoMediaId 
-          ? "logo (no screenshots)" 
+      // The paths behind the ids, so the trace shows the actual reference
+      // image rather than an opaque uuid.
+      assetsSent: medias.map((m) => ctx.mediaIdToPath[m.value]).filter(Boolean),
+      assetsAvailable: Object.values(ctx.mediaIdToPath),
+      selectionReason: ctx.screenshotMediaIds.length > 0
+        ? "screenshot-first (logo deprioritised)"
+        : ctx.logoMediaId
+          ? "logo (no screenshots)"
           : "no assets",
     }),
     status: "ok",

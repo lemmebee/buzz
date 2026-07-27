@@ -78,11 +78,20 @@ export async function extractProfileAndStrategy({
         input: JSON.stringify({
           systemPrompt,
           userPrompt,
-          // Counts, not bytes — the images themselves would swamp the trace.
+          // Paths, not bytes: the trace viewer renders /api/media/... as a
+          // preview, so the exact assets the model saw are visible without
+          // storing megabytes of base64 per run.
           screenshotsRequested: screenshotPaths.length,
           screenshotsAttached: prepared.length,
           logoAttached: hasLogo,
           imagesSentToModel: images.length,
+          assetsSent: [
+            ...(hasLogo && logoPath ? [logoPath] : []),
+            ...prepared.map((p) => p.originalPath),
+          ],
+          assetsSkipped: screenshotPaths.filter(
+            (p) => !prepared.some((q) => q.originalPath === p)
+          ),
         }),
       },
       () =>

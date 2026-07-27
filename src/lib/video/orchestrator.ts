@@ -123,6 +123,13 @@ function aspectRatioToDims(ratio: string): { w: number; h: number } {
   }
 }
 
+// Assets are held as Remotion-relative paths ("media/x.png"); the trace viewer
+// previews the served form, so normalise before recording them.
+function toMediaUrl(p: string): string {
+  if (p.startsWith(MEDIA_URL_PREFIX)) return p;
+  return `${MEDIA_URL_PREFIX}${p.replace(/^media\//, "")}`;
+}
+
 function urlPathToFs(urlPath: string): string {
   const filename = urlPath.replace(/^\/api\/media\//, "");
   return join(process.cwd(), "public", "media", filename);
@@ -238,6 +245,8 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
         userPrompt,
         variations: generateCount,
         imagesAttached: allImages.length,
+        assetsSent: product.logo ? [product.logo] : [],
+        uploadsAttached: images.length,
       }),
     },
     () =>
@@ -434,7 +443,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
           aspectRatio: config.aspectRatio,
           durationSec: targetDuration,
           vibe,
-          productShots,
+          assetsSent: productShots.map(toMediaUrl),
           imagesAvailable: imagesAvail,
           candidates: 3,
         }),

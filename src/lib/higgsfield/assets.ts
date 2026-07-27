@@ -56,7 +56,11 @@ export async function invalidateMediaCache(mediaIds: string[]): Promise<void> {
 
 export async function ensureProductAssetsUploaded(
   productId: number
-): Promise<{ logoMediaId?: string; screenshotMediaIds: string[] }> {
+): Promise<{
+  logoMediaId?: string;
+  screenshotMediaIds: string[];
+  mediaIdToPath: Record<string, string>;
+}> {
   const product = await db.query.products.findFirst({
     where: eq(schema.products.id, productId),
   });
@@ -157,6 +161,9 @@ export async function ensureProductAssetsUploaded(
     return {
       logoMediaId: logo?.hfMediaId ?? undefined,
       screenshotMediaIds: screenshots.map(s => s.hfMediaId!).filter(Boolean),
+      mediaIdToPath: Object.fromEntries(
+        allAssets.filter(a => a.hfMediaId).map(a => [a.hfMediaId!, a.localPath])
+      ),
     };
   }
 
@@ -215,12 +222,17 @@ export async function ensureProductAssetsUploaded(
     return {
       logoMediaId: logo?.hfMediaId ?? undefined,
       screenshotMediaIds: screenshots.map(s => s.hfMediaId!).filter(Boolean),
+      // Local paths alongside the remote ids so traces can show the actual
+      // asset, not just an opaque uuid.
+      mediaIdToPath: Object.fromEntries(
+        allAssets.filter(a => a.hfMediaId).map(a => [a.hfMediaId!, a.localPath])
+      ),
     };
   } catch (err) {
     if (isTerminalProviderError(err)) {
       throw err;
     }
     console.warn(`[higgsfield] batch upload failed:`, err);
-    return { logoMediaId: undefined, screenshotMediaIds: [] };
+    return { logoMediaId: undefined, screenshotMediaIds: [], mediaIdToPath: {} };
   }
 }

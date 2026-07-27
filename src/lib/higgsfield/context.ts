@@ -24,6 +24,8 @@ export interface HiggsfieldContext {
   targeting?: ContentTargeting;
   logoMediaId?: string;
   screenshotMediaIds: string[];
+  /** Higgsfield media id -> local /api/media path, so traces can preview assets. */
+  mediaIdToPath: Record<string, string>;
   textProvider?: string | null;
 }
 
@@ -73,11 +75,13 @@ export async function gatherContext(input: GatherInput): Promise<HiggsfieldConte
 
   let logoMediaId: string | undefined;
   let screenshotMediaIds: string[] = [];
+  let mediaIdToPath: Record<string, string> = {};
 
   if (!input.skipAssetUpload) {
     const assets = await ensureProductAssetsUploaded(input.productId);
     logoMediaId = assets.logoMediaId;
     screenshotMediaIds = assets.screenshotMediaIds;
+    mediaIdToPath = assets.mediaIdToPath ?? {};
   }
 
   return {
@@ -97,6 +101,7 @@ export async function gatherContext(input: GatherInput): Promise<HiggsfieldConte
     config: input.config,
     targeting: input.targeting,
     logoMediaId,
+    mediaIdToPath,
     screenshotMediaIds,
     textProvider: product.textProvider,
   };

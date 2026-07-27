@@ -58,6 +58,13 @@ function aspectRatioToDims(ratio: string): { w: number; h: number } {
   }
 }
 
+// Assets are held as Remotion-relative paths ("media/x.png"); the trace viewer
+// previews the served form, so normalise before recording them.
+function toMediaUrl(p: string): string {
+  if (p.startsWith("/api/media/")) return p;
+  return `/api/media/${p.replace(/^media\//, "")}`;
+}
+
 // Save base64 images to public/media/ and return their staticFile-relative paths
 function saveUploadedImages(images: string[]): string[] {
   const mediaDir = join(process.cwd(), "public", "media");
@@ -134,6 +141,8 @@ export async function generateImageContent(
         variations: generateCount,
         imagesAttached: allImages.length,
         hasLogo,
+        assetsSent: product.logo ? [product.logo] : [],
+        uploadsAttached: images.length,
       }),
     },
     () =>
@@ -207,8 +216,9 @@ export async function generateImageContent(
           caption: captionText,
           aspectRatio,
           vibe,
-          productShots,
-          uploadedImages: uploadedImagePaths,
+          assetsSent: [...productShots, ...uploadedImagePaths].map(toMediaUrl),
+          productShots: productShots.map(toMediaUrl),
+          uploadedImages: uploadedImagePaths.map(toMediaUrl),
           assetImagesAttached: productShots.length + uploadedImagePaths.length,
           candidates: 3,
         }),
