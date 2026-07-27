@@ -33,18 +33,34 @@ export async function prepareImages(
   const results: PreparedImage[] = [];
   for (const p of selected) {
     try {
-      const absPath = p.startsWith("/") ? p : join(process.cwd(), "public", p);
+      const absPath = resolveAssetPath(p);
       const buffer = await readFile(absPath);
       const compressed = await sharp(buffer)
         .resize(maxWidth, maxHeight, { fit: "inside", withoutEnlargement: true })
         .jpeg({ quality })
         .toBuffer();
       results.push({ base64: compressed.toString("base64"), originalPath: p });
-    } catch {
-      // skip unreadable files
+    } catch (err) {
+      // Skip unreadable files, but say so — a silently dropped screenshot means
+      // the LLM invents a visual identity instead of reading the real one.
+      console.warn(`[images] skipped ${p}:`, err instanceof Error ? err.message : err);
     }
   }
   return results;
+}
+
+/**
+ * Resolve a stored asset reference to a filesystem path.
+ * The DB stores serve-URLs ("/api/media/screenshots/x.png"), not fs paths —
+ * treating those as absolute silently yields zero images.
+ */
+function resolveAssetPath(p: string): string {
+  const MEDIA_URL_PREFIX = "/api/media/";
+  if (p.startsWith(MEDIA_URL_PREFIX)) {
+    return join(process.cwd(), "public", "media", p.slice(MEDIA_URL_PREFIX.length));
+  }
+  if (p.startsWith("/")) return p;
+  return join(process.cwd(), "public", p);
 }
 
 /** Pick n evenly-spaced items from arr */

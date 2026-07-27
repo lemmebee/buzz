@@ -1,10 +1,20 @@
 import { spawn } from "child_process";
+import { join } from "path";
+import { writeFileSync, existsSync } from "fs";
 import type { TextProvider, TextGenerationInput, TextGenerationOutput, ProviderConfig } from "./types";
 import { materializeToFile, parentDirs } from "./image-input";
 
 const DEFAULT_BIN = "/home/mrg/.local/bin/claude";
 const DEFAULT_MODEL = "sonnet";
-const DEFAULT_TIMEOUT = 120_000;
+// Vision work (profile extraction reads several screenshots) routinely exceeds
+// two minutes; 120s was silently SIGTERMing extraction with exit code 143.
+const DEFAULT_TIMEOUT = 600_000;
+
+// Create empty MCP config to prevent loading other MCP servers
+const EMPTY_MCP_CONFIG = join(process.cwd(), "data", "empty-mcp.json");
+if (!existsSync(EMPTY_MCP_CONFIG)) {
+  writeFileSync(EMPTY_MCP_CONFIG, JSON.stringify({ mcpServers: {} }));
+}
 
 // Known model aliases the Claude Code CLI accepts for --model. These are
 // aliases (latest-of-family) rather than pinned ids, matching how the CLI
@@ -33,6 +43,8 @@ export function createClaudeCodeTextProvider(config: ProviderConfig = {}): TextP
       const args = [
         "--print",
         "--model", model,
+        "--mcp-config", EMPTY_MCP_CONFIG,
+        "--strict-mcp-config",
         ...parentDirs(imagePaths).flatMap((d) => ["--add-dir", d]),
       ];
 

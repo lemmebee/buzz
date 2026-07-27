@@ -52,6 +52,11 @@ export interface GenerationMetadata {
   targetValue: string | null;
   toneConstraints: string[];
   visualDirection: string;
+  engine?: string;
+  provider?: string;
+  model?: string;
+  credits?: number;
+  traceJobId?: string;
 }
 
 // --- New profile types ---

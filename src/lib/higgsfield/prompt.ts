@@ -183,6 +183,42 @@ Your imagePrompt must describe ONLY the scene AROUND the device:
 Include this exact phrase in your imagePrompt: "Reproduce the provided reference image exactly as supplied; do not restyle, recolour, or alter any content within it."
 
 Brand palette guidance applies to the ENVIRONMENT, not the screen.`);
+
+    // Add palette and environment instructions
+    sections.push(`## PALETTE AND ENVIRONMENT INSTRUCTIONS
+
+**Use colours as colours, not as settings:**
+- Apply the brand palette to surfaces, lighting, and props
+- Do NOT translate mood words into literal environments — "shade", "airy", "warm" describe feeling and colour, not a desert, beach, or sand setting
+- When the reference is a dark-themed screenshot, use the dark-mode palette (near-black backgrounds, bright accents)
+- When the reference is a light-themed screenshot, use the light-mode palette
+
+**Force environment variety across variations:**
+Each variation MUST use a distinctly different setting. Choose from these categories:
+- Desk/workspace (wooden desk, standing desk, minimalist workspace)
+- Café/social (café table, coffee shop, restaurant)
+- Kitchen/domestic (kitchen counter, dining table, home office)
+- Studio/professional (seamless backdrop, product photography setup)
+- Outdoors/mobile (in-hand outdoors, park bench, urban setting)
+
+Consecutive variations must not repeat a setting family. If variation 1 uses a desk, variation 2 must use a completely different category.`);
+  } else {
+    // No reference image - still enforce environment variety
+    sections.push(`## ENVIRONMENT VARIETY
+
+**Force environment variety across variations:**
+Each variation MUST use a distinctly different setting. Choose from these categories:
+- Desk/workspace (wooden desk, standing desk, minimalist workspace)
+- Café/social (café table, coffee shop, restaurant)
+- Kitchen/domestic (kitchen counter, dining table, home office)
+- Studio/professional (seamless backdrop, product photography setup)
+- Outdoors/mobile (in-hand outdoors, park bench, urban setting)
+
+Consecutive variations must not repeat a setting family. If variation 1 uses a desk, variation 2 must use a completely different category.
+
+**Use colours as colours, not as settings:**
+- Apply the brand palette to surfaces, lighting, and props
+- Do NOT translate mood words into literal environments — "shade", "airy", "warm" describe feeling and colour, not a desert, beach, or sand setting`);
   }
 
   sections.push(`## OUTPUT FORMAT

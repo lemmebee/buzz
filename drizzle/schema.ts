@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 
 export const products = sqliteTable("products", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -157,7 +157,28 @@ export const higgsfieldModels = sqliteTable("higgsfield_models", {
   medias: text("medias"),
   parameters: text("parameters"),
   baseCredits: integer("base_credits"),
+  roleOverride: text("role_override"),
   fetchedAt: integer("fetched_at", { mode: "timestamp" }).notNull(),
+});
+
+export const generationTraces = sqliteTable("generation_traces", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jobId: text("job_id"),
+  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }),
+  contentId: integer("content_id"),
+  phase: text("phase").notNull(),
+  step: text("step"),
+  variationIndex: integer("variation_index"),
+  engine: text("engine"),
+  provider: text("provider"),
+  model: text("model"),
+  input: text("input"),
+  output: text("output"),
+  credits: real("credits"),
+  durationMs: integer("duration_ms"),
+  status: text("status"),
+  error: text("error"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
 // Types
@@ -178,3 +199,5 @@ export type HiggsfieldAsset = typeof higgsfieldAssets.$inferSelect;
 export type NewHiggsfieldAsset = typeof higgsfieldAssets.$inferInsert;
 export type HiggsfieldModelRow = typeof higgsfieldModels.$inferSelect;
 export type NewHiggsfieldModelRow = typeof higgsfieldModels.$inferInsert;
+export type GenerationTrace = typeof generationTraces.$inferSelect;
+export type NewGenerationTrace = typeof generationTraces.$inferInsert;

@@ -5,8 +5,12 @@ import { eq, and, inArray } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { hfPresignUpload, hfPutBytes, hfConfirmUpload } from "./client";
 import { isTerminalProviderError } from "@/lib/providers/errors";
+import sharp from "sharp";
 
 const MAX_SCREENSHOTS = 4;
+
+// Raster formats that Higgsfield image models accept
+const RASTER_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 
 function resolveFilePath(localPath: string): string {
   const stripped = localPath.replace(/^\/api\/media\//, "");
@@ -20,6 +24,7 @@ function contentTypeFromExt(ext: string): string {
     ".png": "image/png",
     ".webp": "image/webp",
     ".gif": "image/gif",
+    ".svg": "image/svg+xml",
   };
   return map[ext.toLowerCase()] || "application/octet-stream";
 }
@@ -34,6 +39,7 @@ interface AssetToUpload {
   filePath: string;
   kind: string;
   contentType: string;
+  isSvg: boolean;
 }
 
 export async function invalidateMediaCache(mediaIds: string[]): Promise<void> {
@@ -59,6 +65,7 @@ export async function ensureProductAssetsUploaded(
   }
 
   const toUpload: AssetToUpload[] = [];
+  let logoSkipped = false;
 
   if (product.logo) {
     const existing = await db.query.higgsfieldAssets.findFirst({
@@ -71,12 +78,21 @@ export async function ensureProductAssetsUploaded(
       const filePath = resolveFilePath(product.logo);
       if (existsSync(filePath)) {
         const ext = getExt(product.logo);
-        toUpload.push({
-          localPath: product.logo,
-          filePath,
-          kind: "logo",
-          contentType: contentTypeFromExt(ext),
-        });
+        const isSvg = ext.toLowerCase() === ".svg";
+        
+        // SVG will be rasterized, other non-raster formats are skipped
+        if (!isSvg && !RASTER_EXTS.has(ext.toLowerCase())) {
+          console.log(`[higgsfield] skipping ${product.logo} — unsupported format for generation input`);
+          logoSkipped = true;
+        } else {
+          toUpload.push({
+            localPath: product.logo,
+            filePath,
+            kind: "logo",
+            contentType: isSvg ? "image/png" : contentTypeFromExt(ext),
+            isSvg,
+          });
+        }
       } else {
         console.warn(`[higgsfield] logo file not found: ${filePath}`);
       }
@@ -104,12 +120,20 @@ export async function ensureProductAssetsUploaded(
       const filePath = resolveFilePath(path);
       if (existsSync(filePath)) {
         const ext = getExt(path);
-        toUpload.push({
-          localPath: path,
-          filePath,
-          kind: "screenshot",
-          contentType: contentTypeFromExt(ext),
-        });
+        const isSvg = ext.toLowerCase() === ".svg";
+        
+        // SVG will be rasterized, other non-raster formats are skipped
+        if (!isSvg && !RASTER_EXTS.has(ext.toLowerCase())) {
+          console.log(`[higgsfield] skipping ${path} — unsupported format for generation input`);
+        } else {
+          toUpload.push({
+            localPath: path,
+            filePath,
+            kind: "screenshot",
+            contentType: isSvg ? "image/png" : contentTypeFromExt(ext),
+            isSvg,
+          });
+        }
       } else {
         console.warn(`[higgsfield] screenshot file not found: ${filePath}`);
       }
@@ -123,6 +147,13 @@ export async function ensureProductAssetsUploaded(
     });
     const logo = allAssets.find(a => a.kind === "logo");
     const screenshots = allAssets.filter(a => a.kind === "screenshot");
+    
+    if (logo) {
+      console.log(`[higgsfield] reference: logo (cached) -> ${logo.hfMediaId}`);
+    } else if (logoSkipped) {
+      console.log(`[higgsfield] reference: screenshot 1 (logo skipped — unsupported format)`);
+    }
+    
     return {
       logoMediaId: logo?.hfMediaId ?? undefined,
       screenshotMediaIds: screenshots.map(s => s.hfMediaId!).filter(Boolean),
@@ -131,7 +162,9 @@ export async function ensureProductAssetsUploaded(
 
   try {
     const files = toUpload.map(a => ({
-      filename: a.localPath.split("/").pop() || "file",
+      filename: a.isSvg 
+        ? (a.localPath.split("/").pop() || "file").replace(/\.svg$/i, ".png")
+        : (a.localPath.split("/").pop() || "file"),
       contentType: a.contentType,
     }));
 
@@ -143,7 +176,17 @@ export async function ensureProductAssetsUploaded(
 
     await Promise.all(
       toUpload.map(async (asset, i) => {
-        const buffer = await readFile(asset.filePath);
+        let buffer: Buffer = await readFile(asset.filePath);
+        
+        // Rasterize SVG to PNG
+        if (asset.isSvg) {
+          buffer = await sharp(buffer)
+            .png()
+            .resize({ width: 1024, withoutEnlargement: true })
+            .toBuffer();
+          console.log(`[higgsfield] rasterized SVG: ${asset.localPath} -> PNG`);
+        }
+        
         await hfPutBytes(presigned[i].uploadUrl, buffer, asset.contentType);
         await hfConfirmUpload(presigned[i].mediaId, "image");
 
@@ -156,7 +199,10 @@ export async function ensureProductAssetsUploaded(
           hfMediaId: presigned[i].mediaId,
         });
 
-        console.log(`[higgsfield] uploaded: ${asset.localPath} -> ${presigned[i].mediaId}`);
+        const refType = asset.kind === "logo" 
+          ? (asset.isSvg ? "logo (rasterised from svg)" : "logo")
+          : (asset.isSvg ? "screenshot (rasterised from svg)" : "screenshot");
+        console.log(`[higgsfield] reference: ${refType} -> ${presigned[i].mediaId}`);
       })
     );
 

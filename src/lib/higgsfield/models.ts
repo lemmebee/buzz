@@ -34,6 +34,7 @@ export async function getCachedModels(): Promise<CachedModels | null> {
     medias: row.medias ? JSON.parse(row.medias) : undefined,
     parameters: row.parameters ? JSON.parse(row.parameters) : undefined,
     baseCredits: row.baseCredits || undefined,
+    roleOverride: row.roleOverride || undefined,
   }));
 
   const fetchedAt = rows[0].fetchedAt.toISOString();
@@ -134,6 +135,7 @@ export async function getModelById(modelId: string): Promise<HiggsfieldModel | n
     medias: row.medias ? JSON.parse(row.medias) : undefined,
     parameters: row.parameters ? JSON.parse(row.parameters) : undefined,
     baseCredits: row.baseCredits || undefined,
+    roleOverride: row.roleOverride || undefined,
   };
 }
 
@@ -155,6 +157,7 @@ export async function getModelsByType(type: "image" | "video"): Promise<Higgsfie
     medias: row.medias ? JSON.parse(row.medias) : undefined,
     parameters: row.parameters ? JSON.parse(row.parameters) : undefined,
     baseCredits: row.baseCredits || undefined,
+    roleOverride: row.roleOverride || undefined,
   })).sort((a, b) => (a.baseCredits ?? 999) - (b.baseCredits ?? 999));
 }
 
@@ -180,4 +183,11 @@ export async function fetchModelCost(modelId: string): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+// Persist a role override when the API rejects the catalog-declared role
+export async function setRoleOverride(modelId: string, role: string): Promise<void> {
+  await db.update(schema.higgsfieldModels)
+    .set({ roleOverride: role })
+    .where(eq(schema.higgsfieldModels.id, modelId));
 }

@@ -11,6 +11,7 @@ import { getModelById } from "./models";
 import type { ContentPurpose } from "@/lib/brain/types";
 import { existsSync } from "fs";
 import { join } from "path";
+import { trace } from "@/lib/traces";
 
 async function checkPrerequisites(modelId: string): Promise<string | null> {
   // Check Claude CLI binary
@@ -85,23 +86,79 @@ export async function generateHiggsfieldContent(
     targeting,
   });
 
+  // Trace context phase
+  await trace({
+    productId,
+    phase: "context",
+    engine: "higgsfield",
+    input: JSON.stringify({
+      targetSurface,
+      mediaType,
+      hasPlanFile: !!ctx.planFile,
+      hasProfile: !!ctx.profile,
+      hasStrategy: !!ctx.marketingStrategy,
+      hasIcp: !!ctx.icp,
+      hasJtbd: !!ctx.jtbd,
+      brainstormIdeasCount: ctx.brainstormIdeas.length,
+      instagramHandle: ctx.instagramHandle,
+      screenshotCount: ctx.screenshotMediaIds.length,
+      hasLogo: !!ctx.logoMediaId,
+    }),
+    status: "ok",
+  });
+
   // Resolve aspect ratio from model capabilities
   const aspectRatio = model 
     ? resolveAspectRatio(model, targetSurface as ContentPurpose)
     : targetSurface === "post" ? "1:1" : targetSurface === "ad" ? "4:5" : "9:16";
 
   // Build medias array from model capabilities
+  // Order: screenshots first, logo last (logo is a wordmark, screenshots are the product)
   const mediaIds: string[] = [];
+  mediaIds.push(...ctx.screenshotMediaIds);
   if (ctx.logoMediaId) {
     mediaIds.push(ctx.logoMediaId);
   }
-  mediaIds.push(...ctx.screenshotMediaIds);
 
   const medias = model 
     ? buildMediasArray(model, mediaIds)
     : mediaIds.length > 0 
       ? [{ value: mediaIds[0], role: "image" }]
       : [];
+
+  // Log which asset was selected
+  if (medias.length > 0) {
+    const selectedScreenshot = ctx.screenshotMediaIds.length > 0;
+    const hasLogo = !!ctx.logoMediaId;
+    if (selectedScreenshot && hasLogo) {
+      console.log(`[higgsfield] reference: screenshot 1 of ${ctx.screenshotMediaIds.length} (logo available but deprioritised)`);
+    } else if (selectedScreenshot) {
+      console.log(`[higgsfield] reference: screenshot 1 of ${ctx.screenshotMediaIds.length}`);
+    } else if (hasLogo) {
+      console.log(`[higgsfield] reference: logo (no screenshots available)`);
+    }
+  }
+
+  // Trace assets phase
+  await trace({
+    productId,
+    phase: "assets",
+    engine: "higgsfield",
+    input: JSON.stringify({
+      screenshotCount: ctx.screenshotMediaIds.length,
+      hasLogo: !!ctx.logoMediaId,
+      maxReferences: model ? (model.medias?.[0]?.max ?? 1) : 1,
+    }),
+    output: JSON.stringify({
+      selectedMedias: medias,
+      selectionReason: ctx.screenshotMediaIds.length > 0 
+        ? "screenshot-first (logo deprioritised)" 
+        : ctx.logoMediaId 
+          ? "logo (no screenshots)" 
+          : "no assets",
+    }),
+    status: "ok",
+  });
 
   // Resolve duration for video
   const duration = mediaType === "video" && model
@@ -128,6 +185,26 @@ export async function generateHiggsfieldContent(
       const p = await buildHiggsfieldPrompt(ctx, i, usedAngles);
       const angleLabel = getCreativeAngleLabel(i);
 
+      // Trace prompt phase
+      await trace({
+        productId,
+        phase: "prompt",
+        engine: "higgsfield",
+        provider: ctx.textProvider || "default",
+        variationIndex: i,
+        input: JSON.stringify({
+          creativeAngle: angleLabel,
+          hasReferenceImage: !!(ctx.logoMediaId || ctx.screenshotMediaIds.length > 0),
+        }),
+        output: JSON.stringify({
+          imagePrompt: p.imagePrompt,
+          motionPrompt: p.motionPrompt,
+          caption: p.caption,
+          hashtags: p.hashtags,
+        }),
+        status: "ok",
+      });
+
       let post: GeneratedPost;
 
       if (mediaType === "video") {
@@ -149,6 +226,25 @@ export async function generateHiggsfieldContent(
         });
         console.log(`[higgsfield] video cost preflight: ${videoCost} credits${duration ? ` for ${duration}s` : ""}`);
 
+        // Trace generate phase (cost preflight)
+        await trace({
+          productId,
+          phase: "generate",
+          step: "cost-preflight",
+          engine: "higgsfield",
+          model: videoModel,
+          variationIndex: i,
+          input: JSON.stringify({
+            aspectRatio,
+            duration,
+          }),
+          output: JSON.stringify({
+            credits: videoCost,
+          }),
+          credits: videoCost,
+          status: "ok",
+        });
+
         // Step 1: Generate still
         const img = await hfGenerateImage({
           prompt: p.imagePrompt,
@@ -168,6 +264,27 @@ export async function generateHiggsfieldContent(
           duration,
         });
 
+        // Trace generate phase (video generation)
+        await trace({
+          productId,
+          phase: "generate",
+          step: "image-to-video",
+          engine: "higgsfield",
+          provider: "higgsfield",
+          model: videoModel,
+          variationIndex: i,
+          input: JSON.stringify({
+            mediaId: stillMediaId,
+            aspectRatio,
+            duration,
+          }),
+          output: JSON.stringify({
+            url: video.url,
+            duration: video.duration,
+          }),
+          status: "ok",
+        });
+
         post = {
           content: sanitizeCaption(p.caption),
           hashtags: p.hashtags,
@@ -182,6 +299,10 @@ export async function generateHiggsfieldContent(
             targetValue: null,
             toneConstraints: [],
             visualDirection: `[higgsfield:${imageModel}+${videoModel}:video] ${angleLabel}`,
+            engine: "higgsfield",
+            provider: "higgsfield",
+            model: videoModel,
+            credits: videoCost,
           },
         };
       } else {
@@ -191,6 +312,25 @@ export async function generateHiggsfieldContent(
           prompt: p.imagePrompt,
           aspectRatio,
           medias: medias.length > 0 ? medias : undefined,
+        });
+
+        // Trace generate phase (image generation)
+        await trace({
+          productId,
+          phase: "generate",
+          step: "text-to-image",
+          engine: "higgsfield",
+          provider: "higgsfield",
+          model,
+          variationIndex: i,
+          input: JSON.stringify({
+            aspectRatio,
+            mediaCount: medias.length,
+          }),
+          output: JSON.stringify({
+            url: img.url,
+          }),
+          status: "ok",
         });
 
         post = {
@@ -206,6 +346,9 @@ export async function generateHiggsfieldContent(
             targetValue: null,
             toneConstraints: [],
             visualDirection: `[higgsfield:${model}] ${angleLabel}`,
+            engine: "higgsfield",
+            provider: "higgsfield",
+            model,
           },
         };
       }

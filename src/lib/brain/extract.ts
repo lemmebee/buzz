@@ -40,17 +40,25 @@ export async function extractProfileAndStrategy({
     const provider = await resolveTextProvider(textProvider);
     const systemPrompt = buildProfileAndStrategyPrompt({ name, description, planFileContent, llmInstructions });
 
+    // prepareImages returns bare base64; providers expect a data: URI, a served
+    // URL, or a filesystem path. Passing bare base64 makes every image resolve
+    // to null and the model silently receives none — which is how the profile
+    // ended up inventing a visual identity it had never seen.
+    const toDataUri = (b64: string) => `data:image/jpeg;base64,${b64}`;
+
     const prepared = await prepareImages(screenshotPaths);
-    const images = prepared.map((p) => p.base64);
+    const images = prepared.map((p) => toDataUri(p.base64));
 
     let hasLogo = false;
     if (logoPath) {
       const logoPrepared = await prepareImages([logoPath], { maxImages: 1, maxWidth: 512, maxHeight: 512, quality: 80 });
       if (logoPrepared.length > 0) {
-        images.unshift(logoPrepared[0].base64);
+        images.unshift(toDataUri(logoPrepared[0].base64));
         hasLogo = true;
       }
     }
+
+    console.log(`[extract] product ${productId}: ${prepared.length}/${screenshotPaths.length} screenshots prepared, logo=${hasLogo}`);
 
     const totalImages = images.length;
     const userPrompt = hasLogo

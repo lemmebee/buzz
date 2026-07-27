@@ -174,20 +174,33 @@ function probeDuration(filePath: string): Promise<number | null> {
   });
 }
 
+// Parse role rejection error message and extract the required role
+// Example: 'role "start_image" is invalid. The server requires "image"'
+function parseRoleRejection(errorMsg: string): string | null {
+  // Match patterns like: role "X" is invalid. The server requires "Y"
+  // or: role "X" is not valid. Required role: "Y"
+  const match = errorMsg.match(/role\s+"([^"]+)"\s+(?:is invalid|is not valid)[^.]*?(?:requires|required)[:\s]+"([^"]+)"/i);
+  if (match && match[2]) {
+    return match[2];
+  }
+  return null;
+}
+
 export async function hfGenerateImage(opts: {
   prompt: string;
   aspectRatio: string;
   seed?: number;
   medias?: Array<{ value: string; role: string }>;
+  model?: string;
 }): Promise<{ url: string; localPath: string; jobParams?: Record<string, unknown> }> {
-  const model = await getHiggsfieldImageModel();
+  const modelId = opts.model || await getHiggsfieldImageModel();
 
   if (opts.medias?.length) {
     console.log(`[higgsfield] passing ${opts.medias.length} medias to generate_image:`, JSON.stringify(opts.medias));
   }
 
   const params: Record<string, unknown> = {
-    model,
+    model: modelId,
     prompt: opts.prompt,
     aspect_ratio: opts.aspectRatio,
     ...(opts.seed != null ? { seed: opts.seed } : {}),
@@ -203,17 +216,68 @@ Then take the returned job id and call mcp__claude_ai_HiggsField__job_status rep
 Then output ONE line of JSON and nothing else:
 {"status":"ok","url":"<result_url>","job_params":<the params object from job_status>}`;
 
-  const result = await spawnCliWithRetry(
-    [
-      "mcp__claude_ai_HiggsField__generate_image",
-      "mcp__claude_ai_HiggsField__job_status",
-    ],
-    prompt,
-    IMAGE_TIMEOUT
-  );
+  let result: CliResult;
+  try {
+    result = await spawnCliWithRetry(
+      [
+        "mcp__claude_ai_HiggsField__generate_image",
+        "mcp__claude_ai_HiggsField__job_status",
+      ],
+      prompt,
+      IMAGE_TIMEOUT
+    );
+  } catch (err) {
+    // Check if this is a role rejection error
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const requiredRole = parseRoleRejection(errorMsg);
+    
+    if (requiredRole && opts.medias?.length) {
+      // Retry with the corrected role
+      const currentRole = opts.medias[0].role;
+      console.log(`[higgsfield] role "${currentRole}" rejected, server requires "${requiredRole}" — retrying and caching override`);
+      
+      // Update the role in the medias array
+      const correctedMedias = opts.medias.map(m => ({ ...m, role: requiredRole }));
+      
+      // Persist the role override
+      const { setRoleOverride } = await import("./models");
+      await setRoleOverride(modelId, requiredRole);
+      
+      // Retry with corrected role
+      const correctedParams: Record<string, unknown> = {
+        model: modelId,
+        prompt: opts.prompt,
+        aspect_ratio: opts.aspectRatio,
+        ...(opts.seed != null ? { seed: opts.seed } : {}),
+        medias: correctedMedias,
+      };
+      
+      const correctedPrompt = `Call the mcp__claude_ai_HiggsField__generate_image tool with the params argument set to EXACTLY this JSON object, verbatim, with no fields added, removed, or altered:
+
+${JSON.stringify(correctedParams)}
+
+Then take the returned job id and call mcp__claude_ai_HiggsField__job_status repeatedly until status is "completed" or "failed" (max 20 polls, respect poll_after_seconds).
+
+Then output ONE line of JSON and nothing else:
+{"status":"ok","url":"<result_url>","job_params":<the params object from job_status>}`;
+
+      result = await spawnCliWithRetry(
+        [
+          "mcp__claude_ai_HiggsField__generate_image",
+          "mcp__claude_ai_HiggsField__job_status",
+        ],
+        correctedPrompt,
+        IMAGE_TIMEOUT
+      );
+    } else {
+      throw err;
+    }
+  }
 
   if (!result.url) {
-    throw new Error("No URL in Higgsfield response");
+    const errorMsg = result.message || "No URL in Higgsfield response";
+    const requestId = result.job_params?.request_id as string | undefined;
+    throw new Error(requestId ? `${errorMsg} (request ID: ${requestId})` : errorMsg);
   }
 
   if (result.job_params) {
@@ -277,7 +341,9 @@ Then output ONE line of JSON and nothing else:
   );
 
   if (!result.url) {
-    throw new Error("No URL in Higgsfield response");
+    const errorMsg = result.message || "No URL in Higgsfield response";
+    const requestId = result.job_params?.request_id as string | undefined;
+    throw new Error(requestId ? `${errorMsg} (request ID: ${requestId})` : errorMsg);
   }
 
   const saved = await downloadToMedia(result.url, "mp4");
@@ -290,13 +356,19 @@ export async function hfGenerateVideoFromMedia(opts: {
   mediaId: string;
   aspectRatio?: string;
   duration?: number;
+  model?: string;
 }): Promise<{ url: string; localPath: string; duration: number | null; jobParams?: Record<string, unknown> }> {
-  const model = await getHiggsfieldVideoModel();
+  const modelId = opts.model || await getHiggsfieldVideoModel();
+
+  // Get the model to check for role override
+  const { getModelById } = await import("./models");
+  const model = await getModelById(modelId);
+  const role = model?.roleOverride || "start_image";
 
   const params: Record<string, unknown> = {
-    model,
+    model: modelId,
     prompt: opts.prompt,
-    medias: [{ value: opts.mediaId, role: "start_image" }],
+    medias: [{ value: opts.mediaId, role }],
     ...(opts.aspectRatio ? { aspect_ratio: opts.aspectRatio } : {}),
     ...(opts.duration ? { duration: opts.duration } : {}),
   };
@@ -310,17 +382,64 @@ Then take the returned job id and call mcp__claude_ai_HiggsField__job_status rep
 Then output ONE line of JSON and nothing else:
 {"status":"ok","url":"<result_url>","job_params":<the params object from job_status>}`;
 
-  const result = await spawnCliWithRetry(
-    [
-      "mcp__claude_ai_HiggsField__generate_video",
-      "mcp__claude_ai_HiggsField__job_status",
-    ],
-    prompt,
-    VIDEO_TIMEOUT
-  );
+  let result: CliResult;
+  try {
+    result = await spawnCliWithRetry(
+      [
+        "mcp__claude_ai_HiggsField__generate_video",
+        "mcp__claude_ai_HiggsField__job_status",
+      ],
+      prompt,
+      VIDEO_TIMEOUT
+    );
+  } catch (err) {
+    // Check if this is a role rejection error
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const requiredRole = parseRoleRejection(errorMsg);
+    
+    if (requiredRole) {
+      // Retry with the corrected role
+      console.log(`[higgsfield] role "${role}" rejected, server requires "${requiredRole}" — retrying and caching override`);
+      
+      // Persist the role override
+      const { setRoleOverride } = await import("./models");
+      await setRoleOverride(modelId, requiredRole);
+      
+      // Retry with corrected role
+      const correctedParams: Record<string, unknown> = {
+        model: modelId,
+        prompt: opts.prompt,
+        medias: [{ value: opts.mediaId, role: requiredRole }],
+        ...(opts.aspectRatio ? { aspect_ratio: opts.aspectRatio } : {}),
+        ...(opts.duration ? { duration: opts.duration } : {}),
+      };
+      
+      const correctedPrompt = `Call the mcp__claude_ai_HiggsField__generate_video tool with the params argument set to EXACTLY this JSON object, verbatim, with no fields added, removed, or altered:
+
+${JSON.stringify(correctedParams)}
+
+Then take the returned job id and call mcp__claude_ai_HiggsField__job_status repeatedly until status is "completed" or "failed" (max 20 polls, respect poll_after_seconds).
+
+Then output ONE line of JSON and nothing else:
+{"status":"ok","url":"<result_url>","job_params":<the params object from job_status>}`;
+
+      result = await spawnCliWithRetry(
+        [
+          "mcp__claude_ai_HiggsField__generate_video",
+          "mcp__claude_ai_HiggsField__job_status",
+        ],
+        correctedPrompt,
+        VIDEO_TIMEOUT
+      );
+    } else {
+      throw err;
+    }
+  }
 
   if (!result.url) {
-    throw new Error("No URL in Higgsfield response");
+    const errorMsg = result.message || "No URL in Higgsfield response";
+    const requestId = result.job_params?.request_id as string | undefined;
+    throw new Error(requestId ? `${errorMsg} (request ID: ${requestId})` : errorMsg);
   }
 
   const saved = await downloadToMedia(result.url, "mp4");
@@ -496,6 +615,7 @@ export interface HiggsfieldModel {
   durations?: number[];
   parameters?: HiggsfieldParameter[];
   baseCredits?: number;
+  roleOverride?: string;
 }
 
 // Non-generator models to filter out — these are utility tools, not content generators

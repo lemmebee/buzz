@@ -11,9 +11,14 @@ const PREFERRED_ASPECT_RATIOS: Record<ContentPurpose, string[]> = {
 
 /**
  * Resolve the media role for a model.
- * Returns the first role from medias[0].roles, or null if no reference support.
+ * Returns the roleOverride if present, otherwise the first role from medias[0].roles, or null if no reference support.
  */
 export function resolveMediaRole(model: HiggsfieldModel): string | null {
+  // Use roleOverride if present (self-healed from API rejection)
+  if (model.roleOverride) {
+    return model.roleOverride;
+  }
+  
   if (!model.medias || model.medias.length === 0) return null;
   const roles = model.medias[0].roles;
   if (!roles || roles.length === 0) return null;
