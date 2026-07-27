@@ -120,6 +120,86 @@ export async function getImageStyle(): Promise<string> {
   return (await getSetting("IMAGE_STYLE")) || "product";
 }
 
+async function getNumericSetting(key: string, fallback: number): Promise<number> {
+  const raw = await getSetting(key);
+  const n = raw === null ? NaN : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * Pipeline tuning. These were hardcoded constants scattered across the
+ * codebase, which made it impossible to tell — without reading source — how
+ * much of a product the models were actually being shown. Each one trades
+ * output quality against tokens, cost and latency, so they belong in Settings.
+ */
+export const PIPELINE_DEFAULTS = {
+  EXTRACTION_MAX_IMAGES: 10,
+  CONTENT_MAX_IMAGES: 4,
+  IMAGE_MAX_DIMENSION: 1024,
+  IMAGE_JPEG_QUALITY: 70,
+  HIGGSFIELD_MAX_ASSETS: 4,
+  PLAN_FILE_CHAR_CAP: 4000,
+  GENERATION_CANDIDATES: 3,
+} as const;
+
+/** Screenshots read when building the product profile. Drives every later prompt. */
+export const getExtractionMaxImages = () =>
+  getNumericSetting("EXTRACTION_MAX_IMAGES", PIPELINE_DEFAULTS.EXTRACTION_MAX_IMAGES);
+
+/** Images attached when authoring captions and image prompts. */
+export const getContentMaxImages = () =>
+  getNumericSetting("CONTENT_MAX_IMAGES", PIPELINE_DEFAULTS.CONTENT_MAX_IMAGES);
+
+/** Longest edge images are downscaled to before being sent to a model. */
+export const getImageMaxDimension = () =>
+  getNumericSetting("IMAGE_MAX_DIMENSION", PIPELINE_DEFAULTS.IMAGE_MAX_DIMENSION);
+
+/** JPEG quality for those downscaled images. */
+export const getImageJpegQuality = () =>
+  getNumericSetting("IMAGE_JPEG_QUALITY", PIPELINE_DEFAULTS.IMAGE_JPEG_QUALITY);
+
+/** Product assets uploaded to Higgsfield for use as generation references. */
+export const getHiggsfieldMaxAssets = () =>
+  getNumericSetting("HIGGSFIELD_MAX_ASSETS", PIPELINE_DEFAULTS.HIGGSFIELD_MAX_ASSETS);
+
+/** Characters of the marketing brief included in a generation prompt. */
+export const getPlanFileCharCap = () =>
+  getNumericSetting("PLAN_FILE_CHAR_CAP", PIPELINE_DEFAULTS.PLAN_FILE_CHAR_CAP);
+
+/** Best-of-N candidates rendered before judging. Higher costs more per post. */
+export const getGenerationCandidates = () =>
+  getNumericSetting("GENERATION_CANDIDATES", PIPELINE_DEFAULTS.GENERATION_CANDIDATES);
+
+/** Every pipeline knob in one call, for the settings UI. */
+export async function getPipelineSettings() {
+  const [
+    extractionMaxImages,
+    contentMaxImages,
+    imageMaxDimension,
+    imageJpegQuality,
+    higgsfieldMaxAssets,
+    planFileCharCap,
+    generationCandidates,
+  ] = await Promise.all([
+    getExtractionMaxImages(),
+    getContentMaxImages(),
+    getImageMaxDimension(),
+    getImageJpegQuality(),
+    getHiggsfieldMaxAssets(),
+    getPlanFileCharCap(),
+    getGenerationCandidates(),
+  ]);
+  return {
+    EXTRACTION_MAX_IMAGES: extractionMaxImages,
+    CONTENT_MAX_IMAGES: contentMaxImages,
+    IMAGE_MAX_DIMENSION: imageMaxDimension,
+    IMAGE_JPEG_QUALITY: imageJpegQuality,
+    HIGGSFIELD_MAX_ASSETS: higgsfieldMaxAssets,
+    PLAN_FILE_CHAR_CAP: planFileCharCap,
+    GENERATION_CANDIDATES: generationCandidates,
+  };
+}
+
 export async function getAntigravityBin(): Promise<string> {
   return (await getSetting("ANTIGRAVITY_BIN")) || "/home/mrg/.local/bin/agy";
 }

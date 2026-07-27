@@ -3,11 +3,12 @@ import { resolveTextProvider } from "@/lib/providers/factory";
 import { sanitizeCaption } from "@/lib/generate";
 import { composeSkillSection, skillsEnabled } from "@/lib/skills";
 import type { HiggsfieldContext } from "./context";
+import { getPlanFileCharCap } from "@/lib/settings";
 
 // Cap planFile to ~4000 chars to avoid blowing the context window.
 // A typical marketing brief is 2-8k chars; we take the first portion
 // which contains the executive summary, positioning, and key messages.
-const PLAN_FILE_CHAR_CAP = 4000;
+
 
 export function getCreativeAngleLabel(variationIndex: number): string {
   return CREATIVE_ANGLES[variationIndex % CREATIVE_ANGLES.length].label;
@@ -46,13 +47,13 @@ const CREATIVE_ANGLES = [
   },
 ];
 
-function truncatePlanFile(planFile: string | null | undefined): string {
+function truncatePlanFile(planFile: string | null | undefined, cap: number): string {
   if (!planFile) return "";
-  if (planFile.length <= PLAN_FILE_CHAR_CAP) return planFile;
-  return planFile.slice(0, PLAN_FILE_CHAR_CAP) + "\n[...truncated]";
+  if (planFile.length <= cap) return planFile;
+  return planFile.slice(0, cap) + "\n[...truncated]";
 }
 
-function buildSystemPrompt(ctx: HiggsfieldContext, angleIdx: number, variationIndex: number, usedAngles?: string[]): string {
+function buildSystemPrompt(ctx: HiggsfieldContext, angleIdx: number, variationIndex: number, planFileCharCap: number, usedAngles?: string[]): string {
   const angle = CREATIVE_ANGLES[angleIdx];
   const sections: string[] = [];
   const hasReferenceImage = ctx.logoMediaId || ctx.screenshotMediaIds.length > 0;
@@ -140,7 +141,7 @@ Description: ${ctx.description}`);
     }
   }
 
-  const planContent = truncatePlanFile(ctx.planFile);
+  const planContent = truncatePlanFile(ctx.planFile, planFileCharCap);
   if (planContent) {
     sections.push(`## MARKETING BRIEF (excerpt)\n${planContent}`);
   }
@@ -239,7 +240,8 @@ export async function buildHiggsfieldPrompt(
   usedAngles?: string[]
 ): Promise<{ imagePrompt: string; motionPrompt: string; caption: string; hashtags: string[] }> {
   const angleIdx = variationIndex % CREATIVE_ANGLES.length;
-  const systemPrompt = buildSystemPrompt(ctx, angleIdx, variationIndex, usedAngles);
+  const planFileCharCap = await getPlanFileCharCap();
+  const systemPrompt = buildSystemPrompt(ctx, angleIdx, variationIndex, planFileCharCap, usedAngles);
   const userPrompt = `Generate the ${ctx.mediaType} ${ctx.targetSurface} content now. Return ONLY valid JSON.`;
 
   const textProvider = await resolveTextProvider(ctx.textProvider);

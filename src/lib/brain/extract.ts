@@ -6,6 +6,7 @@ import { prepareImages } from "@/lib/images";
 import { snapshotChangedFields } from "@/lib/revisions";
 import { classifyProviderError } from "@/lib/providers/errors";
 import { timed } from "@/lib/traces";
+import { getExtractionMaxImages, getImageMaxDimension, getImageJpegQuality } from "@/lib/settings";
 
 interface ExtractionParams {
   productId: number;
@@ -47,7 +48,20 @@ export async function extractProfileAndStrategy({
     // ended up inventing a visual identity it had never seen.
     const toDataUri = (b64: string) => `data:image/jpeg;base64,${b64}`;
 
-    const prepared = await prepareImages(screenshotPaths);
+    // Extraction defines the product's visual identity for every downstream
+    // prompt, so it is worth more of the screenshot set than the default 4.
+    // Sampling is still evenly spaced across the range, not the first N.
+    const [maxImages, maxDim, quality] = await Promise.all([
+      getExtractionMaxImages(),
+      getImageMaxDimension(),
+      getImageJpegQuality(),
+    ]);
+    const prepared = await prepareImages(screenshotPaths, {
+      maxImages,
+      maxWidth: maxDim,
+      maxHeight: maxDim,
+      quality,
+    });
     const images = prepared.map((p) => toDataUri(p.base64));
 
     let hasLogo = false;
@@ -89,9 +103,15 @@ export async function extractProfileAndStrategy({
             ...(hasLogo && logoPath ? [logoPath] : []),
             ...prepared.map((p) => p.originalPath),
           ],
-          assetsSkipped: screenshotPaths.filter(
-            (p) => !prepared.some((q) => q.originalPath === p)
-          ),
+          // Two different reasons an asset did not reach the model, kept apart
+          // so a sampling decision is never mistaken for a failure.
+          samplingLimit: maxImages,
+          assetsNotSampled: screenshotPaths.length > maxImages
+            ? screenshotPaths.length - prepared.length
+            : 0,
+          assetsUnreadable: screenshotPaths.length <= maxImages
+            ? screenshotPaths.filter((p) => !prepared.some((q) => q.originalPath === p))
+            : [],
         }),
       },
       () =>

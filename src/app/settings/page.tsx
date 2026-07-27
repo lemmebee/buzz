@@ -132,6 +132,8 @@ function SettingsContent() {
   const [claudeCodeBin, setClaudeCodeBin] = useState("");
   const [claudeCodeModelSetting, setClaudeCodeModelSetting] = useState("");
   const [advancedSaving, setAdvancedSaving] = useState(false);
+  const [pipeline, setPipeline] = useState<Record<string, number>>({});
+  const [pipelineSaving, setPipelineSaving] = useState(false);
   const [googleAiKey, setGoogleAiKey] = useState("");
   const [huggingfaceKey, setHuggingfaceKey] = useState("");
   const [pollinationsKey, setPollinationsKey] = useState("");
@@ -478,6 +480,17 @@ function SettingsContent() {
       body: JSON.stringify({ key: "CLAUDE_CODE_MODEL", value }),
     });
     setAdvancedSaving(false);
+  }
+
+  async function savePipelineSetting(key: string, value: number) {
+    setPipelineSaving(true);
+    setPipeline((prev) => ({ ...prev, [key]: value }));
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value: String(value) }),
+    });
+    setPipelineSaving(false);
   }
 
   async function saveApiKey(keyName: string, value: string, setKeySet: (v: boolean) => void) {
@@ -837,6 +850,42 @@ function SettingsContent() {
         )}
       </div>
 
+      {/* Pipeline tuning */}
+      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+        <h2 className="text-lg font-medium text-text-primary mb-4">Pipeline</h2>
+        <p className="text-sm text-text-secondary mb-4">
+          How much of a product the models actually see, and how hard they work.
+          Each of these trades output quality against tokens, cost and latency.
+          {pipelineSaving && <span className="ml-2 text-text-tertiary">Saving...</span>}
+        </p>
+        <div className="space-y-4">
+          {PIPELINE_FIELDS.map((f) => (
+            <div key={f.key}>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                {f.label}
+              </label>
+              <input
+                type="number"
+                min={f.min}
+                max={f.max}
+                defaultValue={pipeline[f.key] ?? f.fallback}
+                key={`${f.key}-${pipeline[f.key] ?? f.fallback}`}
+                onBlur={(e) => {
+                  const n = Number(e.target.value);
+                  if (Number.isFinite(n) && n >= f.min && n <= f.max && n !== (pipeline[f.key] ?? f.fallback)) {
+                    savePipelineSetting(f.key, n);
+                  }
+                }}
+                className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="mt-1 text-xs text-text-tertiary">
+                {f.help} Default {f.fallback}.
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Advanced Settings */}
       <div className="bg-surface rounded-lg border border-border p-6 mb-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">
@@ -996,6 +1045,69 @@ function SettingsContent() {
     </>
   );
 }
+
+
+// Pipeline knobs that were previously hardcoded constants. Each one changes
+// how much the models see or how hard they work, so it belongs in the UI
+// rather than buried in source.
+const PIPELINE_FIELDS = [
+  {
+    key: "EXTRACTION_MAX_IMAGES",
+    label: "Screenshots read during extraction",
+    fallback: 10,
+    min: 1,
+    max: 40,
+    help: "Sampled evenly across the product's screenshots when building its profile. The profile drives every later prompt, so this is the highest-leverage setting here. More images cost more vision tokens and time.",
+  },
+  {
+    key: "CONTENT_MAX_IMAGES",
+    label: "Images attached when generating content",
+    fallback: 4,
+    min: 1,
+    max: 20,
+    help: "Uploads passed to the model when writing captions and image prompts.",
+  },
+  {
+    key: "IMAGE_MAX_DIMENSION",
+    label: "Image downscale size (px)",
+    fallback: 1024,
+    min: 256,
+    max: 2048,
+    help: "Longest edge images are resized to before being sent. Higher means the model can read finer UI detail, at more tokens.",
+  },
+  {
+    key: "IMAGE_JPEG_QUALITY",
+    label: "Image JPEG quality",
+    fallback: 70,
+    min: 30,
+    max: 95,
+    help: "Compression applied to those images. Low values can blur small on-screen text.",
+  },
+  {
+    key: "HIGGSFIELD_MAX_ASSETS",
+    label: "Assets uploaded to Higgsfield",
+    fallback: 4,
+    min: 1,
+    max: 20,
+    help: "Product assets uploaded for use as generation references. Most models accept only one per generation, but a larger pool gives the selector more to choose from.",
+  },
+  {
+    key: "PLAN_FILE_CHAR_CAP",
+    label: "Brief characters included in prompts",
+    fallback: 4000,
+    min: 500,
+    max: 20000,
+    help: "How much of the marketing brief reaches a generation prompt before truncation.",
+  },
+  {
+    key: "GENERATION_CANDIDATES",
+    label: "Candidates per generation (best-of-N)",
+    fallback: 3,
+    min: 1,
+    max: 6,
+    help: "Variants rendered and judged before one is chosen. Directly multiplies render time and provider cost.",
+  },
+] as const;
 
 export default function SettingsPage() {
   return (

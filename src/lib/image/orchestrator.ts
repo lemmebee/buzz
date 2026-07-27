@@ -8,7 +8,7 @@ import type { ImagePrompt } from "@/lib/brain/types";
 import { normalizeProfile, normalizeStrategy } from "@/lib/brain/types";
 import { resolveTextProvider, resolveImageProvider } from "@/lib/providers";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
-import { getImageStyle } from "@/lib/settings";
+import { getImageStyle, getContentMaxImages, getGenerationCandidates } from "@/lib/settings";
 import type { ContentConfig } from "@/lib/content/defaults";
 import { prepareImages } from "@/lib/images";
 import { timed } from "@/lib/traces";
@@ -109,11 +109,13 @@ export async function generateImageContent(
 
   const textProvider = await resolveTextProvider(product.textProvider);
   const imageStyle = await getImageStyle();
+  const candidates = await getGenerationCandidates();
 
   const logoImages = product.logo
     ? await prepareImages([product.logo], { maxImages: 1, maxWidth: 512, maxHeight: 512, quality: 80 })
     : [];
-  const allImages = [...logoImages.map((l) => l.base64), ...images];
+  const contentMaxImages = await getContentMaxImages();
+  const allImages = [...logoImages.map((l) => l.base64), ...images.slice(0, contentMaxImages)];
   const hasLogo = logoImages.length > 0;
 
   const { prompt: systemPrompt, metadata } = buildContentGenerationPrompt(
@@ -237,7 +239,7 @@ export async function generateImageContent(
       assetImages: [...productShots, ...uploadedImagePaths],
       caption: captionText,
       fallbackPalette: derivePalette(profile.visualIdentity?.colors),
-      n: 3,
+      n: candidates,
       renderOpts: {
         imageProviderName: product.imageProvider,
         productShots,

@@ -5,9 +5,10 @@ import { eq, and, inArray } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { hfPresignUpload, hfPutBytes, hfConfirmUpload } from "./client";
 import { isTerminalProviderError } from "@/lib/providers/errors";
+import { getHiggsfieldMaxAssets } from "@/lib/settings";
 import sharp from "sharp";
 
-const MAX_SCREENSHOTS = 4;
+
 
 // Raster formats that Higgsfield image models accept
 const RASTER_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
@@ -111,7 +112,7 @@ export async function ensureProductAssetsUploaded(
       console.warn(`[higgsfield] failed to parse screenshots JSON for product ${productId}:`, err);
     }
   }
-  const capped = screenshotPaths.slice(0, MAX_SCREENSHOTS);
+  const capped = screenshotPaths.slice(0, await getHiggsfieldMaxAssets());
 
   for (const path of capped) {
     const existing = await db.query.higgsfieldAssets.findFirst({

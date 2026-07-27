@@ -12,7 +12,7 @@ import {
   imagesAvailable,
 } from "@/lib/providers";
 import { transcribeToSrt } from "@/lib/captions";
-import { getVideoProvider } from "@/lib/settings";
+import { getVideoProvider, getContentMaxImages, getGenerationCandidates } from "@/lib/settings";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
 import { timed } from "@/lib/traces";
 import {
@@ -170,11 +170,13 @@ export async function generateVideoContent(
   }
 
   const textProvider = await resolveTextProvider(product.textProvider);
+  const candidates = await getGenerationCandidates();
 
   const logoImages = product.logo
     ? await prepareImages([product.logo], { maxImages: 1, maxWidth: 512, maxHeight: 512, quality: 80 })
     : [];
-  const allImages = [...logoImages.map((l) => l.base64), ...images];
+  const contentMaxImages = await getContentMaxImages();
+  const allImages = [...logoImages.map((l) => l.base64), ...images.slice(0, contentMaxImages)];
   const hasLogo = logoImages.length > 0;
 
   const { prompt: basePrompt, metadata } = buildContentGenerationPrompt(
@@ -462,7 +464,7 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
         productShotPaths: productShots,
         fallbackPalette: derivePalette(profile.visualIdentity?.colors),
         imageProviderName: product.imageProvider,
-        n: 3,
+        n: candidates,
       }),
       (res) => ({ url: res.url, source: res.source, valid: res.valid, duration: res.duration })
     );
