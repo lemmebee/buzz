@@ -39,28 +39,44 @@ Professional, efficient, confident. The interface gets out of the way and lets t
 
 ## Content Engines
 
-Buzz supports two content generation engines, switchable globally or per-product:
+One pipeline: product context → one text call → one image call. Two engines
+render that image, switchable globally or per product.
 
-### Buzz Engine (Default)
-- **What it does:** Remotion/spec compositor with full typographic control
-- **Cost:** Free (uses local AI providers)
-- **Best for:** Deterministic layouts, precise brand control, Arabic/RTL text
-- **How it works:** Generates specs → Remotion renders video with branded overlays, kinetic captions, cross-fades
+### Buzz (default)
+- **How it works:** the text provider writes a caption, hashtags and an image
+  prompt; the image provider renders it.
+- **Providers:** Pollinations · Google AI Studio (Gemini) · HuggingFace
+- **Cost:** free
+- **Limitation:** the image is whatever the model invents from a description.
+  It cannot show your real product UI, because nothing composites your
+  screenshots.
 
-### Higgsfield Engine
-- **What it does:** Generative AI media creation (photoreal images, videos)
-- **Cost:** ~2 credits/image, ~4-60 credits/video (varies by model)
-- **Best for:** Photoreal product shots, creative video content
-- **Requirements:** Claude Code CLI + Higgsfield MCP authenticated
-- **Known limitation:** Generative models mangle Arabic/RTL text. For Arabic copy, prefer the Buzz engine.
+### Higgsfield
+- **How it works:** the same authored prompt plus a real product screenshot as
+  a reference image, generated through the Higgsfield MCP.
+- **Cost:** ~2 credits an image, ~2-4 a video
+- **Best for:** anything that must show the actual app. This is the only path
+  that does.
+- **Requires:** Claude Code CLI with the Higgsfield MCP authenticated
+- **Limitation:** generative models mangle Arabic and RTL text. Keep Arabic in
+  the caption, not in the image.
+
+### Video
+
+Video exists on one path only: Higgsfield image-to-video. An image is generated
+first, then animated. Duration is snapped to the values the chosen model
+accepts.
+
+There is no rendering engine. Remotion, ffmpeg, text-to-speech, burned captions
+and video styles were removed — see `docs/SIMPLIFICATION.md`.
 
 ### Setup
-1. Install Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
-2. Authenticate Higgsfield MCP: `claude --mcp-config higgsfield-mcp.json --strict-mcp-config`, then `/mcp` to connect
-3. Set `CONTENT_ENGINE=higgsfield` in Settings (or per-product override)
-4. Choose models in Settings → Higgsfield Content Engine
+1. Install the Claude Code CLI: `npm install -g @anthropic-ai/claude-code`
+2. Authenticate the MCP once: `claude --mcp-config higgsfield-mcp.json --strict-mcp-config`, then `/mcp`
+3. Settings → Content Engine → Higgsfield
+4. Settings → Refresh models, then pick one
 
-### Cost Management
-- Models are sorted by cost in the picker (cheapest first)
-- Video generation is user-triggered only (not scheduled) to prevent unexpected credit spend
-- Use `--cost` preflight before generation to see exact cost
+### Cost management
+- The model picker is sorted cheapest first and shows credits per generation
+- Video is user-triggered only; the scheduled worker never generates it
+- `npx tsx scripts/test-higgsfield.ts --cost` preflights without spending

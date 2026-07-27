@@ -1,7 +1,7 @@
 export function classifyProviderError(err: unknown): string {
   const name = err instanceof Error ? err.constructor.name : "";
   if (name === "AuthenticationError") {
-    return "Higgsfield rejected the API credentials. Please check HIGGSFIELD_CREDENTIALS in settings.";
+    return "Higgsfield rejected the request. Reconnect the MCP: run `claude --mcp-config higgsfield-mcp.json --strict-mcp-config`, then /mcp.";
   }
   if (name === "NotEnoughCreditsError") {
     return "Higgsfield credits are exhausted. Add credits in the Higgsfield dashboard, or switch the content engine back to buzz.";

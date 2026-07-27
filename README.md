@@ -179,18 +179,33 @@ https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/metr
 
 Set `GOOGLE_CLOUD_PROJECT_ID` in `.env` to the project that owns your `GOOGLE_AI_API_KEY` (visible in the AI Studio URL as `project=gen-lang-client-XXXX`). Each chart has a timezone control in its top-right menu.
 
-## Running as a systemd service (Linux)
+## Deploying (production)
 
-User unit at `~/.config/systemd/user/buzz.service` runs `npm start` (production build). Tailscale Funnel exposes it publicly via the `tailscaled` system service. Manage with:
+Production runs under PM2 as `buzz-prod` on port 3004, served at
+https://buzz.mrg.sh through cloudflared. Deploy with the script — never a bare
+`npm run build`:
 
 ```bash
-systemctl --user start  buzz.service
-systemctl --user enable buzz.service
-journalctl --user -u buzz.service -f
-tailscale funnel status
+bash scripts/deploy-prod.sh
 ```
 
-Funnel config persists in tailscaled state across reboots; the public hostname does not rotate.
+It reads `.env.prod`, builds into `NEXT_DIST_DIR` (`.next-prod`), pushes the
+schema to `DATABASE_PATH` (`data/buzz.prod.db`), then reloads PM2 and saves the
+process list.
+
+**Why the script matters:** `next.config.mjs` takes `distDir` from
+`NEXT_DIST_DIR` so the dev server and production do not clobber each other's
+build output. A plain `npm run build` writes to `.next` — the *dev* directory —
+and production keeps serving its previous build with no error to tell you.
+
+```bash
+pm2 list                      # status
+pm2 logs buzz-prod --lines 50 # logs
+```
+
+After deploying, check that `.next-prod/BUILD_ID` exists and that `pm2 list`
+shows a fresh uptime. An interrupted build leaves the directory without a
+BUILD_ID, which boots fine until the next restart and then does not.
 
 ## License
 

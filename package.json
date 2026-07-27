@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@higgsfield/client": "^0.2.1",
     "@tailwindcss/typography": "^0.5.19",
     "better-sqlite3": "^12.6.0",
     "clsx": "^2.1.1",
