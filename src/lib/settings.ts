@@ -24,6 +24,7 @@ export async function seedSettingsFromEnv(): Promise<void> {
     "IMAGE_PROVIDER",
     "CONTENT_ENGINE",
     "HIGGSFIELD_IMAGE_MODEL",
+    "HIGGSFIELD_VIDEO_MODEL",
     "IMAGE_MODEL_HUGGINGFACE",
     "ANTIGRAVITY_BIN",
     "ANTIGRAVITY_MODEL",
@@ -81,6 +82,18 @@ export async function resolveContentEngine(productId?: number): Promise<"buzz" |
     console.warn(`[higgsfield] unrecognised CONTENT_ENGINE "${global}", defaulting to "buzz"`);
   }
   return "buzz";
+}
+
+export async function getHiggsfieldVideoModel(productId?: number): Promise<string> {
+  if (productId) {
+    const product = await db.query.products.findFirst({
+      where: eq(schema.products.id, productId),
+    });
+    if (product?.higgsfieldVideoModel) {
+      return product.higgsfieldVideoModel;
+    }
+  }
+  return (await getSetting("HIGGSFIELD_VIDEO_MODEL")) || "veo3_1_lite";
 }
 
 export async function getHiggsfieldImageModel(productId?: number): Promise<string> {

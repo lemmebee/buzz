@@ -25,7 +25,8 @@ Create product
 | Role | Allowed |
 |---|---|
 | Text | Claude Code · Antigravity (agy) · Gemini API · HuggingFace |
-| Image | Pollinations · Google AI Studio (Gemini) · HuggingFace |
+| Image | Pollinations · Google AI Studio (Gemini) · HuggingFace · Higgsfield |
+| Video | Higgsfield only |
 
 **Removed axes:** video, image styles, content engines, video styles, render
 engines, best-of-N judging.
@@ -54,12 +55,19 @@ Every generation becomes: **one text call, one image call.**
   caption, not in the image.
 - **No automatic quality gate.** Whatever the model returns is the post.
 
-### Interpretation applied
+### Correction (same day)
 
-"No video engines" is taken to mean **no video generation anywhere**, so
-Higgsfield's video path is removed along with the rest of video. Higgsfield
-remains as an **image** engine. Say so if you intended to keep Higgsfield
-video; it is the one place video could survive cheaply.
+The first pass read "no video engines" as no video anywhere and removed
+Higgsfield's video path too. That was wrong: **Higgsfield video is kept.**
+
+"No video engines" means no *rendering* engines — Remotion and ffmpeg. Video
+now exists on exactly one path: Higgsfield image-to-video, ~2-4 credits a clip,
+user-triggered only. No Remotion, no ffmpeg, no TTS, no burned captions, no
+video style axis.
+
+Duration comes back from what was requested rather than an ffmpeg probe: it is
+snapped to the model's allowed values before sending, so there is nothing to
+measure and no reason to keep ffmpeg for it.
 
 ## 3. What is removed
 

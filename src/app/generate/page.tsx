@@ -342,6 +342,7 @@ export default function GeneratePage() {
                   className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
                 >
                   <option value="image">Image</option>
+                  <option value="video">Video</option>
                 </select>
               </div>
 
@@ -408,6 +409,25 @@ export default function GeneratePage() {
                       ))}
                     </select>
                   </div>
+                  {mediaType === "video" && (
+                    <div>
+                      <label className="block text-sm text-text-tertiary mb-1">Duration (sec)</label>
+                      <input
+                        type="number"
+                        min={2}
+                        max={15}
+                        value={config.durationSec ?? 8}
+                        onChange={(e) =>
+                          setConfig({ ...config, durationSec: Number(e.target.value) })
+                        }
+                        className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
+                      />
+                      <p className="mt-1 text-xs text-text-tertiary">
+                        Snapped to the nearest length the chosen model supports. Longer clips cost
+                        proportionally more credits.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Targeting */}

@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { spawn } from "child_process";
 import { jsonrepair } from "jsonrepair";
-import { getHiggsfieldImageModel, getClaudeCodeBin } from "@/lib/settings";
+import { getHiggsfieldImageModel, getHiggsfieldVideoModel, getClaudeCodeBin } from "@/lib/settings";
 
 const DEFAULT_BIN = "/home/mrg/.local/bin/claude";
 // Strict MCP config restricts the CLI to only the Higgsfield MCP server, skipping
@@ -10,6 +10,7 @@ const DEFAULT_BIN = "/home/mrg/.local/bin/claude";
 // and reliability win (60s-5min & ~30% failure -> 22-54s & 3/3 success).
 const MCP_CONFIG_PATH = join(process.cwd(), "higgsfield-mcp.json");
 const IMAGE_TIMEOUT = 300_000;
+const VIDEO_TIMEOUT = 900_000;
 // CLI + MCP round-trip for metadata calls (balance/cost) takes 15-99s
 const META_TIMEOUT = 180_000;
 const MAX_RETRIES = 3;
@@ -290,6 +291,104 @@ export async function hfUploadFile(filePath: string, contentType: string): Promi
   await hfConfirmUploads([presigned[0].mediaId], "image");
 
   return presigned[0].mediaId;
+}
+
+export async function hfGenerateVideoFromMedia(opts: {
+  prompt: string;
+  mediaId: string;
+  aspectRatio?: string;
+  duration?: number;
+  model?: string;
+}): Promise<{ url: string; localPath: string; duration: number | null; jobParams?: Record<string, unknown> }> {
+  const modelId = opts.model || await getHiggsfieldVideoModel();
+
+  // Get the model to check for role override
+  const { getModelById } = await import("./models");
+  const model = await getModelById(modelId);
+  const role = model?.roleOverride || "start_image";
+
+  const params: Record<string, unknown> = {
+    model: modelId,
+    prompt: opts.prompt,
+    medias: [{ value: opts.mediaId, role }],
+    ...(opts.aspectRatio ? { aspect_ratio: opts.aspectRatio } : {}),
+    ...(opts.duration ? { duration: opts.duration } : {}),
+  };
+
+  const prompt = `Call the mcp__claude_ai_HiggsField__generate_video tool with the params argument set to EXACTLY this JSON object, verbatim, with no fields added, removed, or altered:
+
+${JSON.stringify(params)}
+
+Then take the returned job id and call mcp__claude_ai_HiggsField__job_status repeatedly until status is "completed" or "failed" (max 20 polls, respect poll_after_seconds).
+
+Then output ONE line of JSON and nothing else:
+{"status":"ok","url":"<result_url>","job_params":<the params object from job_status>}`;
+
+  let result: CliResult;
+  try {
+    result = await spawnCliWithRetry(
+      [
+        "mcp__claude_ai_HiggsField__generate_video",
+        "mcp__claude_ai_HiggsField__job_status",
+      ],
+      prompt,
+      VIDEO_TIMEOUT
+    );
+  } catch (err) {
+    // Check if this is a role rejection error
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    const requiredRole = parseRoleRejection(errorMsg);
+    
+    if (requiredRole) {
+      // Retry with the corrected role
+      console.log(`[higgsfield] role "${role}" rejected, server requires "${requiredRole}" — retrying and caching override`);
+      
+      // Persist the role override
+      const { setRoleOverride } = await import("./models");
+      await setRoleOverride(modelId, requiredRole);
+      
+      // Retry with corrected role
+      const correctedParams: Record<string, unknown> = {
+        model: modelId,
+        prompt: opts.prompt,
+        medias: [{ value: opts.mediaId, role: requiredRole }],
+        ...(opts.aspectRatio ? { aspect_ratio: opts.aspectRatio } : {}),
+        ...(opts.duration ? { duration: opts.duration } : {}),
+      };
+      
+      const correctedPrompt = `Call the mcp__claude_ai_HiggsField__generate_video tool with the params argument set to EXACTLY this JSON object, verbatim, with no fields added, removed, or altered:
+
+${JSON.stringify(correctedParams)}
+
+Then take the returned job id and call mcp__claude_ai_HiggsField__job_status repeatedly until status is "completed" or "failed" (max 20 polls, respect poll_after_seconds).
+
+Then output ONE line of JSON and nothing else:
+{"status":"ok","url":"<result_url>","job_params":<the params object from job_status>}`;
+
+      result = await spawnCliWithRetry(
+        [
+          "mcp__claude_ai_HiggsField__generate_video",
+          "mcp__claude_ai_HiggsField__job_status",
+        ],
+        correctedPrompt,
+        VIDEO_TIMEOUT
+      );
+    } else {
+      throw err;
+    }
+  }
+
+  if (!result.url) {
+    const errorMsg = result.message || "No URL in Higgsfield response";
+    const requestId = result.job_params?.request_id as string | undefined;
+    throw new Error(requestId ? `${errorMsg} (request ID: ${requestId})` : errorMsg);
+  }
+
+  const saved = await downloadToMedia(result.url, "mp4");
+  // The duration we asked for is the duration we get: it is snapped to the
+  // model's allowed values before sending, so there is nothing to probe and no
+  // reason to keep ffmpeg around just to read it back.
+  return { ...saved, duration: opts.duration ?? null, jobParams: result.job_params };
 }
 
 interface PresignedUpload {
