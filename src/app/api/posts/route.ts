@@ -35,6 +35,12 @@ export async function GET(req: NextRequest) {
 }
 
 // POST new post
+/** Infer media kind from the stored file, for callers that omit it. */
+function mediaTypeFromUrl(url?: string | null): "video" | "image" | null {
+  if (!url) return null;
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url) ? "video" : "image";
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
@@ -42,7 +48,10 @@ export async function POST(req: NextRequest) {
     .insert(schema.content)
     .values({
       productId: body.productId,
-      mediaType: body.mediaType || "image",
+      // Trust the file over the caller. Save payloads have omitted mediaType
+      // before now, which silently filed every video as an image and left the
+      // grid trying to render an .mp4 inside an <img>.
+      mediaType: body.mediaType || mediaTypeFromUrl(body.mediaUrl) || "image",
       targetSurface: body.targetSurface || body.type,
       content: body.content,
       hashtags: body.hashtags ? JSON.stringify(body.hashtags) : null,

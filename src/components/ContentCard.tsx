@@ -42,6 +42,12 @@ export function ContentCard({
   const hashtags = post.hashtags ? JSON.parse(post.hashtags) : [];
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
+  // Older rows were saved with mediaType "image" regardless of what was
+  // produced, so the file extension is the more reliable signal.
+  const isVideo =
+    post.mediaType === "video" ||
+    /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(post.mediaUrl ?? "");
+
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showInstagramPreview, setShowInstagramPreview] = useState(false);
 
@@ -49,13 +55,16 @@ export function ContentCard({
     <div className="bg-surface rounded-lg border border-border overflow-hidden hover:border-border-strong transition-colors">
       {/* Media preview */}
       {post.mediaUrl && (
-        post.mediaType === "video" ? (
+        isVideo ? (
           <div
             className="aspect-square bg-border cursor-pointer relative group"
             onClick={() => setLightboxSrc(post.mediaUrl!)}
           >
             <video
-              src={post.mediaUrl}
+              // #t=0.1 makes the browser seek and paint that frame as a poster.
+              // preload="metadata" alone fetches duration and dimensions but
+              // decodes nothing, which is why these rendered as empty boxes.
+              src={`${post.mediaUrl}#t=0.1`}
               controls
               muted
               loop

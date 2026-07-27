@@ -6,6 +6,11 @@ import Image from "next/image";
 import type { GeneratedPost, ContentType } from "./types";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
+/** The file that was actually produced decides the kind, not the request. */
+function mediaTypeFor(post: { mediaUrl?: string | null }): "video" | "image" {
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(post.mediaUrl ?? "") ? "video" : "image";
+}
+
 interface GeneratedResultsProps {
   posts: GeneratedPost[];
   productId: number | null;
@@ -73,6 +78,7 @@ export function GeneratedResults({ posts, productId, contentType }: GeneratedRes
         type: contentType,
         content: textPost.content,
         hashtags: textPost.hashtags,
+        mediaType: mediaTypeFor(imagePost ?? textPost),
         mediaUrl: imagePost?.mediaUrl ?? null,
         publicMediaUrl: imagePost?.publicMediaUrl ?? null,
         status: "draft",
@@ -105,6 +111,7 @@ export function GeneratedResults({ posts, productId, contentType }: GeneratedRes
               type: contentType,
               content: post.content,
               hashtags: post.hashtags,
+              mediaType: mediaTypeFor(post),
               mediaUrl: post.mediaUrl ?? null,
               publicMediaUrl: post.publicMediaUrl ?? null,
               status: "draft",
