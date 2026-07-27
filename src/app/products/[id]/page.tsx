@@ -11,6 +11,7 @@ import { Product, ContentItem } from "../../../../drizzle/schema";
 import { ProductForm } from "@/components/ProductForm";
 import { JsonToMarkdown } from "@/components/JsonToMarkdown";
 import { RevisionHistory } from "@/components/RevisionHistory";
+import { ProductTraces } from "@/components/ProductTraces";
 import { ContentCard } from "@/components/ContentCard";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { ConfirmDialog, useConfirm } from "@/components/ConfirmDialog";
@@ -223,7 +224,10 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         )}
         {activeTab === "brief" && <BriefTab product={product} />}
         {activeTab === "intelligence" && (
-          <IntelligenceTab product={product} onUpdate={setProduct} />
+          <div className="space-y-6">
+            <IntelligenceTab product={product} onUpdate={setProduct} />
+            <ProductTraces productId={product.id} />
+          </div>
         )}
         {activeTab === "ideas" && <IdeasTab product={product} />}
         {activeTab === "content" && <ContentTab productId={product.id} productName={product.name} />}

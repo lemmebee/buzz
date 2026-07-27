@@ -139,11 +139,18 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
           )}
         </div>
 
+        {/* No `prose` here: it hard-codes its own text colours and would
+            override the theme tokens, and `dark:` variants don't track this
+            app's `.dark` class. Style the few elements directly so both
+            themes inherit correctly. */}
         <div
-          className={`text-sm text-text-secondary flex-1 prose prose-sm dark:prose-invert max-w-none
-            prose-p:my-0 prose-headings:my-0 prose-headings:text-sm prose-ul:my-0 prose-ol:my-0
-            prose-blockquote:my-0 prose-blockquote:border-l-2 prose-blockquote:pl-2 prose-blockquote:not-italic
-            prose-a:text-primary prose-strong:text-text-primary
+          className={`text-sm text-text-secondary flex-1
+            [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0 [&_li]:m-0
+            [&_h1]:m-0 [&_h2]:m-0 [&_h3]:m-0
+            [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-medium [&_h2]:font-medium [&_h3]:font-medium
+            [&_blockquote]:m-0 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-2 [&_blockquote]:not-italic
+            [&_strong]:text-text-primary [&_code]:text-text-primary
+            [&_a]:text-primary [&_a]:no-underline hover:[&_a]:underline
             ${showFullDesc ? "" : "line-clamp-2"}`}
         >
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
