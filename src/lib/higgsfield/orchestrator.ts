@@ -1,12 +1,12 @@
 import { gatherContext } from "./context";
 import { buildHiggsfieldPrompt, getCreativeAngleLabel } from "./prompt";
-import { hfGenerateImage, hfGenerateVideoFromMedia, hfUploadFile, hfGetCost } from "./client";
-import { getHiggsfieldImageModel, getHiggsfieldVideoModel, getClaudeCodeBin } from "@/lib/settings";
+import { hfGenerateImage } from "./client";
+import { getHiggsfieldImageModel, getClaudeCodeBin } from "@/lib/settings";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
 import { sanitizeCaption, type GenerateContentInput, type GeneratedPost, type GenerateContentResult, type GenerationFailure, type GenerationHooks } from "@/lib/generate";
 import type { ContentConfig } from "@/lib/content/defaults";
 import { invalidateMediaCache } from "./assets";
-import { resolveAspectRatio, resolveDuration, buildMediasArray, supportsReferences } from "./capabilities";
+import { resolveAspectRatio, buildMediasArray, supportsReferences } from "./capabilities";
 import { getModelById } from "./models";
 import type { ContentPurpose } from "@/lib/brain/types";
 import { existsSync } from "fs";
@@ -46,9 +46,7 @@ export async function generateHiggsfieldContent(
   const errors: GenerationFailure[] = [];
 
   // Get the model to resolve capabilities
-  const modelId = mediaType === "video" 
-    ? await getHiggsfieldVideoModel()
-    : await getHiggsfieldImageModel();
+  const modelId = await getHiggsfieldImageModel();
 
   // Pre-flight checks
   const prereqError = await checkPrerequisites(modelId);
@@ -164,13 +162,8 @@ export async function generateHiggsfieldContent(
     status: "ok",
   });
 
-  // Resolve duration for video
-  const duration = mediaType === "video" && model
-    ? resolveDuration(model, config.durationSec)
-    : undefined;
-
   // Log generation parameters
-  console.log(`[higgsfield] generating ${mediaType} with model ${modelId}, aspect ${aspectRatio}${duration ? `, duration ${duration}s` : ""}, ${medias.length} media(s)`);
+  console.log(`[higgsfield] generating ${mediaType} with model ${modelId}, aspect ${aspectRatio}, ${medias.length} media(s)`);
 
   // Log if model doesn't support references but we have them
   if (model && !supportsReferences(model) && mediaIds.length > 0) {
@@ -209,153 +202,50 @@ export async function generateHiggsfieldContent(
         status: "ok",
       });
 
-      let post: GeneratedPost;
+      const model = await getHiggsfieldImageModel();
+      const img = await hfGenerateImage({
+        prompt: p.imagePrompt,
+        aspectRatio,
+        medias: medias.length > 0 ? medias : undefined,
+      });
 
-      if (mediaType === "video") {
-        // Video path: two-step chain
-        // Step 1: Generate still image with product reference
-        // Step 2: Animate with video model
-        const imageModel = await getHiggsfieldImageModel();
-        const videoModel = await getHiggsfieldVideoModel();
-
-        if (medias.length === 0) {
-          throw new Error("Video generation requires at least one reference image (logo or screenshot)");
-        }
-
-        // Cost preflight
-        const videoCost = await hfGetCost("video", {
-          prompt: p.motionPrompt,
-          aspect_ratio: aspectRatio,
-          ...(duration != null ? { duration } : {}),
-        });
-        console.log(`[higgsfield] video cost preflight: ${videoCost} credits${duration ? ` for ${duration}s` : ""}`);
-
-        // Trace generate phase (cost preflight)
-        await trace({
-          productId,
-          phase: "generate",
-          step: "cost-preflight",
-          engine: "higgsfield",
-          model: videoModel,
-          variationIndex: i,
-          input: JSON.stringify({
-            aspectRatio,
-            duration,
-          }),
-          output: JSON.stringify({
-            credits: videoCost,
-          }),
-          credits: videoCost,
-          status: "ok",
-        });
-
-        // Step 1: Generate still
-        const img = await hfGenerateImage({
-          prompt: p.imagePrompt,
+      // Trace generate phase (image generation)
+      await trace({
+        productId,
+        phase: "generate",
+        step: "text-to-image",
+        engine: "higgsfield",
+        provider: "higgsfield",
+        model,
+        variationIndex: i,
+        input: JSON.stringify({
           aspectRatio,
-          medias: medias.length > 0 ? medias : undefined,
-        });
+          mediaCount: medias.length,
+        }),
+        output: JSON.stringify({
+          url: img.url,
+        }),
+        status: "ok",
+      });
 
-        // Step 2: Upload the still to get a media_id for video
-        const stillMediaId = await hfUploadFile(img.localPath, "image/png");
-        console.log(`[higgsfield] uploaded still for video: ${stillMediaId}`);
-
-        // Step 3: Animate
-        const video = await hfGenerateVideoFromMedia({
-          prompt: p.motionPrompt,
-          mediaId: stillMediaId,
-          aspectRatio,
-          duration,
-        });
-
-        // Trace generate phase (video generation)
-        await trace({
-          productId,
-          phase: "generate",
-          step: "image-to-video",
-          engine: "higgsfield",
-          provider: "higgsfield",
-          model: videoModel,
-          variationIndex: i,
-          input: JSON.stringify({
-            mediaId: stillMediaId,
-            aspectRatio,
-            duration,
-          }),
-          output: JSON.stringify({
-            url: video.url,
-            duration: video.duration,
-          }),
-          status: "ok",
-        });
-
-        post = {
-          content: sanitizeCaption(p.caption),
-          hashtags: p.hashtags,
-          mediaUrl: video.url,
-          publicMediaUrl: video.url,
-          duration: video.duration,
-          config,
-          metadata: {
-            hookUsed: null,
-            pillarUsed: null,
-            targetType: null,
-            targetValue: null,
-            toneConstraints: [],
-            visualDirection: `[higgsfield:${imageModel}+${videoModel}:video] ${angleLabel}`,
-            engine: "higgsfield",
-            provider: "higgsfield",
-            model: videoModel,
-            credits: videoCost,
-          },
-        };
-      } else {
-        // Image path
-        const model = await getHiggsfieldImageModel();
-        const img = await hfGenerateImage({
-          prompt: p.imagePrompt,
-          aspectRatio,
-          medias: medias.length > 0 ? medias : undefined,
-        });
-
-        // Trace generate phase (image generation)
-        await trace({
-          productId,
-          phase: "generate",
-          step: "text-to-image",
+      const post: GeneratedPost = {
+        content: sanitizeCaption(p.caption),
+        hashtags: p.hashtags,
+        mediaUrl: img.url,
+        publicMediaUrl: img.url,
+        config,
+        metadata: {
+          hookUsed: null,
+          pillarUsed: null,
+          targetType: null,
+          targetValue: null,
+          toneConstraints: [],
+          visualDirection: `[higgsfield:${model}] ${angleLabel}`,
           engine: "higgsfield",
           provider: "higgsfield",
           model,
-          variationIndex: i,
-          input: JSON.stringify({
-            aspectRatio,
-            mediaCount: medias.length,
-          }),
-          output: JSON.stringify({
-            url: img.url,
-          }),
-          status: "ok",
-        });
-
-        post = {
-          content: sanitizeCaption(p.caption),
-          hashtags: p.hashtags,
-          mediaUrl: img.url,
-          publicMediaUrl: img.url,
-          config,
-          metadata: {
-            hookUsed: null,
-            pillarUsed: null,
-            targetType: null,
-            targetValue: null,
-            toneConstraints: [],
-            visualDirection: `[higgsfield:${model}] ${angleLabel}`,
-            engine: "higgsfield",
-            provider: "higgsfield",
-            model,
-          },
-        };
-      }
+        },
+      };
 
       posts.push(post);
       usedAngles.push(angleLabel);

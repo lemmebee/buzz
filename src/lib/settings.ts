@@ -22,11 +22,8 @@ export async function seedSettingsFromEnv(): Promise<void> {
   const configKeys = [
     "TEXT_PROVIDER",
     "IMAGE_PROVIDER",
-    "VIDEO_PROVIDER",
     "CONTENT_ENGINE",
     "HIGGSFIELD_IMAGE_MODEL",
-    "HIGGSFIELD_VIDEO_MODEL",
-    "IMAGE_STYLE",
     "IMAGE_MODEL_HUGGINGFACE",
     "ANTIGRAVITY_BIN",
     "ANTIGRAVITY_MODEL",
@@ -51,9 +48,6 @@ export async function getImageProviderName(): Promise<string> {
   return (await getSetting("IMAGE_PROVIDER")) || "pollinations";
 }
 
-export async function getVideoProvider(): Promise<string> {
-  return (await getSetting("VIDEO_PROVIDER")) || "ffmpeg";
-}
 
 export async function getApiKey(name: string): Promise<string> {
   return (await getSetting(name)) || process.env[name] || "";
@@ -102,23 +96,6 @@ export async function getHiggsfieldImageModel(productId?: number): Promise<strin
   return (await getSetting("HIGGSFIELD_IMAGE_MODEL")) || "marketing_studio_image";
 }
 
-export async function getHiggsfieldVideoModel(productId?: number): Promise<string> {
-  // Resolution: product override → global setting → default
-  if (productId) {
-    const product = await db.query.products.findFirst({
-      where: eq(schema.products.id, productId),
-    });
-    if (product?.higgsfieldVideoModel) {
-      return product.higgsfieldVideoModel;
-    }
-  }
-  return (await getSetting("HIGGSFIELD_VIDEO_MODEL")) || "veo3_1_lite";
-}
-
-// Image scene style: "product" (depict the product in context) | "abstract" (brand-mood still-life)
-export async function getImageStyle(): Promise<string> {
-  return (await getSetting("IMAGE_STYLE")) || "product";
-}
 
 async function getNumericSetting(key: string, fallback: number): Promise<number> {
   const raw = await getSetting(key);
@@ -139,7 +116,6 @@ export const PIPELINE_DEFAULTS = {
   IMAGE_JPEG_QUALITY: 70,
   HIGGSFIELD_MAX_ASSETS: 4,
   PLAN_FILE_CHAR_CAP: 4000,
-  GENERATION_CANDIDATES: 3,
 } as const;
 
 /** Screenshots read when building the product profile. Drives every later prompt. */
@@ -166,39 +142,6 @@ export const getHiggsfieldMaxAssets = () =>
 export const getPlanFileCharCap = () =>
   getNumericSetting("PLAN_FILE_CHAR_CAP", PIPELINE_DEFAULTS.PLAN_FILE_CHAR_CAP);
 
-/** Best-of-N candidates rendered before judging. Higher costs more per post. */
-export const getGenerationCandidates = () =>
-  getNumericSetting("GENERATION_CANDIDATES", PIPELINE_DEFAULTS.GENERATION_CANDIDATES);
-
-/** Every pipeline knob in one call, for the settings UI. */
-export async function getPipelineSettings() {
-  const [
-    extractionMaxImages,
-    contentMaxImages,
-    imageMaxDimension,
-    imageJpegQuality,
-    higgsfieldMaxAssets,
-    planFileCharCap,
-    generationCandidates,
-  ] = await Promise.all([
-    getExtractionMaxImages(),
-    getContentMaxImages(),
-    getImageMaxDimension(),
-    getImageJpegQuality(),
-    getHiggsfieldMaxAssets(),
-    getPlanFileCharCap(),
-    getGenerationCandidates(),
-  ]);
-  return {
-    EXTRACTION_MAX_IMAGES: extractionMaxImages,
-    CONTENT_MAX_IMAGES: contentMaxImages,
-    IMAGE_MAX_DIMENSION: imageMaxDimension,
-    IMAGE_JPEG_QUALITY: imageJpegQuality,
-    HIGGSFIELD_MAX_ASSETS: higgsfieldMaxAssets,
-    PLAN_FILE_CHAR_CAP: planFileCharCap,
-    GENERATION_CANDIDATES: generationCandidates,
-  };
-}
 
 export async function getAntigravityBin(): Promise<string> {
   return (await getSetting("ANTIGRAVITY_BIN")) || "/home/mrg/.local/bin/agy";

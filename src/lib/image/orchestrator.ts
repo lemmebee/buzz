@@ -1,6 +1,4 @@
 import { eq } from "drizzle-orm";
-import { join } from "path";
-import { mkdirSync, writeFileSync } from "fs";
 import { db, schema } from "@/lib/db";
 import { buildContentGenerationPrompt } from "@/lib/brain/prompts";
 import { buildFluxPrompt } from "@/lib/brain/imagePromptBuilder";
@@ -8,7 +6,7 @@ import type { ImagePrompt } from "@/lib/brain/types";
 import { normalizeProfile, normalizeStrategy } from "@/lib/brain/types";
 import { resolveTextProvider, resolveImageProvider } from "@/lib/providers";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
-import { getImageStyle, getContentMaxImages, getGenerationCandidates } from "@/lib/settings";
+import { getContentMaxImages } from "@/lib/settings";
 import type { ContentConfig } from "@/lib/content/defaults";
 import { prepareImages } from "@/lib/images";
 import { timed } from "@/lib/traces";
@@ -41,13 +39,6 @@ function coerceText(v: unknown): string {
   return "";
 }
 
-function derivePalette(colors: string | undefined): { bg: string; accent: string; text: string } {
-  const hexes = (colors?.match(/#[0-9a-fA-F]{6}/g) ?? []).map((h) => h.toLowerCase());
-  const accent = hexes[0] ?? "#ffd60a";
-  const bg = hexes[1] ?? "#0b0b0f";
-  return { bg, accent, text: "#ffffff" };
-}
-
 function aspectRatioToDims(ratio: string): { w: number; h: number } {
   switch (ratio) {
     case "9:16": return { w: 1080, h: 1920 };
@@ -56,27 +47,6 @@ function aspectRatioToDims(ratio: string): { w: number; h: number } {
     case "1:1":
     default: return { w: 1080, h: 1080 };
   }
-}
-
-// Assets are held as Remotion-relative paths ("media/x.png"); the trace viewer
-// previews the served form, so normalise before recording them.
-function toMediaUrl(p: string): string {
-  if (p.startsWith("/api/media/")) return p;
-  return `/api/media/${p.replace(/^media\//, "")}`;
-}
-
-// Save base64 images to public/media/ and return their staticFile-relative paths
-function saveUploadedImages(images: string[]): string[] {
-  const mediaDir = join(process.cwd(), "public", "media");
-  mkdirSync(mediaDir, { recursive: true });
-  const paths: string[] = [];
-  for (const base64 of images) {
-    const filename = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-    const fsPath = join(mediaDir, filename);
-    writeFileSync(fsPath, Buffer.from(base64, "base64"));
-    paths.push(`media/${filename}`);
-  }
-  return paths;
 }
 
 export async function generateImageContent(
@@ -108,8 +78,6 @@ export async function generateImageContent(
   }
 
   const textProvider = await resolveTextProvider(product.textProvider);
-  const imageStyle = await getImageStyle();
-  const candidates = await getGenerationCandidates();
 
   const logoImages = product.logo
     ? await prepareImages([product.logo], { maxImages: 1, maxWidth: 512, maxHeight: 512, quality: 80 })
@@ -119,7 +87,7 @@ export async function generateImageContent(
   const hasLogo = logoImages.length > 0;
 
   const { prompt: systemPrompt, metadata } = buildContentGenerationPrompt(
-    rawProfile, rawStrategy, images.length, platform, targetSurface, targeting, accountHandle, product.name, product.llmInstructions || undefined, imageStyle, hasLogo
+    rawProfile, rawStrategy, images.length, platform, targetSurface, targeting, accountHandle, product.name, product.llmInstructions || undefined, undefined, hasLogo
   );
 
   const styleReminder = `\n\nREMINDER: Write like a real human. NEVER use em dashes (—), NEVER use AI cliché words (elevate, unlock, unleash, seamlessly, revolutionize, empower, leverage, game-changer, cutting-edge, next-level). Use casual, imperfect language. Be specific, not generic.`;
@@ -171,96 +139,13 @@ export async function generateImageContent(
     generatedItems = [JSON.parse(objMatch[0])];
   }
 
-  // Gather assets for the creative director
-  const productShots: string[] = (() => {
-    try {
-      const arr = JSON.parse(product.screenshots || "[]");
-      return Array.isArray(arr)
-        ? arr.map((s: unknown) => String(s).replace(/^\/api\/media\//, "media/")).filter(Boolean)
-        : [];
-    } catch {
-      return [];
-    }
-  })();
-
-  // Save user uploads to disk so Remotion can use them
-  const uploadedImagePaths = images.length > 0 ? saveUploadedImages(images) : [];
-
-  const vibe =
-    [profile.visualIdentity?.mood, profile.visualIdentity?.style, marketingStrategy.visualDirection]
-      .filter(Boolean)
-      .join("; ") || "modern, bold, on-brand";
-
   const visualIdentity = profile.visualIdentity;
   const visualDirection = marketingStrategy.visualDirection;
   const imageProvider = await resolveImageProvider(product.imageProvider);
   const aspectRatio = config.aspectRatio || "1:1";
   const dims = aspectRatioToDims(aspectRatio);
 
-  const buildCreativeImage = async (item: ImageGenerated): Promise<GeneratedPost | null> => {
-    const captionText = coerceText(item.caption).trim() || product.name;
-
-    const { renderBestImage } = await import("@/lib/image/select");
-
-    console.log(
-      `[image] authoring via ${textProvider.name}, productShots=${productShots.length}, uploads=${uploadedImagePaths.length}`
-    );
-
-    const r = await timed(
-      {
-        productId,
-        phase: "generate",
-        step: "creative-director",
-        engine: "buzz",
-        provider: textProvider.name,
-        model: textProvider.name,
-        input: JSON.stringify({
-          caption: captionText,
-          aspectRatio,
-          vibe,
-          assetsSent: [...productShots, ...uploadedImagePaths].map(toMediaUrl),
-          productShots: productShots.map(toMediaUrl),
-          uploadedImages: uploadedImagePaths.map(toMediaUrl),
-          assetImagesAttached: productShots.length + uploadedImagePaths.length,
-          candidates: 3,
-        }),
-      },
-      () => renderBestImage({
-      textProvider,
-      productName: product.name,
-      profile: rawProfile,
-      strategy: rawStrategy,
-      vibe,
-      aspectRatio,
-      productShots: productShots.length,
-      uploadedImages: uploadedImagePaths.length,
-      // The real pixels, product shots first then uploads — the same order the
-      // prompt indexes them by. The director designs around what it can SEE.
-      assetImages: [...productShots, ...uploadedImagePaths],
-      caption: captionText,
-      fallbackPalette: derivePalette(profile.visualIdentity?.colors),
-      n: candidates,
-      renderOpts: {
-        imageProviderName: product.imageProvider,
-        productShots,
-        uploadedImages: uploadedImagePaths,
-        productName: product.name,
-      },
-      }),
-      (res) => ({ url: res.url })
-    );
-
-    return {
-      content: sanitizeCaption(captionText),
-      hashtags: (item.hashtags || []).map((t) => coerceText(t).replace(/^#+/, "")),
-      mediaUrl: r.url,
-      publicMediaUrl: r.url,
-      config,
-      metadata,
-    };
-  };
-
-  const buildFluxImage = async (item: ImageGenerated): Promise<GeneratedPost> => {
+  const buildImage = async (item: ImageGenerated): Promise<GeneratedPost> => {
     const captionText = coerceText(item.caption).trim() || product.name;
     const fluxPrompt = buildFluxPrompt({
       imagePrompt: item.imagePrompt || { scene: captionText, aspectRatio },
@@ -306,26 +191,7 @@ export async function generateImageContent(
       break;
     }
     try {
-      let post: GeneratedPost | null = null;
-
-      // Try creative director first
-      try {
-        post = await buildCreativeImage(generatedItems[i]);
-        if (post) {
-          console.log(`[image] variation ${i + 1}: creative director succeeded`);
-        }
-      } catch (err) {
-        console.warn(
-          `[image] variation ${i + 1}: creative director failed, falling back to Flux: ${err instanceof Error ? err.message : err}`
-        );
-      }
-
-      // Fall back to Flux if creative director failed
-      if (!post) {
-        post = await buildFluxImage(generatedItems[i]);
-        console.log(`[image] variation ${i + 1}: Flux fallback succeeded`);
-      }
-
+      const post = await buildImage(generatedItems[i]);
       posts.push(post);
       await hooks?.onPost?.(posts, errors);
     } catch (err) {

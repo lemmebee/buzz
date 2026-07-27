@@ -115,8 +115,6 @@ function SettingsContent() {
   const [providerSaving, setProviderSaving] = useState(false);
   const [imageProvider, setImageProvider] = useState("pollinations");
   const [imageModel, setImageModel] = useState("black-forest-labs/FLUX.1-schnell");
-  const [imageStyle, setImageStyle] = useState("product");
-  const [videoProvider, setVideoProvider] = useState("ffmpeg");
   const [contentEngine, setContentEngine] = useState("buzz");
   const [higgsfieldImageModel, setHiggsfieldImageModel] = useState("");
   const [higgsfieldVideoModel, setHiggsfieldVideoModel] = useState("");
@@ -212,12 +210,6 @@ function SettingsContent() {
     }
     if (data.IMAGE_MODEL_HUGGINGFACE) {
       setImageModel(data.IMAGE_MODEL_HUGGINGFACE);
-    }
-    if (data.IMAGE_STYLE) {
-      setImageStyle(data.IMAGE_STYLE);
-    }
-    if (data.VIDEO_PROVIDER) {
-      setVideoProvider(data.VIDEO_PROVIDER);
     }
     if (data.CONTENT_ENGINE) {
       setContentEngine(data.CONTENT_ENGINE);
@@ -379,15 +371,9 @@ function SettingsContent() {
     stage("IMAGE_MODEL_HUGGINGFACE", model);
   }
 
-  async function updateImageStyle(value: string) {
-    setImageStyle(value);
-    stage("IMAGE_STYLE", value);
-  }
 
-  async function updateVideoProvider(value: string) {
-    setVideoProvider(value);
-    stage("VIDEO_PROVIDER", value);
-  }
+
+
 
   async function updateContentEngine(value: string) {
     setContentEngine(value);
@@ -614,42 +600,8 @@ function SettingsContent() {
             </p>
           </>
         )}
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-text-secondary mb-1">
-            Image Style
-          </label>
-          <select
-            value={imageStyle}
-            onChange={(e) => updateImageStyle(e.target.value)}
-            className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="product">Product-relevant — show the product/device in context</option>
-            <option value="abstract">Abstract / brand mood — still-life in brand colors (original)</option>
-          </select>
-          <p className="mt-1 text-xs text-text-tertiary">
-            Product-relevant ties each image to the post topic and may show the app/device with an abstract, textless screen. Abstract is the original brand-colored still-life with no product.
-          </p>
-        </div>
         <p className="mt-2 text-xs text-text-tertiary">
           Default image generation provider. Can be overridden per product.
-        </p>
-      </div>
-      {/* Default Video Engine */}
-      <div className="bg-surface rounded-lg border border-border p-6">
-        <h2 className="text-lg font-medium text-text-primary mb-4">
-          Default Video Engine
-        </h2>
-        <select
-          value={videoProvider}
-          onChange={(e) => updateVideoProvider(e.target.value)}
-          className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="ffmpeg">FFmpeg — fast, lightweight (Ken Burns + burned captions)</option>
-          <option value="remotion">Remotion — animated kinetic captions, cross-fades, branded overlay</option>
-        </select>
-        <p className="mt-2 text-xs text-text-tertiary">
-          How reels/videos are rendered. Remotion renders via headless Chrome (slower, richer visuals) and
-          automatically falls back to FFmpeg if a render fails. Can be overridden per product.
         </p>
       </div>
       {/* API Keys */}

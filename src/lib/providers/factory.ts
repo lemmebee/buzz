@@ -1,10 +1,8 @@
-import type { TextProvider, AudioProvider, VideoProvider, ImageProvider } from "./types";
+import type { TextProvider, ImageProvider } from "./types";
 import { createHuggingFaceTextProvider } from "./text";
 import { createGeminiTextProvider } from "./gemini";
 import { createAntigravityTextProvider } from "./antigravity";
 import { createClaudeCodeTextProvider } from "./claude-code";
-import { createMsEdgeTtsAudioProvider } from "./audio";
-import { createFfmpegVideoProvider } from "./video";
 import { createPollinationsImageProvider } from "./image";
 import { createGeminiImageProvider } from "./image-gemini";
 import { createHuggingFaceImageProvider } from "./image-hf";
@@ -156,47 +154,3 @@ export async function resolveImageProvider(productImageProvider?: string | null)
   return createFallbackImageProvider(built.map((b) => b.provider));
 }
 
-export function createAudioProvider(providerName?: string): AudioProvider {
-  const provider = providerName || process.env.AUDIO_PROVIDER || "msedge";
-  switch (provider) {
-    case "msedge":
-      return createMsEdgeTtsAudioProvider();
-    default:
-      throw new Error(`Unknown AUDIO_PROVIDER: ${provider}`);
-  }
-}
-
-// Remotion renders via headless Chrome and is heavier/optional. We wrap it so
-// that ANY failure (missing browser, OOM, bundle error) transparently falls
-// back to the proven ffmpeg provider — selecting Remotion can never yield zero
-// output. video-remotion is lazy-imported so the @remotion/* runtime never
-// loads unless a Remotion render actually runs.
-function createRemotionWithFfmpegFallback(): VideoProvider {
-  const ffmpeg = createFfmpegVideoProvider();
-  return {
-    name: "remotion(+ffmpeg-fallback)",
-    async generate(input) {
-      try {
-        const { createRemotionVideoProvider } = await import("./video-remotion");
-        return await createRemotionVideoProvider().generate(input);
-      } catch (err) {
-        console.warn(
-          `[video] remotion render failed, falling back to ffmpeg: ${err instanceof Error ? err.message : err}`
-        );
-        return await ffmpeg.generate(input);
-      }
-    },
-  };
-}
-
-export function createVideoProvider(providerName?: string): VideoProvider {
-  const provider = providerName || process.env.VIDEO_PROVIDER || "ffmpeg";
-  switch (provider) {
-    case "ffmpeg":
-      return createFfmpegVideoProvider();
-    case "remotion":
-      return createRemotionWithFfmpegFallback();
-    default:
-      throw new Error(`Unknown VIDEO_PROVIDER: ${provider}`);
-  }
-}

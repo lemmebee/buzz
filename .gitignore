@@ -46,3 +46,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .cache
+
+# Higgsfield CLI skill artifacts, installed not authored
+.agents/
+.claude/
+skills-lock.json
+empty-mcp.json

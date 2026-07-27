@@ -69,11 +69,6 @@ export async function generateContent(
     return generateHiggsfieldContent({ ...input, config }, hooks);
   }
 
-  if (mediaType === "video") {
-    const { generateVideoContent } = await import("@/lib/video/orchestrator");
-    return generateVideoContent({ ...input, config }, hooks);
-  }
-
   const { generateImageContent } = await import("@/lib/image/orchestrator");
   return generateImageContent({ ...input, config }, hooks);
 }

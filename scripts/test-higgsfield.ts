@@ -1,7 +1,6 @@
 import "dotenv/config";
 import {
   hfGenerateImage,
-  hfGenerateVideo,
   hfGetCost,
   hfBalance,
   hfExploreModel,
@@ -11,6 +10,7 @@ import { gatherContext } from "../src/lib/higgsfield/context";
 import { buildHiggsfieldPrompt } from "../src/lib/higgsfield/prompt";
 import { generateHiggsfieldContent } from "../src/lib/higgsfield/orchestrator";
 import { getDefaults } from "../src/lib/content/defaults";
+import { getHiggsfieldImageModel } from "../src/lib/settings";
 import { refreshModelsCache, getCachedModels, getModelById } from "../src/lib/higgsfield/models";
 import { resolveMediaRole, resolveMaxMedias, supportsReferences, resolveAspectRatio } from "../src/lib/higgsfield/capabilities";
 
@@ -33,11 +33,8 @@ async function runBalanceMode() {
 async function runCostMode() {
   console.log("\n--- Cost mode ---\n");
 
-  const { getHiggsfieldImageModel, getHiggsfieldVideoModel } = await import("../src/lib/settings");
   const imageModel = await getHiggsfieldImageModel();
-  const videoModel = await getHiggsfieldVideoModel();
   console.log(`Image model: ${imageModel}`);
-  console.log(`Video model: ${videoModel}\n`);
 
   console.log("Image cost:");
   const imageCost = await hfGetCost("image", {
@@ -60,22 +57,13 @@ async function runCostMode() {
 async function runGenerateMode() {
   console.log("\n--- Generate mode ---\n");
 
-  console.log("Step 1: text-to-image");
+  console.log("text-to-image");
   const image = await hfGenerateImage({
     prompt: "A minimalist product photo of a smart water bottle on a marble surface, soft studio lighting",
     aspectRatio: "1:1",
   });
   console.log(`  Image URL: ${image.url}`);
   console.log(`  Local path: ${image.localPath}\n`);
-
-  console.log("Step 2: image-to-video");
-  const video = await hfGenerateVideo({
-    prompt: "Slow dolly-in on the water bottle, subtle light reflections",
-    startImageUrl: image.url,
-  });
-  console.log(`  Video URL: ${video.url}`);
-  console.log(`  Local path: ${video.localPath}`);
-  console.log(`  Duration: ${video.duration != null ? `${video.duration}s` : "unknown"}\n`);
 
   console.log("Generate mode complete.");
 }

@@ -18,20 +18,5 @@ export async function register() {
 
     console.log("Scheduler + worker started");
 
-    // If Remotion is the default video engine, warm its bundle + headless
-    // browser in the background so the first render doesn't pay the webpack +
-    // Chrome-download cost. Guarded: missing browser/libs must never crash boot.
-    void (async () => {
-      try {
-        const { getVideoProvider } = await import("@/lib/settings");
-        if ((await getVideoProvider()) === "remotion") {
-          const { warmRemotion } = await import("@/lib/remotion-bundle");
-          await warmRemotion();
-          console.log("Remotion warmed (bundle + browser ready)");
-        }
-      } catch (err) {
-        console.warn("Remotion warm-up skipped:", err instanceof Error ? err.message : err);
-      }
-    })();
   }
 }

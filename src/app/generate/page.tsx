@@ -342,7 +342,6 @@ export default function GeneratePage() {
                   className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
                 >
                   <option value="image">Image</option>
-                  <option value="video">Video</option>
                 </select>
               </div>
 
@@ -409,55 +408,6 @@ export default function GeneratePage() {
                       ))}
                     </select>
                   </div>
-                  {mediaType === "video" && (
-                    <>
-                      <div>
-                        <label className="block text-sm text-text-tertiary mb-1">Duration (sec)</label>
-                        <input
-                          type="number"
-                          min={5}
-                          max={90}
-                          value={config.durationSec ?? 15}
-                          onChange={(e) =>
-                            setConfig({ ...config, durationSec: parseInt(e.target.value) || 15 })
-                          }
-                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
-                        />
-                      </div>
-                      <div className="flex items-end">
-                        <label className="flex items-center gap-2 text-sm text-text-secondary">
-                          <input
-                            type="checkbox"
-                            checked={config.captions ?? false}
-                            onChange={(e) => setConfig({ ...config, captions: e.target.checked })}
-                            className="rounded"
-                          />
-                          Burn-in captions
-                        </label>
-                      </div>
-                      <div className="md:col-span-3">
-                        <label className="block text-sm text-text-tertiary mb-1">Video Style</label>
-                        <select
-                          value={config.videoStyle ?? "scenes"}
-                          onChange={(e) =>
-                            setConfig({ ...config, videoStyle: e.target.value as "scenes" | "typography" | "creative" })
-                          }
-                          className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
-                        >
-                          <option value="scenes">Multi-scene — storyboard of AI scenes (default)</option>
-                          <option value="typography">Typography — single background + animated narration text</option>
-                          <option value="creative">Creative — AI designs the whole video (unique each time)</option>
-                        </select>
-                        {(config.videoStyle === "typography" || config.videoStyle === "creative") && (
-                          <p className="mt-1 text-xs text-text-tertiary">
-                            {config.videoStyle === "creative"
-                              ? "Requires the Remotion engine (Settings → Default Video Engine). The AI composes a bespoke video — scenes, motion, text, color — per product. Falls back to multi-scene if it can't."
-                              : "Best with the Remotion engine (Settings → Default Video Engine). Narration is shown as large animated text synced to the voiceover."}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
                 </div>
 
                 {/* Targeting */}
