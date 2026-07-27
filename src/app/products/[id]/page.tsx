@@ -55,6 +55,17 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [menuOpen, setMenuOpen] = useState(false);
   const [reExtracting, setReExtracting] = useState(false);
 
+  // The product list links here with ?edit=true ("Edit" in the card menu).
+  // Without this the param is ignored and Edit is indistinguishable from
+  // View details. Read from location rather than useSearchParams so the
+  // page needs no Suspense boundary.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("edit") === "true") {
+      setEditing(true);
+      setActiveTab("overview");
+    }
+  }, []);
+
   const fetchProduct = useCallback(async () => {
     const res = await fetch(`/api/products/${id}`);
     if (!res.ok) {

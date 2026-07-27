@@ -3,8 +3,15 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Product } from "../../drizzle/schema";
 import { InstagramLinkModal } from "./InstagramLinkModal";
+
+/** Briefs are stored with YAML frontmatter; it is noise in a card preview. */
+function stripFrontmatter(content: string): string {
+  return content.replace(/^---\n[\s\S]*?\n---\n/, "");
+}
 
 interface ProductCardProps {
   product: Product;
@@ -132,9 +139,17 @@ export function ProductCard({ product: initialProduct, onDelete, onUpdate }: Pro
           )}
         </div>
 
-        <p className={`text-sm text-text-secondary flex-1 ${showFullDesc ? "" : "line-clamp-2"}`}>
-          {product.description}
-        </p>
+        <div
+          className={`text-sm text-text-secondary flex-1 prose prose-sm dark:prose-invert max-w-none
+            prose-p:my-0 prose-headings:my-0 prose-headings:text-sm prose-ul:my-0 prose-ol:my-0
+            prose-blockquote:my-0 prose-blockquote:border-l-2 prose-blockquote:pl-2 prose-blockquote:not-italic
+            prose-a:text-primary prose-strong:text-text-primary
+            ${showFullDesc ? "" : "line-clamp-2"}`}
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {stripFrontmatter(product.description)}
+          </ReactMarkdown>
+        </div>
         {product.description.length > 100 && (
           <button
             onClick={() => setShowFullDesc(!showFullDesc)}
