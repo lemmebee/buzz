@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { DiscordSetup } from "@/components/DiscordSetup";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -115,11 +116,8 @@ function SettingsContent() {
   const [imageProvider, setImageProvider] = useState("pollinations");
   const [imageModel, setImageModel] = useState("black-forest-labs/FLUX.1-schnell");
   const [imageStyle, setImageStyle] = useState("product");
-  const [imageProviderSaving, setImageProviderSaving] = useState(false);
   const [videoProvider, setVideoProvider] = useState("ffmpeg");
-  const [videoProviderSaving, setVideoProviderSaving] = useState(false);
   const [contentEngine, setContentEngine] = useState("buzz");
-  const [contentEngineSaving, setContentEngineSaving] = useState(false);
   const [higgsfieldImageModel, setHiggsfieldImageModel] = useState("");
   const [higgsfieldVideoModel, setHiggsfieldVideoModel] = useState("");
   const [higgsfieldImageModels, setHiggsfieldImageModels] = useState<Array<{id: string; name?: string; baseCredits?: number; aspect_ratios?: string[]; medias?: Array<{roles: string[]; max?: number; required?: boolean}>}>>([]);
@@ -131,9 +129,11 @@ function SettingsContent() {
   const [antigravityModelSetting, setAntigravityModelSetting] = useState("");
   const [claudeCodeBin, setClaudeCodeBin] = useState("");
   const [claudeCodeModelSetting, setClaudeCodeModelSetting] = useState("");
-  const [advancedSaving, setAdvancedSaving] = useState(false);
   const [pipeline, setPipeline] = useState<Record<string, number>>({});
-  const [pipelineSaving, setPipelineSaving] = useState(false);
+  // Nothing is written until Save is pressed; edits collect here so the page
+  // never persists a half-considered change on blur.
+  const [pending, setPending] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
   const [googleAiKey, setGoogleAiKey] = useState("");
   const [huggingfaceKey, setHuggingfaceKey] = useState("");
   const [pollinationsKey, setPollinationsKey] = useState("");
@@ -306,35 +306,15 @@ function SettingsContent() {
 
   async function updateTextProvider(value: string) {
     setTextProvider(value);
-    setProviderSaving(true);
     if (value === "antigravity") {
       await fetchAntigravityModels();
-      const modelValue = antigravityModel
-        ? `antigravity:${antigravityModel}`
-        : "antigravity";
-      await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "TEXT_PROVIDER", value: modelValue }),
-      });
+      stage("TEXT_PROVIDER", antigravityModel ? `antigravity:${antigravityModel}` : "antigravity");
     } else if (value === "claude-code") {
       await fetchClaudeCodeModels();
-      const modelValue = claudeCodeModel
-        ? `claude-code:${claudeCodeModel}`
-        : "claude-code";
-      await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "TEXT_PROVIDER", value: modelValue }),
-      });
+      stage("TEXT_PROVIDER", claudeCodeModel ? `claude-code:${claudeCodeModel}` : "claude-code");
     } else {
-      await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "TEXT_PROVIDER", value }),
-      });
+      stage("TEXT_PROVIDER", value);
     }
-    setProviderSaving(false);
   }
 
   async function updateAntigravityModel(model: string) {
@@ -363,134 +343,93 @@ function SettingsContent() {
 
   async function updateImageProvider(value: string) {
     setImageProvider(value);
-    setImageProviderSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "IMAGE_PROVIDER", value }),
-    });
-    setImageProviderSaving(false);
+    stage("IMAGE_PROVIDER", value);
   }
 
   async function updateImageModel(model: string) {
     setImageModel(model);
-    setImageProviderSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "IMAGE_MODEL_HUGGINGFACE", value: model }),
-    });
-    setImageProviderSaving(false);
+    stage("IMAGE_MODEL_HUGGINGFACE", model);
   }
 
   async function updateImageStyle(value: string) {
     setImageStyle(value);
-    setImageProviderSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "IMAGE_STYLE", value }),
-    });
-    setImageProviderSaving(false);
+    stage("IMAGE_STYLE", value);
   }
 
   async function updateVideoProvider(value: string) {
     setVideoProvider(value);
-    setVideoProviderSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "VIDEO_PROVIDER", value }),
-    });
-    setVideoProviderSaving(false);
+    stage("VIDEO_PROVIDER", value);
   }
 
   async function updateContentEngine(value: string) {
     setContentEngine(value);
-    setContentEngineSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "CONTENT_ENGINE", value }),
-    });
-    setContentEngineSaving(false);
+    stage("CONTENT_ENGINE", value);
   }
 
   async function updateHiggsfieldImageModel(value: string) {
     setHiggsfieldImageModel(value);
-    setContentEngineSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "HIGGSFIELD_IMAGE_MODEL", value }),
-    });
-    setContentEngineSaving(false);
+    stage("HIGGSFIELD_IMAGE_MODEL", value);
   }
 
   async function updateHiggsfieldVideoModel(value: string) {
     setHiggsfieldVideoModel(value);
-    setContentEngineSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "HIGGSFIELD_VIDEO_MODEL", value }),
-    });
-    setContentEngineSaving(false);
+    stage("HIGGSFIELD_VIDEO_MODEL", value);
   }
 
   async function updateAntigravityBin(value: string) {
     setAntigravityBin(value);
-    setAdvancedSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "ANTIGRAVITY_BIN", value }),
-    });
-    setAdvancedSaving(false);
+    stage("ANTIGRAVITY_BIN", value);
   }
 
   async function updateAntigravityModelSetting(value: string) {
     setAntigravityModelSetting(value);
-    setAdvancedSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "ANTIGRAVITY_MODEL", value }),
-    });
-    setAdvancedSaving(false);
+    stage("ANTIGRAVITY_MODEL", value);
   }
 
   async function updateClaudeCodeBin(value: string) {
     setClaudeCodeBin(value);
-    setAdvancedSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "CLAUDE_CODE_BIN", value }),
-    });
-    setAdvancedSaving(false);
+    stage("CLAUDE_CODE_BIN", value);
   }
 
   async function updateClaudeCodeModelSetting(value: string) {
     setClaudeCodeModelSetting(value);
-    setAdvancedSaving(true);
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "CLAUDE_CODE_MODEL", value }),
-    });
-    setAdvancedSaving(false);
+    stage("CLAUDE_CODE_MODEL", value);
   }
 
-  async function savePipelineSetting(key: string, value: number) {
-    setPipelineSaving(true);
+  function savePipelineSetting(key: string, value: number) {
     setPipeline((prev) => ({ ...prev, [key]: value }));
-    await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value: String(value) }),
-    });
-    setPipelineSaving(false);
+    stage(key, String(value));
+  }
+
+  function stage(key: string, value: string) {
+    setPending((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function saveAll() {
+    const entries = Object.entries(pending);
+    if (entries.length === 0) return;
+    setSaving(true);
+    try {
+      for (const [key, value] of entries) {
+        await fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, value }),
+        });
+      }
+      setPending({});
+      await fetchSettings();
+      toast.success(`Saved ${entries.length} setting${entries.length === 1 ? "" : "s"}`);
+    } catch {
+      toast.error("Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function discardChanges() {
+    setPending({});
+    fetchSettings();
   }
 
   async function saveApiKey(keyName: string, value: string, setKeySet: (v: boolean) => void) {
@@ -513,8 +452,36 @@ function SettingsContent() {
     unknown: "An unknown error occurred",
   };
 
+  const pendingCount = Object.keys(pending).length;
+
   return (
     <>
+      {/* Unsaved-changes bar. Sticks to the bottom so it is reachable from any
+          section of a long page, and states exactly how much is pending. */}
+      {pendingCount > 0 && (
+        <div className="sticky bottom-0 z-30 -mx-1 mb-4 px-4 py-3 bg-surface border border-border-strong rounded-lg shadow-lg flex items-center gap-3">
+          <span className="text-sm text-text-primary">
+            {pendingCount} unsaved change{pendingCount === 1 ? "" : "s"}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={discardChanges}
+              disabled={saving}
+              className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary disabled:opacity-50"
+            >
+              Discard
+            </button>
+            <button
+              onClick={saveAll}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 min-h-[44px]"
+            >
+              {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Status messages */}
       {error && (
         <div className="mb-6 p-4 bg-error-bg border border-error-bg rounded-lg">
@@ -678,9 +645,6 @@ function SettingsContent() {
             Product-relevant ties each image to the post topic and may show the app/device with an abstract, textless screen. Abstract is the original brand-colored still-life with no product.
           </p>
         </div>
-        {imageProviderSaving && (
-          <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
-        )}
         <p className="mt-2 text-xs text-text-tertiary">
           Default image generation provider. Can be overridden per product.
         </p>
@@ -699,9 +663,6 @@ function SettingsContent() {
           <option value="ffmpeg">FFmpeg — fast, lightweight (Ken Burns + burned captions)</option>
           <option value="remotion">Remotion — animated kinetic captions, cross-fades, branded overlay</option>
         </select>
-        {videoProviderSaving && (
-          <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
-        )}
         <p className="mt-2 text-xs text-text-tertiary">
           How reels/videos are rendered. Remotion renders via headless Chrome (slower, richer visuals) and
           automatically falls back to FFmpeg if a render fails. Can be overridden per product.
@@ -725,10 +686,6 @@ function SettingsContent() {
           <option value="buzz">Buzz (default — Remotion/spec pipeline)</option>
           <option value="higgsfield">Higgsfield (AI-native generation)</option>
         </select>
-        {contentEngineSaving && (
-          <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
-        )}
-
         {contentEngine === "higgsfield" && (
           <div className="mt-4 space-y-4">
             <div>
@@ -856,8 +813,7 @@ function SettingsContent() {
         <p className="text-sm text-text-secondary mb-4">
           How much of a product the models actually see, and how hard they work.
           Each of these trades output quality against tokens, cost and latency.
-          {pipelineSaving && <span className="ml-2 text-text-tertiary">Saving...</span>}
-        </p>
+          </p>
         <div className="space-y-4">
           {PIPELINE_FIELDS.map((f) => (
             <div key={f.key}>
@@ -951,10 +907,7 @@ function SettingsContent() {
             />
             <p className="text-xs text-text-tertiary mt-1">Default model for Claude Code text generation</p>
           </div>
-          {advancedSaving && (
-            <p className="text-xs text-text-tertiary">Saving...</p>
-          )}
-        </div>
+          </div>
       </div>
 
       {/* Instagram Accounts */}
