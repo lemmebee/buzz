@@ -5,7 +5,7 @@ import { resolveTextProvider } from "@/lib/providers";
 import { prepareImages } from "@/lib/images";
 import { snapshotChangedFields } from "@/lib/revisions";
 import { classifyProviderError } from "@/lib/providers/errors";
-import { trace, timed } from "@/lib/traces";
+import { timed } from "@/lib/traces";
 
 interface ExtractionParams {
   productId: number;
@@ -92,17 +92,9 @@ export async function extractProfileAndStrategy({
           images: images.length > 0 ? images : undefined,
           maxTokens: 8192,
           temperature: 0.4,
-        })
+        }),
+      (r) => ({ text: r.text })
     );
-
-    await trace({
-      productId,
-      phase: "extraction",
-      step: "model-response",
-      provider: provider.name,
-      status: "ok",
-      output: JSON.stringify({ text: result.text }),
-    });
 
     // Parse JSON from response
     const jsonMatch = result.text.match(/\{[\s\S]*\}/);

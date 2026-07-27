@@ -14,7 +14,7 @@ import {
 import { transcribeToSrt } from "@/lib/captions";
 import { getVideoProvider } from "@/lib/settings";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
-import { trace, timed } from "@/lib/traces";
+import { timed } from "@/lib/traces";
 import {
   sanitizeCaption,
   type GenerateContentInput,
@@ -247,18 +247,9 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
         images: allImages.length > 0 ? allImages : undefined,
         maxTokens: 4096 * generateCount,
         temperature: 0.9,
-      })
+      }),
+    (r) => ({ text: r.text })
   );
-
-  await trace({
-    productId,
-    phase: "prompt",
-    step: "video-script-response",
-    engine: "buzz",
-    provider: textProvider.name,
-    status: "ok",
-    output: JSON.stringify({ text: textResult.text }),
-  });
 
   const cleaned = textResult.text.replace(/```(?:json)?\s*/gi, "").trim();
   let items: VideoGenerated[];
@@ -430,40 +421,42 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
     // The creative director is the USER'S selected text provider (resolved at the
     // top of generateContent) — never hardcoded. Best-of-N + judge with a
     // deterministic typography floor so a creative run is never lost.
-    await trace({
-      productId,
-      phase: "generate",
-      step: "video-director",
-      engine: "buzz",
-      provider: textProvider.name,
-      status: "ok",
-      input: JSON.stringify({
-        script: scriptText,
+    const r = await timed(
+      {
+        productId,
+        phase: "generate",
+        step: "video-director",
+        engine: "buzz",
+        provider: textProvider.name,
+        model: textProvider.name,
+        input: JSON.stringify({
+          script: scriptText,
+          aspectRatio: config.aspectRatio,
+          durationSec: targetDuration,
+          vibe,
+          productShots,
+          imagesAvailable: imagesAvail,
+          candidates: 3,
+        }),
+      },
+      () => renderBestVideo({
+        textProvider,
+        productName: product.name,
+        profile: rawProfile,
+        strategy: rawStrategy,
+        vibe,
         aspectRatio: config.aspectRatio,
         durationSec: targetDuration,
-        vibe,
-        productShots,
+        script: scriptText,
         imagesAvailable: imagesAvail,
-        candidates: 3,
+        productShots: productShots.length,
+        productShotPaths: productShots,
+        fallbackPalette: derivePalette(profile.visualIdentity?.colors),
+        imageProviderName: product.imageProvider,
+        n: 3,
       }),
-    });
-
-    const r = await renderBestVideo({
-      textProvider,
-      productName: product.name,
-      profile: rawProfile,
-      strategy: rawStrategy,
-      vibe,
-      aspectRatio: config.aspectRatio,
-      durationSec: targetDuration,
-      script: scriptText,
-      imagesAvailable: imagesAvail,
-      productShots: productShots.length,
-      productShotPaths: productShots,
-      fallbackPalette: derivePalette(profile.visualIdentity?.colors),
-      imageProviderName: product.imageProvider,
-      n: 3,
-    });
+      (res) => ({ url: res.url, source: res.source, valid: res.valid, duration: res.duration })
+    );
     console.log(
       `[video] rendered via ${r.source} (${r.valid} valid) from ${textProvider.name}, images=${imagesAvail}, productShots=${productShots.length}`
     );

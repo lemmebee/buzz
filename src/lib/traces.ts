@@ -42,22 +42,31 @@ export async function trace(entry: NewGenerationTrace): Promise<void> {
   }
 }
 
+/**
+ * Time a call and record it as ONE trace holding both sides of the exchange.
+ *
+ * `serializeOutput` turns the result into the recorded output. Without it the
+ * output is left empty rather than filled with a placeholder — a row claiming
+ * "success" with no payload is worse than an honest blank, and splitting input
+ * and output across two rows makes a single call look like two steps.
+ */
 export async function timed<T>(
   entry: Omit<NewGenerationTrace, "durationMs" | "status" | "error">,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
+  serializeOutput?: (result: T) => unknown
 ): Promise<T> {
   const startTime = Date.now();
   try {
     const result = await fn();
     const durationMs = Date.now() - startTime;
-    
+
     await trace({
       ...entry,
       durationMs,
       status: "ok",
-      output: JSON.stringify({ result: "success" }),
+      output: serializeOutput ? JSON.stringify(serializeOutput(result)) : entry.output ?? null,
     });
-    
+
     return result;
   } catch (err) {
     const durationMs = Date.now() - startTime;
