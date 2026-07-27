@@ -571,39 +571,6 @@ function SettingsContent() {
           <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
         )}
       </div>
-      {/* Default Image Provider */}
-      <div className="bg-surface rounded-lg border border-border p-6">
-        <h2 className="text-lg font-medium text-text-primary mb-4">
-          Default Image Provider
-        </h2>
-        <select
-          value={imageProvider}
-          onChange={(e) => updateImageProvider(e.target.value)}
-          className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="pollinations">Pollinations</option>
-          <option value="gemini">Google AI Studio (Gemini)</option>
-          <option value="huggingface">HuggingFace</option>
-        </select>
-        {imageProvider === "huggingface" && (
-          <>
-            <select
-              value={imageModel}
-              onChange={(e) => updateImageModel(e.target.value)}
-              className="w-full mt-2 bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="black-forest-labs/FLUX.1-schnell">FLUX.1-schnell (fast)</option>
-              <option value="stabilityai/stable-diffusion-3-medium-diffusers">Stable Diffusion 3 Medium</option>
-            </select>
-            <p className="mt-1 text-xs text-text-tertiary">
-              These are the only text-to-image models on HuggingFace&apos;s free tier. Higher-end models (Qwen-Image, FLUX.1-dev, SD 3.5) require enabling a paid Inference provider on your HuggingFace account.
-            </p>
-          </>
-        )}
-        <p className="mt-2 text-xs text-text-tertiary">
-          Default image generation provider. Can be overridden per product.
-        </p>
-      </div>
       {/* API Keys */}
       <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">
@@ -722,23 +689,66 @@ function SettingsContent() {
           )}
           {tab === "engine" && (
             <>
-      {/* Higgsfield Content Engine */}
+      {/* Image provider — only relevant on the buzz engine */}
+      {contentEngine === "buzz" && (
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="text-lg font-medium text-text-primary mb-1">Image provider</h2>
+          <p className="text-sm text-text-secondary mb-4">
+            Which service renders the image. Overridable per product.
+          </p>
+
+          <label className="block text-sm font-medium text-text-secondary mb-1">Service</label>
+          <select
+            value={imageProvider}
+            onChange={(e) => updateImageProvider(e.target.value)}
+            className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="pollinations">Pollinations — free, no key</option>
+            <option value="gemini">Google AI Studio (Gemini) — needs a key</option>
+            <option value="huggingface">HuggingFace — needs a key</option>
+          </select>
+
+          {imageProvider === "huggingface" && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-text-secondary mb-1">Model</label>
+              <select
+                value={imageModel}
+                onChange={(e) => updateImageModel(e.target.value)}
+                className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="black-forest-labs/FLUX.1-schnell">FLUX.1-schnell (fast)</option>
+                <option value="stabilityai/stable-diffusion-3-medium-diffusers">Stable Diffusion 3 Medium</option>
+              </select>
+              <p className="mt-1 text-xs text-text-tertiary">
+                The two text-to-image models on HuggingFace&apos;s free tier. Anything
+                better (FLUX.1-dev, SD 3.5, Qwen-Image) needs a paid Inference provider
+                enabled on your HuggingFace account.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Content engine — the choice everything else on this tab depends on */}
       <div className="bg-surface rounded-lg border border-border p-6">
-        <h2 className="text-lg font-medium text-text-primary mb-4">
-          Higgsfield Content Engine
-        </h2>
+        <h2 className="text-lg font-medium text-text-primary mb-1">Engine</h2>
         <p className="text-sm text-text-secondary mb-4">
-          When enabled, Buzz assembles context and writes prompts; Higgsfield generates all media (composition, art direction, motion).
-          The default &quot;buzz&quot; engine uses the Remotion/spec pipeline.
+          Buzz always writes the caption and the image prompt. This decides what
+          turns that prompt into a picture.
         </p>
         <select
           value={contentEngine}
           onChange={(e) => updateContentEngine(e.target.value)}
-          className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
         >
-          <option value="buzz">Buzz (default — Remotion/spec pipeline)</option>
-          <option value="higgsfield">Higgsfield (AI-native generation)</option>
+          <option value="buzz">Buzz — free, image only</option>
+          <option value="higgsfield">Higgsfield — uses credits, can show your real product</option>
         </select>
+        <p className="mt-2 text-xs text-text-tertiary">
+          {contentEngine === "higgsfield"
+            ? "Sends a real screenshot as a reference, so the generated image can show your actual app. Around 2 credits an image and 2-4 a video. Needs the Claude Code CLI with the Higgsfield MCP connected."
+            : "Free, but the image model only receives a text description — it will invent a product interface rather than show yours. Switch to Higgsfield when the real app has to appear."}
+        </p>
         {contentEngine === "higgsfield" && (
           <div className="mt-4 space-y-4">
             <div>
@@ -1074,8 +1084,8 @@ type SettingsTab = "general" | "providers" | "engine" | "publishing" | "diagnost
 // even though they live in different parts of the codebase.
 const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: "general", label: "General" },
-  { id: "providers", label: "AI Providers" },
-  { id: "engine", label: "Content Engine" },
+  { id: "providers", label: "Providers & Keys" },
+  { id: "engine", label: "Generation" },
   { id: "publishing", label: "Publishing" },
   { id: "diagnostics", label: "Diagnostics" },
 ];
