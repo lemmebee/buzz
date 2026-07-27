@@ -5,6 +5,7 @@ import { resolveTextProvider } from "@/lib/providers";
 import { prepareImages } from "@/lib/images";
 import { snapshotChangedFields } from "@/lib/revisions";
 import { classifyProviderError } from "@/lib/providers/errors";
+import { trace, timed } from "@/lib/traces";
 
 interface ExtractionParams {
   productId: number;
@@ -67,12 +68,40 @@ export async function extractProfileAndStrategy({
         ? `I've attached ${totalImages} product screenshot${totalImages > 1 ? "s" : ""}. Screenshots are your PRIMARY source of truth — the brief fills gaps. Study every pixel: colors, typography, spacing, UI elements, microcopy, navigation, feature screens. Extract exact hex colors, real feature names from labels, and actual brand voice from button text and copy. If the brief and screenshots contradict, trust the screenshots.`
         : "Analyze the marketing brief and extract the profile and strategy. Since no screenshots are provided, make explicit assumptions about visual identity based on the product category and tone.";
 
-    const result = await provider.generate({
-      systemPrompt,
-      userPrompt,
-      images: images.length > 0 ? images : undefined,
-      maxTokens: 8192,
-      temperature: 0.4,
+    const result = await timed(
+      {
+        productId,
+        phase: "extraction",
+        step: "profile-and-strategy",
+        provider: provider.name,
+        model: provider.name,
+        input: JSON.stringify({
+          systemPrompt,
+          userPrompt,
+          // Counts, not bytes — the images themselves would swamp the trace.
+          screenshotsRequested: screenshotPaths.length,
+          screenshotsAttached: prepared.length,
+          logoAttached: hasLogo,
+          imagesSentToModel: images.length,
+        }),
+      },
+      () =>
+        provider.generate({
+          systemPrompt,
+          userPrompt,
+          images: images.length > 0 ? images : undefined,
+          maxTokens: 8192,
+          temperature: 0.4,
+        })
+    );
+
+    await trace({
+      productId,
+      phase: "extraction",
+      step: "model-response",
+      provider: provider.name,
+      status: "ok",
+      output: JSON.stringify({ text: result.text }),
     });
 
     // Parse JSON from response
