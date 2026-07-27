@@ -14,6 +14,7 @@ import {
 import { transcribeToSrt } from "@/lib/captions";
 import { getVideoProvider } from "@/lib/settings";
 import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/errors";
+import { trace, timed } from "@/lib/traces";
 import {
   sanitizeCaption,
   type GenerateContentInput,
@@ -224,12 +225,39 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
     ? `Generate ${generateCount} unique variations. Return a valid JSON array.`
     : `Generate the content now. Return valid JSON only.`;
 
-  const textResult = await textProvider.generate({
-    systemPrompt,
-    userPrompt,
-    images: allImages.length > 0 ? allImages : undefined,
-    maxTokens: 4096 * generateCount,
-    temperature: 0.9,
+  const textResult = await timed(
+    {
+      productId,
+      phase: "prompt",
+      step: "video-script-authoring",
+      engine: "buzz",
+      provider: textProvider.name,
+      model: textProvider.name,
+      input: JSON.stringify({
+        systemPrompt,
+        userPrompt,
+        variations: generateCount,
+        imagesAttached: allImages.length,
+      }),
+    },
+    () =>
+      textProvider.generate({
+        systemPrompt,
+        userPrompt,
+        images: allImages.length > 0 ? allImages : undefined,
+        maxTokens: 4096 * generateCount,
+        temperature: 0.9,
+      })
+  );
+
+  await trace({
+    productId,
+    phase: "prompt",
+    step: "video-script-response",
+    engine: "buzz",
+    provider: textProvider.name,
+    status: "ok",
+    output: JSON.stringify({ text: textResult.text }),
   });
 
   const cleaned = textResult.text.replace(/```(?:json)?\s*/gi, "").trim();
@@ -402,6 +430,24 @@ ${marketingStrategy.visualDirection ? `- Visual direction: ${marketingStrategy.v
     // The creative director is the USER'S selected text provider (resolved at the
     // top of generateContent) — never hardcoded. Best-of-N + judge with a
     // deterministic typography floor so a creative run is never lost.
+    await trace({
+      productId,
+      phase: "generate",
+      step: "video-director",
+      engine: "buzz",
+      provider: textProvider.name,
+      status: "ok",
+      input: JSON.stringify({
+        script: scriptText,
+        aspectRatio: config.aspectRatio,
+        durationSec: targetDuration,
+        vibe,
+        productShots,
+        imagesAvailable: imagesAvail,
+        candidates: 3,
+      }),
+    });
+
     const r = await renderBestVideo({
       textProvider,
       productName: product.name,

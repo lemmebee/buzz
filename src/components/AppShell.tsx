@@ -55,7 +55,8 @@ export function AppShell({ children }: AppShellProps) {
     { key: "2", action: () => navigate("/generate"), description: "Generate" },
     { key: "3", action: () => navigate("/content"), description: "Content" },
     { key: "4", action: () => navigate("/schedules"), description: "Schedules" },
-    { key: "5", action: () => navigate("/settings"), description: "Settings" },
+    { key: "5", action: () => navigate("/traces"), description: "Traces" },
+    { key: "6", action: () => navigate("/settings"), description: "Settings" },
     { key: "[", action: toggleSidebar, description: "Toggle sidebar" },
   ]);
 

@@ -11,6 +11,7 @@ import { classifyProviderError, isTerminalProviderError } from "@/lib/providers/
 import { getImageStyle } from "@/lib/settings";
 import type { ContentConfig } from "@/lib/content/defaults";
 import { prepareImages } from "@/lib/images";
+import { trace, timed } from "@/lib/traces";
 import {
   sanitizeCaption,
   type GenerateContentInput,
@@ -117,12 +118,42 @@ export async function generateImageContent(
     ? `Generate ${generateCount} unique variations. Return valid JSON array: [{"caption": "...", "hashtags": [...], "imagePrompt": {...}}, ...]${styleReminder}`
     : `Generate the content now. Return valid JSON only.${styleReminder}`;
 
-  const textResult = await textProvider.generate({
-    systemPrompt,
-    userPrompt,
-    images: allImages.length > 0 ? allImages : undefined,
-    maxTokens: 4096 * generateCount,
-    temperature: 0.9,
+  const textResult = await timed(
+    {
+      productId,
+      phase: "prompt",
+      step: "content-authoring",
+      engine: "buzz",
+      provider: textProvider.name,
+      model: textProvider.name,
+      input: JSON.stringify({
+        systemPrompt,
+        userPrompt,
+        platform,
+        targetSurface,
+        variations: generateCount,
+        imagesAttached: allImages.length,
+        hasLogo,
+      }),
+    },
+    () =>
+      textProvider.generate({
+        systemPrompt,
+        userPrompt,
+        images: allImages.length > 0 ? allImages : undefined,
+        maxTokens: 4096 * generateCount,
+        temperature: 0.9,
+      })
+  );
+
+  await trace({
+    productId,
+    phase: "prompt",
+    step: "content-authoring-response",
+    engine: "buzz",
+    provider: textProvider.name,
+    status: "ok",
+    output: JSON.stringify({ text: textResult.text }),
   });
 
   const cleanedText = textResult.text.replace(/```(?:json)?\s*/gi, "").trim();
@@ -173,6 +204,24 @@ export async function generateImageContent(
       `[image] authoring via ${textProvider.name}, productShots=${productShots.length}, uploads=${uploadedImagePaths.length}`
     );
 
+    await trace({
+      productId,
+      phase: "generate",
+      step: "creative-director",
+      engine: "buzz",
+      provider: textProvider.name,
+      input: JSON.stringify({
+        caption: captionText,
+        aspectRatio,
+        vibe,
+        productShots,
+        uploadedImages: uploadedImagePaths,
+        assetImagesAttached: productShots.length + uploadedImagePaths.length,
+        candidates: 3,
+      }),
+      status: "ok",
+    });
+
     const r = await renderBestImage({
       textProvider,
       productName: product.name,
@@ -196,6 +245,15 @@ export async function generateImageContent(
       },
     });
 
+    await trace({
+      productId,
+      phase: "generate",
+      step: "creative-director-result",
+      engine: "buzz",
+      status: "ok",
+      output: JSON.stringify({ url: r.url }),
+    });
+
     return {
       content: sanitizeCaption(captionText),
       hashtags: (item.hashtags || []).map((t) => coerceText(t).replace(/^#+/, "")),
@@ -215,11 +273,23 @@ export async function generateImageContent(
     });
     console.log("[image] Flux prompt:", fluxPrompt.slice(0, 120));
 
-    const imageResult = await imageProvider.generate({
-      prompt: fluxPrompt,
-      width: dims.w,
-      height: dims.h,
-    });
+    const imageResult = await timed(
+      {
+        productId,
+        phase: "generate",
+        step: "flux-fallback",
+        engine: "buzz",
+        provider: imageProvider.name,
+        model: imageProvider.name,
+        input: JSON.stringify({ prompt: fluxPrompt, width: dims.w, height: dims.h }),
+      },
+      () =>
+        imageProvider.generate({
+          prompt: fluxPrompt,
+          width: dims.w,
+          height: dims.h,
+        })
+    );
 
     return {
       content: sanitizeCaption(captionText),

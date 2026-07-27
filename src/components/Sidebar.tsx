@@ -8,6 +8,7 @@ import {
   Sparkles,
   Inbox,
   Calendar,
+  Activity,
   Settings,
   LogOut,
   Menu,
@@ -28,7 +29,8 @@ const navItems = [
   { href: "/generate", label: "Generate", icon: Sparkles, shortcut: "2" },
   { href: "/content", label: "Content", icon: Inbox, shortcut: "3" },
   { href: "/schedules", label: "Schedules", icon: Calendar, shortcut: "4" },
-  { href: "/settings", label: "Settings", icon: Settings, shortcut: "5" },
+  { href: "/traces", label: "Traces", icon: Activity, shortcut: "5" },
+  { href: "/settings", label: "Settings", icon: Settings, shortcut: "6" },
 ];
 
 export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onMobileClose }: SidebarProps) {
