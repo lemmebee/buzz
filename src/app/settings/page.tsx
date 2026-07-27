@@ -130,9 +130,19 @@ function SettingsContent() {
   const [claudeCodeBin, setClaudeCodeBin] = useState("");
   const [claudeCodeModelSetting, setClaudeCodeModelSetting] = useState("");
   const [pipeline, setPipeline] = useState<Record<string, number>>({});
-  // Nothing is written until Save is pressed; edits collect here so the page
-  // never persists a half-considered change on blur.
-  const [tab, setTab] = useState<SettingsTab>("general");
+  const sectionParam = searchParams.get("section") as SettingsTab | null;
+  const [tab, setTabState] = useState<SettingsTab>(
+    SETTINGS_TABS.some((t) => t.id === sectionParam) ? (sectionParam as SettingsTab) : "general"
+  );
+
+  // Reflect the section in the URL: a refresh, a bookmark, or a shared link
+  // all land back on the same group instead of resetting to General.
+  function setTab(next: SettingsTab) {
+    setTabState(next);
+    const params = new URLSearchParams(window.location.search);
+    params.set("section", next);
+    window.history.replaceState(null, "", `?${params.toString()}`);
+  }
   const [pending, setPending] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [googleAiKey, setGoogleAiKey] = useState("");
@@ -1010,10 +1020,17 @@ function SettingsContent() {
         </div>
       </div>
 
-      {/* Unsaved-changes bar. Sticks to the bottom so it is reachable from any
-          section of a long page, and states exactly how much is pending. */}
+      {/* Unsaved changes float above the fold. Anchored to the end of a long
+          column it was simply below the viewport, so a changed setting looked
+          like a setting that had silently failed to save. */}
       {pendingCount > 0 && (
-        <div className="sticky bottom-0 z-30 -mx-1 mb-4 px-4 py-3 bg-surface border border-border-strong rounded-lg shadow-lg flex items-center gap-3">
+        <div
+          role="status"
+          className="fixed bottom-6 left-1/2 z-40 w-[calc(100%-3rem)] max-w-xl -translate-x-1/2
+            rounded-xl border border-border-strong bg-surface px-4 py-3 shadow-lg
+            flex items-center gap-3
+            motion-safe:animate-[settings-save-in_220ms_cubic-bezier(0.22,1,0.36,1)]"
+        >
           <span className="text-sm text-text-primary">
             {pendingCount} unsaved change{pendingCount === 1 ? "" : "s"}
           </span>
@@ -1021,20 +1038,22 @@ function SettingsContent() {
             <button
               onClick={discardChanges}
               disabled={saving}
-              className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary disabled:opacity-50"
+              className="min-h-[44px] px-3 text-sm text-text-secondary hover:text-text-primary disabled:opacity-50"
             >
               Discard
             </button>
             <button
               onClick={saveAll}
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 min-h-[44px]"
+              className="min-h-[44px] rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground
+                hover:bg-primary-hover disabled:opacity-50 transition-colors"
             >
               {saving ? "Saving..." : "Save changes"}
             </button>
           </div>
         </div>
       )}
+
     </>
   );
 }
@@ -1118,7 +1137,7 @@ const PIPELINE_FIELDS = [
 export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
-      <main className="mx-auto max-w-3xl px-6 py-8">
+      <main className="mx-auto max-w-5xl px-6 py-8 pb-28">
         <Suspense fallback={<p className="text-text-tertiary">Loading...</p>}>
           <SettingsContent />
         </Suspense>
