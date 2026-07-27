@@ -130,6 +130,9 @@ function SettingsContent() {
   const [claudeCodeBin, setClaudeCodeBin] = useState("");
   const [claudeCodeModelSetting, setClaudeCodeModelSetting] = useState("");
   const [pipeline, setPipeline] = useState<Record<string, number>>({});
+  // Raw text per field so typing is never fought by coercion; the parsed value
+  // is what gets staged.
+  const [pipelineDraft, setPipelineDraft] = useState<Record<string, string>>({});
   const sectionParam = searchParams.get("section") as SettingsTab | null;
   const [tab, setTabState] = useState<SettingsTab>(
     SETTINGS_TABS.some((t) => t.id === sectionParam) ? (sectionParam as SettingsTab) : "general"
@@ -898,30 +901,66 @@ function SettingsContent() {
           Each of these trades output quality against tokens, cost and latency.
           </p>
         <div className="space-y-4">
-          {PIPELINE_FIELDS.map((f) => (
-            <div key={f.key}>
-              <label className="block text-sm font-medium text-text-secondary mb-1">
-                {f.label}
-              </label>
-              <input
-                type="number"
-                min={f.min}
-                max={f.max}
-                defaultValue={pipeline[f.key] ?? f.fallback}
-                key={`${f.key}-${pipeline[f.key] ?? f.fallback}`}
-                onBlur={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n) && n >= f.min && n <= f.max && n !== (pipeline[f.key] ?? f.fallback)) {
-                    savePipelineSetting(f.key, n);
-                  }
-                }}
-                className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <p className="mt-1 text-xs text-text-tertiary">
-                {f.help} Default {f.fallback}.
-              </p>
-            </div>
-          ))}
+          {PIPELINE_FIELDS.map((f) => {
+            const current = pipeline[f.key] ?? f.fallback;
+            const draft = pipelineDraft[f.key] ?? String(current);
+            const n = Number(draft);
+            const invalid =
+              draft.trim() === "" || !Number.isFinite(n) || n < f.min || n > f.max;
+            return (
+              <div key={f.key}>
+                <label
+                  htmlFor={`pipe-${f.key}`}
+                  className="block text-sm font-medium text-text-secondary mb-1"
+                >
+                  {f.label}
+                </label>
+                <input
+                  id={`pipe-${f.key}`}
+                  type="number"
+                  inputMode="numeric"
+                  min={f.min}
+                  max={f.max}
+                  value={draft}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby={`pipe-${f.key}-help`}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setPipelineDraft((prev) => ({ ...prev, [f.key]: next }));
+                    const parsed = Number(next);
+                    // Stage only what is actually valid, but never swallow the
+                    // rest silently — the message below says why it was not
+                    // accepted, which is what a bare min/max attribute does not.
+                    if (
+                      next.trim() !== "" &&
+                      Number.isFinite(parsed) &&
+                      parsed >= f.min &&
+                      parsed <= f.max
+                    ) {
+                      savePipelineSetting(f.key, parsed);
+                    }
+                  }}
+                  className={`w-full bg-surface border rounded-lg px-3 py-2 text-sm text-text-primary
+                    focus:outline-none focus:ring-2 ${
+                      invalid
+                        ? "border-error focus:ring-error"
+                        : "border-border-strong focus:ring-primary"
+                    }`}
+                />
+                <p id={`pipe-${f.key}-help`} className="mt-1 text-xs text-text-tertiary">
+                  {invalid ? (
+                    <span className="text-error">
+                      Enter a number between {f.min} and {f.max}. Not saved yet.
+                    </span>
+                  ) : (
+                    <>
+                      {f.help} Default {f.fallback}.
+                    </>
+                  )}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
             </>
@@ -1081,8 +1120,8 @@ const PIPELINE_FIELDS = [
     label: "Screenshots read during extraction",
     fallback: 10,
     min: 1,
-    max: 40,
-    help: "Sampled evenly across the product's screenshots when building its profile. The profile drives every later prompt, so this is the highest-leverage setting here. More images cost more vision tokens and time.",
+    max: 60,
+    help: "Sampled evenly across the product's screenshots when building its profile. The profile drives every later prompt, so this is the highest-leverage setting here. Each image adds vision tokens and roughly ten seconds; past about 30 an extraction can hit the provider timeout.",
   },
   {
     key: "CONTENT_MAX_IMAGES",
