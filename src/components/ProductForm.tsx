@@ -234,268 +234,286 @@ export function ProductForm({ product }: ProductFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Name *
-        </label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Description *
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-          rows={3}
-          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Logo
-        </label>
-        {(existingLogo || newLogoPreview) && (
-          <div className="flex items-center gap-3 mb-3">
-            <div className="relative group">
-              <Image
-                src={newLogoPreview || existingLogo!}
-                alt="Product logo"
-                width={0}
-                height={0}
-                sizes="64px"
-                unoptimized
-                className="w-16 h-16 object-contain rounded-lg border border-border"
-              />
-              <button
-                type="button"
-                onClick={removeLogo}
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                x
-              </button>
-            </div>
-          </div>
-        )}
-        <input
-          ref={logoInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleLogoUpload}
-          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-hover"
-        />
-        <p className="text-xs text-text-tertiary mt-1">Product logo used in generated content</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Plan File
-        </label>
-        {planFileName ? (
-          <div className="flex items-center gap-3 p-3 bg-background border border-border rounded-lg">
-            <span className="text-sm text-text-primary flex-1">{planFileName}</span>
-            <button
-              type="button"
-              onClick={handleRemoveFile}
-              className="text-sm text-error hover:text-error"
-            >
-              Remove
-            </button>
-          </div>
-        ) : (
+    <form onSubmit={handleSubmit} className="max-w-2xl space-y-10">
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-text-primary">Product</h2>
+          <p className="text-xs text-text-tertiary mt-0.5">What this product is. Screenshots are the primary source for its visual identity.</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Name *
+          </label>
           <input
-            ref={fileInputRef}
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Description *
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+            rows={3}
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Logo
+          </label>
+          {(existingLogo || newLogoPreview) && (
+            <div className="flex items-center gap-3 mb-3">
+              <div className="relative group">
+                <Image
+                  src={newLogoPreview || existingLogo!}
+                  alt="Product logo"
+                  width={0}
+                  height={0}
+                  sizes="64px"
+                  unoptimized
+                  className="w-16 h-16 object-contain rounded-lg border border-border"
+                />
+                <button
+                  type="button"
+                  onClick={removeLogo}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  x
+                </button>
+              </div>
+            </div>
+          )}
+          <input
+            ref={logoInputRef}
             type="file"
-            accept=".md,.txt,.markdown"
-            onChange={handleFileUpload}
+            accept="image/*"
+            onChange={handleLogoUpload}
             className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-hover"
           />
-        )}
-        <p className="text-xs text-text-tertiary mt-1">Upload a markdown file describing the product</p>
-      </div>
-
-      {product && planFileName && (
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleReExtract}
-            disabled={reExtracting}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50"
-          >
-            {reExtracting ? "Re-extracting..." : "Re-extract Profile & Strategy"}
-          </button>
-          {extractionStatus && (
-            <span className={`text-xs font-medium ${
-              extractionStatus === "done" ? "text-success" :
-              extractionStatus === "failed" ? "text-error" :
-              extractionStatus === "extracting" ? "text-warning" :
-              "text-text-tertiary"
-            }`}>
-              {extractionStatus === "done" ? "Extraction complete" :
-               extractionStatus === "failed" ? "Extraction failed" :
-               extractionStatus === "extracting" ? "Extracting..." :
-               extractionStatus === "pending" ? "Pending..." : ""}
-            </span>
-          )}
+          <p className="text-xs text-text-tertiary mt-1">Product logo used in generated content</p>
         </div>
-      )}
 
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Text Provider
-        </label>
-        <select
-          value={textProvider}
-          onChange={async (e) => {
-            const val = e.target.value;
-            setTextProvider(val);
-            if (val === "antigravity" && antigravityModels.length === 0) {
-              try {
-                const res = await fetch("/api/settings/antigravity-models");
-                if (res.ok) setAntigravityModels(await res.json());
-              } catch { /* ignore */ }
-            }
-            if (val === "claude-code" && claudeCodeModels.length === 0) {
-              try {
-                const res = await fetch("/api/settings/claude-code-models");
-                if (res.ok) setClaudeCodeModels(await res.json());
-              } catch { /* ignore */ }
-            }
-          }}
-          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-        >
-          <option value="gemini">Gemini — gemini-2.5-flash</option>
-          <option value="gemini-flash-lite">Gemini — gemini-2.5-flash-lite</option>
-          <option value="huggingface">HuggingFace — GLM-4.5V</option>
-          <option value="antigravity">Antigravity (local CLI)</option>
-          <option value="claude-code">Claude Code (local CLI)</option>
-        </select>
-        {textProvider === "antigravity" && (
-          <select
-            value={antigravityModel}
-            onChange={(e) => setAntigravityModel(e.target.value)}
-            className="w-full mt-2 px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-          >
-            <option value="">Default model</option>
-            {antigravityModels.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        )}
-        {textProvider === "claude-code" && (
-          <select
-            value={claudeCodeModel}
-            onChange={(e) => setClaudeCodeModel(e.target.value)}
-            className="w-full mt-2 px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-          >
-            <option value="">Default model</option>
-            {claudeCodeModels.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        )}
-        <p className="text-xs text-text-tertiary mt-1">LLM provider for profile/strategy extraction</p>
-      </div>
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Screenshots
+          </label>
+          {(existingScreenshots.length > 0 || newScreenshotPreviews.length > 0) && (
+            <div className="grid grid-cols-4 gap-3 mb-3">
+              {existingScreenshots.map((path, i) => (
+                <div key={`existing-${i}`} className="relative group">
+                  <Image src={path} alt="" width={0} height={0} sizes="25vw" unoptimized className="w-full h-24 object-cover rounded-lg border border-border" />
+                  <button
+                    type="button"
+                    onClick={() => removeExistingScreenshot(i)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+              {newScreenshotPreviews.map((src, i) => (
+                <div key={`new-${i}`} className="relative group">
+                  <Image src={src} alt="" width={0} height={0} sizes="25vw" unoptimized className="w-full h-24 object-cover rounded-lg border border-primary/30" />
+                  <button
+                    type="button"
+                    onClick={() => removeNewScreenshot(i)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input
+            ref={screenshotInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleScreenshotUpload}
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-hover"
+          />
+          <p className="text-xs text-text-tertiary mt-1">Upload product screenshots for image generation</p>
+        </div>
+      </section>
 
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Image Provider
-        </label>
-        <select
-          value={imageProvider}
-          onChange={(e) => setImageProvider(e.target.value)}
-          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-        >
-          <option value="">Use default</option>
-          <option value="pollinations">Pollinations</option>
-          <option value="gemini">Google AI Studio (Gemini)</option>
-          <option value="huggingface">HuggingFace</option>
-        </select>
-        <p className="text-xs text-text-tertiary mt-1">Image generation provider (leave empty to use global default)</p>
-      </div>
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-text-primary">Brief</h2>
+          <p className="text-xs text-text-tertiary mt-0.5">The marketing brief. Profile and strategy are extracted from it.</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Plan File
+          </label>
+          {planFileName ? (
+            <div className="flex items-center gap-3 p-3 bg-background border border-border rounded-lg">
+              <span className="text-sm text-text-primary flex-1">{planFileName}</span>
+              <button
+                type="button"
+                onClick={handleRemoveFile}
+                className="text-sm text-error hover:text-error"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".md,.txt,.markdown"
+              onChange={handleFileUpload}
+              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-hover"
+            />
+          )}
+          <p className="text-xs text-text-tertiary mt-1">Upload a markdown file describing the product</p>
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Content Engine
-        </label>
-        <select
-          value={contentEngine}
-          onChange={(e) => setContentEngine(e.target.value)}
-          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
-        >
-          <option value="">Use global setting</option>
-          <option value="buzz">Buzz — composes the design itself. Full control over typography and brand. Free.</option>
-          <option value="higgsfield">Higgsfield — generates the media. Photoreal, uses credits.</option>
-        </select>
-        <p className="text-xs text-text-tertiary mt-1">Content generation engine (leave empty to use global default)</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          LLM Instructions
-        </label>
-        <textarea
-          value={llmInstructions}
-          onChange={(e) => setLlmInstructions(e.target.value)}
-          rows={4}
-          placeholder="Optional rules, guidance, or constraints for the AI. Examples: 'Always write in British English', 'Focus on technical audience', 'Avoid mentioning competitors', 'Use a humorous tone'..."
-          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary resize-y"
-        />
-        <p className="text-xs text-text-tertiary mt-1">Custom instructions injected into all AI operations (extraction, content generation, brainstorm)</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-text-secondary mb-1">
-          Screenshots
-        </label>
-        {(existingScreenshots.length > 0 || newScreenshotPreviews.length > 0) && (
-          <div className="grid grid-cols-4 gap-3 mb-3">
-            {existingScreenshots.map((path, i) => (
-              <div key={`existing-${i}`} className="relative group">
-                <Image src={path} alt="" width={0} height={0} sizes="25vw" unoptimized className="w-full h-24 object-cover rounded-lg border border-border" />
-                <button
-                  type="button"
-                  onClick={() => removeExistingScreenshot(i)}
-                  className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  x
-                </button>
-              </div>
-            ))}
-            {newScreenshotPreviews.map((src, i) => (
-              <div key={`new-${i}`} className="relative group">
-                <Image src={src} alt="" width={0} height={0} sizes="25vw" unoptimized className="w-full h-24 object-cover rounded-lg border border-primary/30" />
-                <button
-                  type="button"
-                  onClick={() => removeNewScreenshot(i)}
-                  className="absolute top-1 right-1 w-5 h-5 bg-error text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  x
-                </button>
-              </div>
-            ))}
+        {product && planFileName && (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleReExtract}
+              disabled={reExtracting}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg border border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50"
+            >
+              {reExtracting ? "Re-extracting..." : "Re-extract Profile & Strategy"}
+            </button>
+            {extractionStatus && (
+              <span className={`text-xs font-medium ${
+                extractionStatus === "done" ? "text-success" :
+                extractionStatus === "failed" ? "text-error" :
+                extractionStatus === "extracting" ? "text-warning" :
+                "text-text-tertiary"
+              }`}>
+                {extractionStatus === "done" ? "Extraction complete" :
+                 extractionStatus === "failed" ? "Extraction failed" :
+                 extractionStatus === "extracting" ? "Extracting..." :
+                 extractionStatus === "pending" ? "Pending..." : ""}
+              </span>
+            )}
           </div>
         )}
-        <input
-          ref={screenshotInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleScreenshotUpload}
-          className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary-hover"
-        />
-        <p className="text-xs text-text-tertiary mt-1">Upload product screenshots for image generation</p>
-      </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-text-primary">AI configuration</h2>
+          <p className="text-xs text-text-tertiary mt-0.5">Which models run for this product, and any standing instructions for them.</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Text Provider
+          </label>
+          <select
+            value={textProvider}
+            onChange={async (e) => {
+              const val = e.target.value;
+              setTextProvider(val);
+              if (val === "antigravity" && antigravityModels.length === 0) {
+                try {
+                  const res = await fetch("/api/settings/antigravity-models");
+                  if (res.ok) setAntigravityModels(await res.json());
+                } catch { /* ignore */ }
+              }
+              if (val === "claude-code" && claudeCodeModels.length === 0) {
+                try {
+                  const res = await fetch("/api/settings/claude-code-models");
+                  if (res.ok) setClaudeCodeModels(await res.json());
+                } catch { /* ignore */ }
+              }
+            }}
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            <option value="gemini">Gemini — gemini-2.5-flash</option>
+            <option value="gemini-flash-lite">Gemini — gemini-2.5-flash-lite</option>
+            <option value="huggingface">HuggingFace — GLM-4.5V</option>
+            <option value="antigravity">Antigravity (local CLI)</option>
+            <option value="claude-code">Claude Code (local CLI)</option>
+          </select>
+          {textProvider === "antigravity" && (
+            <select
+              value={antigravityModel}
+              onChange={(e) => setAntigravityModel(e.target.value)}
+              className="w-full mt-2 px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+            >
+              <option value="">Default model</option>
+              {antigravityModels.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
+          {textProvider === "claude-code" && (
+            <select
+              value={claudeCodeModel}
+              onChange={(e) => setClaudeCodeModel(e.target.value)}
+              className="w-full mt-2 px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+            >
+              <option value="">Default model</option>
+              {claudeCodeModels.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          )}
+          <p className="text-xs text-text-tertiary mt-1">LLM provider for profile/strategy extraction</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Image Provider
+          </label>
+          <select
+            value={imageProvider}
+            onChange={(e) => setImageProvider(e.target.value)}
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            <option value="">Use default</option>
+            <option value="pollinations">Pollinations</option>
+            <option value="gemini">Google AI Studio (Gemini)</option>
+            <option value="huggingface">HuggingFace</option>
+          </select>
+          <p className="text-xs text-text-tertiary mt-1">Image generation provider (leave empty to use global default)</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Content Engine
+          </label>
+          <select
+            value={contentEngine}
+            onChange={(e) => setContentEngine(e.target.value)}
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            <option value="">Use global setting</option>
+            <option value="buzz">Buzz — composes the design itself. Full control over typography and brand. Free.</option>
+            <option value="higgsfield">Higgsfield — generates the media. Photoreal, uses credits.</option>
+          </select>
+          <p className="text-xs text-text-tertiary mt-1">Content generation engine (leave empty to use global default)</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            LLM Instructions
+          </label>
+          <textarea
+            value={llmInstructions}
+            onChange={(e) => setLlmInstructions(e.target.value)}
+            rows={4}
+            placeholder="Optional rules, guidance, or constraints for the AI. Examples: 'Always write in British English', 'Focus on technical audience', 'Avoid mentioning competitors', 'Use a humorous tone'..."
+            className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary resize-y"
+          />
+          <p className="text-xs text-text-tertiary mt-1">Custom instructions injected into all AI operations (extraction, content generation, brainstorm)</p>
+        </div>
+      </section>
 
       <div className="flex gap-3">
         <button

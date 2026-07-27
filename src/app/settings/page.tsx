@@ -132,6 +132,7 @@ function SettingsContent() {
   const [pipeline, setPipeline] = useState<Record<string, number>>({});
   // Nothing is written until Save is pressed; edits collect here so the page
   // never persists a half-considered change on blur.
+  const [tab, setTab] = useState<SettingsTab>("general");
   const [pending, setPending] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [googleAiKey, setGoogleAiKey] = useState("");
@@ -456,32 +457,6 @@ function SettingsContent() {
 
   return (
     <>
-      {/* Unsaved-changes bar. Sticks to the bottom so it is reachable from any
-          section of a long page, and states exactly how much is pending. */}
-      {pendingCount > 0 && (
-        <div className="sticky bottom-0 z-30 -mx-1 mb-4 px-4 py-3 bg-surface border border-border-strong rounded-lg shadow-lg flex items-center gap-3">
-          <span className="text-sm text-text-primary">
-            {pendingCount} unsaved change{pendingCount === 1 ? "" : "s"}
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={discardChanges}
-              disabled={saving}
-              className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary disabled:opacity-50"
-            >
-              Discard
-            </button>
-            <button
-              onClick={saveAll}
-              disabled={saving}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 min-h-[44px]"
-            >
-              {saving ? "Saving..." : "Save changes"}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Status messages */}
       {error && (
         <div className="mb-6 p-4 bg-error-bg border border-error-bg rounded-lg">
@@ -499,16 +474,48 @@ function SettingsContent() {
         </div>
       )}
 
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
+        {/* Section rail. Ten settings groups on one scroll is unreadable;
+            grouping them turns a wall into five decisions. Horizontal on
+            small screens, a sticky column once there is room for it. */}
+        <nav aria-label="Settings sections" className="lg:w-52 shrink-0">
+          <div className="lg:sticky lg:top-6 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible -mx-1 px-1 pb-1 lg:pb-0">
+            {SETTINGS_TABS.map((t) => {
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  aria-current={active ? "page" : undefined}
+                  className={`shrink-0 text-left rounded-lg px-3 py-2 text-sm transition-colors min-h-[44px] lg:min-h-0 ${
+                    active
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-text-secondary hover:text-text-primary hover:bg-surface"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div className="flex-1 min-w-0 space-y-6">
+          {tab === "general" && (
+            <>
       {/* Appearance */}
-      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+      <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">
           Appearance
         </h2>
         <ThemeToggle />
       </div>
-
+            </>
+          )}
+          {tab === "providers" && (
+            <>
       {/* Default Text Provider */}
-      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+      <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">
           Default Text Provider
         </h2>
@@ -551,57 +558,8 @@ function SettingsContent() {
           <p className="mt-2 text-xs text-text-tertiary">Saving...</p>
         )}
       </div>
-
-      {/* API Keys */}
-      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
-        <h2 className="text-lg font-medium text-text-primary mb-4">
-          API Keys
-        </h2>
-        <div className="space-y-4">
-          <ApiKeyField
-            label="Google AI API Key"
-            configured={googleAiKeySet}
-            value={googleAiKey}
-            onChange={setGoogleAiKey}
-            onSave={() => {
-              saveApiKey("GOOGLE_AI_API_KEY", googleAiKey, setGoogleAiKeySet);
-              setGoogleAiKey("");
-            }}
-            saving={keysSaving}
-            placeholder="Enter key"
-          />
-          <ApiKeyField
-            label="HuggingFace API Key"
-            configured={huggingfaceKeySet}
-            value={huggingfaceKey}
-            onChange={setHuggingfaceKey}
-            onSave={() => {
-              saveApiKey("HUGGINGFACE_API_KEY", huggingfaceKey, setHuggingfaceKeySet);
-              setHuggingfaceKey("");
-            }}
-            saving={keysSaving}
-            placeholder="Enter key"
-          />
-          <ApiKeyField
-            label="Pollinations API Key"
-            configured={pollinationsKeySet}
-            value={pollinationsKey}
-            onChange={setPollinationsKey}
-            onSave={() => {
-              saveApiKey("POLLINATIONS_API_KEY", pollinationsKey, setPollinationsKeySet);
-              setPollinationsKey("");
-            }}
-            saving={keysSaving}
-            placeholder="Enter key (optional)"
-          />
-        </div>
-        <p className="mt-4 text-xs text-text-tertiary">
-          API keys are stored securely in the database and used for AI generation. Leave Pollinations blank if using the free tier.
-        </p>
-      </div>
-
       {/* Default Image Provider */}
-      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+      <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">
           Default Image Provider
         </h2>
@@ -649,9 +607,8 @@ function SettingsContent() {
           Default image generation provider. Can be overridden per product.
         </p>
       </div>
-
       {/* Default Video Engine */}
-      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+      <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">
           Default Video Engine
         </h2>
@@ -668,9 +625,126 @@ function SettingsContent() {
           automatically falls back to FFmpeg if a render fails. Can be overridden per product.
         </p>
       </div>
-
+      {/* API Keys */}
+      <div className="bg-surface rounded-lg border border-border p-6">
+        <h2 className="text-lg font-medium text-text-primary mb-4">
+          API Keys
+        </h2>
+        <div className="space-y-4">
+          <ApiKeyField
+            label="Google AI API Key"
+            configured={googleAiKeySet}
+            value={googleAiKey}
+            onChange={setGoogleAiKey}
+            onSave={() => {
+              saveApiKey("GOOGLE_AI_API_KEY", googleAiKey, setGoogleAiKeySet);
+              setGoogleAiKey("");
+            }}
+            saving={keysSaving}
+            placeholder="Enter key"
+          />
+          <ApiKeyField
+            label="HuggingFace API Key"
+            configured={huggingfaceKeySet}
+            value={huggingfaceKey}
+            onChange={setHuggingfaceKey}
+            onSave={() => {
+              saveApiKey("HUGGINGFACE_API_KEY", huggingfaceKey, setHuggingfaceKeySet);
+              setHuggingfaceKey("");
+            }}
+            saving={keysSaving}
+            placeholder="Enter key"
+          />
+          <ApiKeyField
+            label="Pollinations API Key"
+            configured={pollinationsKeySet}
+            value={pollinationsKey}
+            onChange={setPollinationsKey}
+            onSave={() => {
+              saveApiKey("POLLINATIONS_API_KEY", pollinationsKey, setPollinationsKeySet);
+              setPollinationsKey("");
+            }}
+            saving={keysSaving}
+            placeholder="Enter key (optional)"
+          />
+        </div>
+        <p className="mt-4 text-xs text-text-tertiary">
+          API keys are stored securely in the database and used for AI generation. Leave Pollinations blank if using the free tier.
+        </p>
+      </div>
+      {/* Advanced Settings */}
+      <div className="bg-surface rounded-lg border border-border p-6">
+        <h2 className="text-lg font-medium text-text-primary mb-4">
+          Advanced
+        </h2>
+        <p className="text-sm text-text-secondary mb-4">
+          Machine-specific paths and binary locations. These are typically set once and rarely changed.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Antigravity Binary Path
+            </label>
+            <input
+              type="text"
+              value={antigravityBin}
+              onChange={(e) => setAntigravityBin(e.target.value)}
+              onBlur={() => updateAntigravityBin(antigravityBin)}
+              placeholder="/home/mrg/.local/bin/agy"
+              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
+            />
+            <p className="text-xs text-text-tertiary mt-1">Path to the Antigravity CLI binary</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Antigravity Default Model
+            </label>
+            <input
+              type="text"
+              value={antigravityModelSetting}
+              onChange={(e) => setAntigravityModelSetting(e.target.value)}
+              onBlur={() => updateAntigravityModelSetting(antigravityModelSetting)}
+              placeholder="GPT-OSS 120B (Medium)"
+              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
+            />
+            <p className="text-xs text-text-tertiary mt-1">Default model for Antigravity text generation</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Claude Code Binary Path
+            </label>
+            <input
+              type="text"
+              value={claudeCodeBin}
+              onChange={(e) => setClaudeCodeBin(e.target.value)}
+              onBlur={() => updateClaudeCodeBin(claudeCodeBin)}
+              placeholder="/home/mrg/.local/bin/claude"
+              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
+            />
+            <p className="text-xs text-text-tertiary mt-1">Path to the Claude Code CLI binary (used by Higgsfield)</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Claude Code Default Model
+            </label>
+            <input
+              type="text"
+              value={claudeCodeModelSetting}
+              onChange={(e) => setClaudeCodeModelSetting(e.target.value)}
+              onBlur={() => updateClaudeCodeModelSetting(claudeCodeModelSetting)}
+              placeholder="haiku"
+              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
+            />
+            <p className="text-xs text-text-tertiary mt-1">Default model for Claude Code text generation</p>
+          </div>
+          </div>
+      </div>
+            </>
+          )}
+          {tab === "engine" && (
+            <>
       {/* Higgsfield Content Engine */}
-      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+      <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">
           Higgsfield Content Engine
         </h2>
@@ -806,9 +880,8 @@ function SettingsContent() {
           </div>
         )}
       </div>
-
       {/* Pipeline tuning */}
-      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
+      <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">Pipeline</h2>
         <p className="text-sm text-text-secondary mb-4">
           How much of a product the models actually see, and how hard they work.
@@ -841,75 +914,10 @@ function SettingsContent() {
           ))}
         </div>
       </div>
-
-      {/* Advanced Settings */}
-      <div className="bg-surface rounded-lg border border-border p-6 mb-6">
-        <h2 className="text-lg font-medium text-text-primary mb-4">
-          Advanced
-        </h2>
-        <p className="text-sm text-text-secondary mb-4">
-          Machine-specific paths and binary locations. These are typically set once and rarely changed.
-        </p>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Antigravity Binary Path
-            </label>
-            <input
-              type="text"
-              value={antigravityBin}
-              onChange={(e) => setAntigravityBin(e.target.value)}
-              onBlur={() => updateAntigravityBin(antigravityBin)}
-              placeholder="/home/mrg/.local/bin/agy"
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
-            />
-            <p className="text-xs text-text-tertiary mt-1">Path to the Antigravity CLI binary</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Antigravity Default Model
-            </label>
-            <input
-              type="text"
-              value={antigravityModelSetting}
-              onChange={(e) => setAntigravityModelSetting(e.target.value)}
-              onBlur={() => updateAntigravityModelSetting(antigravityModelSetting)}
-              placeholder="GPT-OSS 120B (Medium)"
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
-            />
-            <p className="text-xs text-text-tertiary mt-1">Default model for Antigravity text generation</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Claude Code Binary Path
-            </label>
-            <input
-              type="text"
-              value={claudeCodeBin}
-              onChange={(e) => setClaudeCodeBin(e.target.value)}
-              onBlur={() => updateClaudeCodeBin(claudeCodeBin)}
-              placeholder="/home/mrg/.local/bin/claude"
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
-            />
-            <p className="text-xs text-text-tertiary mt-1">Path to the Claude Code CLI binary (used by Higgsfield)</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Claude Code Default Model
-            </label>
-            <input
-              type="text"
-              value={claudeCodeModelSetting}
-              onChange={(e) => setClaudeCodeModelSetting(e.target.value)}
-              onBlur={() => updateClaudeCodeModelSetting(claudeCodeModelSetting)}
-              placeholder="haiku"
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
-            />
-            <p className="text-xs text-text-tertiary mt-1">Default model for Claude Code text generation</p>
-          </div>
-          </div>
-      </div>
-
+            </>
+          )}
+          {tab === "publishing" && (
+            <>
       {/* Instagram Accounts */}
       <div className="bg-surface rounded-lg border border-border p-6">
         <div className="flex justify-between items-center mb-4">
@@ -968,7 +976,14 @@ function SettingsContent() {
           </div>
         )}
       </div>
-
+      {/* Discord Setup */}
+      <div className="mt-6">
+        <DiscordSetup />
+      </div>
+            </>
+          )}
+          {tab === "diagnostics" && (
+            <>
       {/* Environment Variables Info */}
       <div className="mt-6 bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">
@@ -990,11 +1005,36 @@ function SettingsContent() {
           </a>
         </p>
       </div>
-
-      {/* Discord Setup */}
-      <div className="mt-6">
-        <DiscordSetup />
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Unsaved-changes bar. Sticks to the bottom so it is reachable from any
+          section of a long page, and states exactly how much is pending. */}
+      {pendingCount > 0 && (
+        <div className="sticky bottom-0 z-30 -mx-1 mb-4 px-4 py-3 bg-surface border border-border-strong rounded-lg shadow-lg flex items-center gap-3">
+          <span className="text-sm text-text-primary">
+            {pendingCount} unsaved change{pendingCount === 1 ? "" : "s"}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={discardChanges}
+              disabled={saving}
+              className="px-3 py-2 text-sm text-text-secondary hover:text-text-primary disabled:opacity-50"
+            >
+              Discard
+            </button>
+            <button
+              onClick={saveAll}
+              disabled={saving}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 min-h-[44px]"
+            >
+              {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -1003,6 +1043,19 @@ function SettingsContent() {
 // Pipeline knobs that were previously hardcoded constants. Each one changes
 // how much the models see or how hard they work, so it belongs in the UI
 // rather than buried in source.
+type SettingsTab = "general" | "providers" | "engine" | "publishing" | "diagnostics";
+
+// Grouped by the decision being made, not by which subsystem owns the value.
+// "Which model writes my copy" and "which key authenticates it" belong together
+// even though they live in different parts of the codebase.
+const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "providers", label: "AI Providers" },
+  { id: "engine", label: "Content Engine" },
+  { id: "publishing", label: "Publishing" },
+  { id: "diagnostics", label: "Diagnostics" },
+];
+
 const PIPELINE_FIELDS = [
   {
     key: "EXTRACTION_MAX_IMAGES",
