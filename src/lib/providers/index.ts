@@ -16,21 +16,6 @@ export type {
   ProviderConfig,
 } from "./types";
 
-// Registry
-export {
-  registerTextProvider,
-  registerImageProvider,
-  registerVideoProvider,
-  registerAudioProvider,
-  getTextProvider,
-  getImageProvider,
-  getVideoProvider,
-  getAudioProvider,
-  hasTextProvider,
-  hasImageProvider,
-  hasVideoProvider,
-  hasAudioProvider,
-} from "./registry";
 
 // Text provider implementations
 export { createHuggingFaceTextProvider } from "./text";

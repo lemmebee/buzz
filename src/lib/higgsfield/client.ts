@@ -305,7 +305,7 @@ export async function hfUploadFile(filePath: string, contentType: string): Promi
 
   const buffer = await readFile(filePath);
   await hfPutBytes(presigned[0].uploadUrl, buffer, contentType);
-  await hfConfirmUpload(presigned[0].mediaId, "image");
+  await hfConfirmUploads([presigned[0].mediaId], "image");
 
   return presigned[0].mediaId;
 }
@@ -497,11 +497,21 @@ export async function hfPutBytes(uploadUrl: string, buffer: Buffer, contentType:
   }
 }
 
-export async function hfConfirmUpload(mediaId: string, type: "image" | "video" = "image"): Promise<void> {
-  const params: Record<string, unknown> = {
-    media_id: mediaId,
-    type,
-  };
+/**
+ * Confirm uploads in ONE call. media_confirm accepts media_ids, and spawning a
+ * CLI per asset meant N concurrent Claude processes contending for the same MCP
+ * — at ten assets they starved each other and every one hit the timeout.
+ */
+export async function hfConfirmUploads(
+  mediaIds: string[],
+  type: "image" | "video" = "image"
+): Promise<void> {
+  if (mediaIds.length === 0) return;
+
+  const params =
+    mediaIds.length === 1
+      ? { media_id: mediaIds[0], type }
+      : { media_ids: mediaIds, type };
 
   const prompt = `Call the mcp__claude_ai_HiggsField__media_confirm tool with the params argument set to EXACTLY this JSON object, verbatim, with no fields added, removed, or altered:
 

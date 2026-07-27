@@ -3,7 +3,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { eq, and, inArray } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
-import { hfPresignUpload, hfPutBytes, hfConfirmUpload } from "./client";
+import { hfPresignUpload, hfPutBytes, hfConfirmUploads } from "./client";
 import { isTerminalProviderError } from "@/lib/providers/errors";
 import { getHiggsfieldMaxAssets } from "@/lib/settings";
 import sharp from "sharp";
@@ -196,23 +196,29 @@ export async function ensureProductAssetsUploaded(
         }
         
         await hfPutBytes(presigned[i].uploadUrl, buffer, asset.contentType);
-        await hfConfirmUpload(presigned[i].mediaId, "image");
-
-        // Only cache after confirm succeeds — a cached id that was never confirmed
-        // poisons every future generation for that product, silently, forever.
-        await db.insert(schema.higgsfieldAssets).values({
-          productId,
-          localPath: asset.localPath,
-          kind: asset.kind,
-          hfMediaId: presigned[i].mediaId,
-        });
-
-        const refType = asset.kind === "logo" 
-          ? (asset.isSvg ? "logo (rasterised from svg)" : "logo")
-          : (asset.isSvg ? "screenshot (rasterised from svg)" : "screenshot");
-        console.log(`[higgsfield] reference: ${refType} -> ${presigned[i].mediaId}`);
       })
     );
+
+    // One confirm for every upload. Confirming per asset spawned a CLI each,
+    // and at ten assets those processes starved one another until all of them
+    // hit the timeout.
+    await hfConfirmUploads(presigned.map((pr) => pr.mediaId), "image");
+
+    // Cache only after confirm succeeds — an unconfirmed id poisons every
+    // later generation for that product, silently and permanently.
+    for (let i = 0; i < toUpload.length; i++) {
+      const asset = toUpload[i];
+      await db.insert(schema.higgsfieldAssets).values({
+        productId,
+        localPath: asset.localPath,
+        kind: asset.kind,
+        hfMediaId: presigned[i].mediaId,
+      });
+      const refType = asset.kind === "logo"
+        ? (asset.isSvg ? "logo (rasterised from svg)" : "logo")
+        : (asset.isSvg ? "screenshot (rasterised from svg)" : "screenshot");
+      console.log(`[higgsfield] reference: ${refType} -> ${presigned[i].mediaId}`);
+    }
 
     const allAssets = await db.query.higgsfieldAssets.findMany({
       where: eq(schema.higgsfieldAssets.productId, productId),
