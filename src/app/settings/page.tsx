@@ -175,6 +175,20 @@ function SettingsContent() {
   async function fetchSettings() {
     const res = await fetch("/api/settings");
     const data = await res.json();
+
+    // Pipeline values are numeric and keyed by the same name in the DB, so they
+    // load generically rather than needing a line each. Without this the fields
+    // fell back to their defaults on every load and a saved value looked lost.
+    const loadedPipeline: Record<string, number> = {};
+    for (const f of PIPELINE_FIELDS) {
+      const raw = data[f.key];
+      if (raw !== undefined && raw !== null && raw !== "") {
+        const n = Number(raw);
+        if (Number.isFinite(n)) loadedPipeline[f.key] = n;
+      }
+    }
+    setPipeline(loadedPipeline);
+    setPipelineDraft({});
     if (data.TEXT_PROVIDER) {
       const val = data.TEXT_PROVIDER;
       if (val === "antigravity" || val.startsWith("antigravity:")) {
