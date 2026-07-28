@@ -37,7 +37,12 @@ export default function GeneratePage() {
   const [mediaType, setMediaType] = useState<MediaTypeUi>("image");
   const [contentType, setContentType] = useState<ContentType>("post");
   const [config, setConfig] = useState<FormConfig>(CONFIG_DEFAULTS.post.image);
-  const [count, setCount] = useState(5);
+  // One by default. Every extra item is a separate generation — on video that
+  // is a few credits each, so volume should be asked for, not assumed.
+  const [count, setCount] = useState(1);
+  // Kept as text while typing so clearing the field does not instantly coerce
+  // back to a number and block you from entering a new one.
+  const [countDraft, setCountDraft] = useState("1");
 
   // Advanced settings
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -104,6 +109,7 @@ export default function GeneratePage() {
     setMediaType(preset.config.mediaType);
     setContentType(preset.config.contentType);
     setCount(preset.config.count);
+    setCountDraft(String(preset.config.count));
     setConfig({
       aspectRatio: preset.config.aspectRatio,
       durationSec: preset.config.durationSec,
@@ -373,12 +379,29 @@ export default function GeneratePage() {
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={1}
                   max={10}
-                  value={count}
-                  onChange={(e) => setCount(parseInt(e.target.value) || 1)}
+                  value={countDraft}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setCountDraft(next);
+                    const n = parseInt(next, 10);
+                    if (Number.isFinite(n) && n >= 1 && n <= 10) setCount(n);
+                  }}
+                  onBlur={() => {
+                    const n = parseInt(countDraft, 10);
+                    const clamped = Number.isFinite(n) ? Math.min(Math.max(n, 1), 10) : 1;
+                    setCount(clamped);
+                    setCountDraft(String(clamped));
+                  }}
                   className="w-full px-3 py-2 border border-border-strong rounded-lg text-sm text-text-primary bg-surface"
                 />
+                <p className="mt-1 text-xs text-text-tertiary">
+                  {mediaType === "video"
+                    ? "Each is a separate generation and costs credits. 1-10."
+                    : "Variations to generate, each a separate run. 1-10."}
+                </p>
               </div>
             </div>
 
