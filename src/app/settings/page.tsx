@@ -1139,14 +1139,6 @@ const PIPELINE_FIELDS = [
     max: 20000,
     help: "How much of the marketing brief reaches a generation prompt before truncation.",
   },
-  {
-    key: "GENERATION_CANDIDATES",
-    label: "Candidates per generation (best-of-N)",
-    fallback: 3,
-    min: 1,
-    max: 6,
-    help: "Variants rendered and judged before one is chosen. Directly multiplies render time and provider cost.",
-  },
 ] as const;
 
 export default function SettingsPage() {
