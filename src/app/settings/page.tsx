@@ -124,9 +124,7 @@ function SettingsContent() {
   const [higgsfieldModelsRefreshing, setHiggsfieldModelsRefreshing] = useState(false);
   const [checkingCostFor, setCheckingCostFor] = useState<string | null>(null);
   const [antigravityBin, setAntigravityBin] = useState("");
-  const [antigravityModelSetting, setAntigravityModelSetting] = useState("");
   const [claudeCodeBin, setClaudeCodeBin] = useState("");
-  const [claudeCodeModelSetting, setClaudeCodeModelSetting] = useState("");
   const [pipeline, setPipeline] = useState<Record<string, number>>({});
   // Raw text per field so typing is never fought by coercion; the parsed value
   // is what gets staged.
@@ -223,14 +221,8 @@ function SettingsContent() {
     if (data.ANTIGRAVITY_BIN) {
       setAntigravityBin(data.ANTIGRAVITY_BIN);
     }
-    if (data.ANTIGRAVITY_MODEL) {
-      setAntigravityModelSetting(data.ANTIGRAVITY_MODEL);
-    }
     if (data.CLAUDE_CODE_BIN) {
       setClaudeCodeBin(data.CLAUDE_CODE_BIN);
-    }
-    if (data.CLAUDE_CODE_MODEL) {
-      setClaudeCodeModelSetting(data.CLAUDE_CODE_MODEL);
     }
     if (data.GOOGLE_AI_API_KEY) {
       setGoogleAiKeySet(true);
@@ -395,20 +387,14 @@ function SettingsContent() {
     stage("ANTIGRAVITY_BIN", value);
   }
 
-  async function updateAntigravityModelSetting(value: string) {
-    setAntigravityModelSetting(value);
-    stage("ANTIGRAVITY_MODEL", value);
-  }
+
 
   async function updateClaudeCodeBin(value: string) {
     setClaudeCodeBin(value);
     stage("CLAUDE_CODE_BIN", value);
   }
 
-  async function updateClaudeCodeModelSetting(value: string) {
-    setClaudeCodeModelSetting(value);
-    stage("CLAUDE_CODE_MODEL", value);
-  }
+
 
   function savePipelineSetting(key: string, value: number) {
     setPipeline((prev) => ({ ...prev, [key]: value }));
@@ -624,7 +610,7 @@ function SettingsContent() {
           Advanced
         </h2>
         <p className="text-sm text-text-secondary mb-4">
-          Machine-specific paths and binary locations. These are typically set once and rarely changed.
+          Where the local CLIs live. Set once per machine. Models are chosen above, with the provider.
         </p>
         <div className="space-y-4">
           <div>
@@ -643,20 +629,6 @@ function SettingsContent() {
           </div>
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Antigravity Default Model
-            </label>
-            <input
-              type="text"
-              value={antigravityModelSetting}
-              onChange={(e) => setAntigravityModelSetting(e.target.value)}
-              onBlur={() => updateAntigravityModelSetting(antigravityModelSetting)}
-              placeholder="GPT-OSS 120B (Medium)"
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
-            />
-            <p className="text-xs text-text-tertiary mt-1">Default model for Antigravity text generation</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
               Claude Code Binary Path
             </label>
             <input
@@ -668,20 +640,6 @@ function SettingsContent() {
               className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
             />
             <p className="text-xs text-text-tertiary mt-1">Path to the Claude Code CLI binary (used by Higgsfield)</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Claude Code Default Model
-            </label>
-            <input
-              type="text"
-              value={claudeCodeModelSetting}
-              onChange={(e) => setClaudeCodeModelSetting(e.target.value)}
-              onBlur={() => updateClaudeCodeModelSetting(claudeCodeModelSetting)}
-              placeholder="haiku"
-              className="w-full px-3 py-2 bg-surface border border-border-strong rounded-lg text-text-primary text-sm focus:ring-2 focus:ring-primary focus:border-primary font-mono"
-            />
-            <p className="text-xs text-text-tertiary mt-1">Default model for Claude Code text generation</p>
           </div>
           </div>
       </div>
