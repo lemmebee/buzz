@@ -689,46 +689,6 @@ function SettingsContent() {
           )}
           {tab === "engine" && (
             <>
-      {/* Image provider — only relevant on the buzz engine */}
-      {contentEngine === "buzz" && (
-        <div className="bg-surface rounded-lg border border-border p-6">
-          <h2 className="text-lg font-medium text-text-primary mb-1">Image provider</h2>
-          <p className="text-sm text-text-secondary mb-4">
-            Which service renders the image. Overridable per product.
-          </p>
-
-          <label className="block text-sm font-medium text-text-secondary mb-1">Service</label>
-          <select
-            value={imageProvider}
-            onChange={(e) => updateImageProvider(e.target.value)}
-            className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="pollinations">Pollinations — free, no key</option>
-            <option value="gemini">Google AI Studio (Gemini) — needs a key</option>
-            <option value="huggingface">HuggingFace — needs a key</option>
-          </select>
-
-          {imageProvider === "huggingface" && (
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-text-secondary mb-1">Model</label>
-              <select
-                value={imageModel}
-                onChange={(e) => updateImageModel(e.target.value)}
-                className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="black-forest-labs/FLUX.1-schnell">FLUX.1-schnell (fast)</option>
-                <option value="stabilityai/stable-diffusion-3-medium-diffusers">Stable Diffusion 3 Medium</option>
-              </select>
-              <p className="mt-1 text-xs text-text-tertiary">
-                The two text-to-image models on HuggingFace&apos;s free tier. Anything
-                better (FLUX.1-dev, SD 3.5, Qwen-Image) needs a paid Inference provider
-                enabled on your HuggingFace account.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Content engine — the choice everything else on this tab depends on */}
       <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-1">Engine</h2>
@@ -869,6 +829,46 @@ function SettingsContent() {
           </div>
         )}
       </div>
+      {/* Image provider — only relevant on the buzz engine */}
+      {contentEngine === "buzz" && (
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="text-lg font-medium text-text-primary mb-1">Image provider</h2>
+          <p className="text-sm text-text-secondary mb-4">
+            Which service renders the image. Overridable per product.
+          </p>
+
+          <label className="block text-sm font-medium text-text-secondary mb-1">Service</label>
+          <select
+            value={imageProvider}
+            onChange={(e) => updateImageProvider(e.target.value)}
+            className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="pollinations">Pollinations — free, no key</option>
+            <option value="gemini">Google AI Studio (Gemini) — needs a key</option>
+            <option value="huggingface">HuggingFace — needs a key</option>
+          </select>
+
+          {imageProvider === "huggingface" && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-text-secondary mb-1">Model</label>
+              <select
+                value={imageModel}
+                onChange={(e) => updateImageModel(e.target.value)}
+                className="w-full bg-surface border border-border-strong rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="black-forest-labs/FLUX.1-schnell">FLUX.1-schnell (fast)</option>
+                <option value="stabilityai/stable-diffusion-3-medium-diffusers">Stable Diffusion 3 Medium</option>
+              </select>
+              <p className="mt-1 text-xs text-text-tertiary">
+                The two text-to-image models on HuggingFace&apos;s free tier. Anything
+                better (FLUX.1-dev, SD 3.5, Qwen-Image) needs a paid Inference provider
+                enabled on your HuggingFace account.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Pipeline tuning */}
       <div className="bg-surface rounded-lg border border-border p-6">
         <h2 className="text-lg font-medium text-text-primary mb-4">Pipeline</h2>
