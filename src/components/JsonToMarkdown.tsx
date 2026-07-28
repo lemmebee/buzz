@@ -80,7 +80,46 @@ function renderMarkdownValue(value: unknown, level: number): React.ReactNode {
   if (typeof value === "object") {
     return <JsonToMarkdown data={value as Record<string, unknown>} level={level + 1} />;
   }
-  return <p className="text-sm text-text-secondary">{String(value)}</p>;
+  return <p className="text-sm text-text-secondary">{withColorSwatches(String(value))}</p>;
+}
+
+const HEX_RE = /#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/g;
+
+/**
+ * Extracted brand text names colours in prose — "lime green #8eff71 on
+ * near-black #0e0e0e". A hex code tells you nothing at a glance, so each one
+ * is shown as the colour it actually is, inline, without disturbing the
+ * sentence around it.
+ */
+function withColorSwatches(text: string): React.ReactNode {
+  if (!HEX_RE.test(text)) return text;
+  HEX_RE.lastIndex = 0;
+
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = HEX_RE.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const hex = m[0];
+    out.push(
+      <span
+        key={`${hex}-${m.index}`}
+        className="inline-flex items-center gap-1 align-middle rounded-full border border-border bg-background pl-1 pr-2 py-0.5 mx-0.5"
+        title={hex}
+      >
+        <span
+          aria-hidden
+          className="w-3 h-3 rounded-full border border-border-strong shrink-0"
+          style={{ backgroundColor: hex }}
+        />
+        <code className="text-xs text-text-primary">{hex}</code>
+      </span>
+    );
+    last = m.index + hex.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
 }
 
 interface JsonToMarkdownProps {
