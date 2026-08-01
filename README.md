@@ -22,8 +22,6 @@
   <img src="docs/screenshots/content-queue.png" alt="Buzz content queue with AI-generated posts" width="100%" />
 </p>
 
-> Screenshots are taken from the current `develop` UI with sample products and generated media.
-
 ---
 
 ## Why Buzz
